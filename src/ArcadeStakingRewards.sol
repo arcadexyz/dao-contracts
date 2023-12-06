@@ -116,18 +116,11 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
 
     function notifyRewardAmount(uint256 reward) external override onlyRewardsDistribution updateReward(address(0)) {
         if (block.timestamp >= periodFinish) {
-                //console.log("SOL notifyRewardAmount block.timestamp, periodFinish", block.timestamp, periodFinish);
-                //console.log("SOL notifyRewardAmount rewardsDuration", rewardsDuration);
-                //console.log("SOL notifyRewardAmount reward", reward);
             rewardRate = reward / rewardsDuration;
-                //console.log("SOL notifyRewardAmount rewardRate = reward / rewardsDuration", rewardRate);
         } else {
             uint256 remaining = periodFinish - block.timestamp;
-                //console.log("SOL notifyRewardAmount remaining", remaining);
             uint256 leftover = remaining * rewardRate;
-                //console.log("SOL notifyRewardAmount leftover", leftover);
             rewardRate = (reward + leftover) / rewardsDuration;
-                //console.log("SOL notifyRewardAmount rewardRate", rewardRate);
         }
 
         // Ensure the provided reward amount is not more than the balance in the contract.
@@ -135,14 +128,11 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
         // very high values of rewardRate in the earned and rewardsPerToken functions;
         // Reward + leftover must be less than 2^256 / 10^18 to avoid overflow.
         uint balance = rewardsToken.balanceOf(address(this));
-        console.log("SOL notifyRewardAmount balance address(this)", balance);
         require(rewardRate <= balance / rewardsDuration, "Provided reward too high");
 
         lastUpdateTime = block.timestamp;
-        console.log("SOL notifyRewardAmount lastUpdateTime", lastUpdateTime);
-        console.log("SOL notifyRewardAmount rewardsDuration", rewardsDuration);
         periodFinish = block.timestamp + rewardsDuration;
-        console.log("SOL notifyRewardAmount periodFinish", periodFinish);
+
         emit RewardAdded(reward);
     }
 
