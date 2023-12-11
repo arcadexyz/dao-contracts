@@ -56,8 +56,8 @@ contract ArcadeStakingRewardsTest is Test {
     // 12. 1 user stakes. At the end of the staking period, they stake once again. While staking the second time,
     //     they call getReward(). Theri rewads balance should be the amount anticipated for the first stake.
     // 14. what happens if a user does not withdraw their stake at the rewards period?
-    // 15. a user stakes. does not withdraw their reward or their stake. they withdraw their stake after a second
-    // rewards period.
+    // 15. a user stakes. does not withdraw their reward or their stake. they withdraw their rewards round of staking
+    // wiht a new after a second rewards period.
 
 
 
