@@ -22,3 +22,8 @@ error ASR_ZeroAddress();
  * @notice Zero amount staking not allowed.
  */
 error ASR_CannotStakeZero();
+
+/**
+ * @notice Reward period expired.
+ */
+error ASR_RewardTimeNotApplicable();
