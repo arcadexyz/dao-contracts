@@ -13,7 +13,7 @@ import "./ArcadeRewardsRecipient.sol";
 import { ASR_ZeroAddress, ASR_CannotStakeZero, ASR_RewardTimeNotApplicable } from "../src/errors/Staking.sol";
 
 /**
- * Add the following to the contract:
+ * Add:
  * Natspec
  * 1 mo, 2 mo, 3mo locking bonuses
  * Replace all require statements with custom errors
