@@ -6,18 +6,6 @@ import { Test, console } from "forge-std/Test.sol";
 import { ArcadeStakingRewards } from "../src/ArcadeStakingRewards.sol";
 import { MockERC20 } from "../src/test/MockERC20.sol";
 
-/**
- * Needed test:
-    * user tries to stake 0 tokens
-    * user tries to stake very large amount excedding token supply
-    * user tries to withdraw more than their balance
-    * test function recoverERC20
-    * when users stake and unstake in the same block
-    * reward calculation accuracy over different periods for different amounts
-    * test for all custom errors
-    * test for state changes via events
- */
-
 contract ArcadeStakingRewardsTest is Test {
     ArcadeStakingRewards stakingRewards;
     MockERC20 rewardsToken;
@@ -38,6 +26,19 @@ contract ArcadeStakingRewardsTest is Test {
         // set rewards to duration to an even number of days for easier testing
         vm.prank(owner);
         stakingRewards.setRewardsDuration(8 days);
+    }
+
+    function testConstructorZeroAddress() public {
+        bytes4 selector = bytes4(keccak256("ASR_ZeroAddress()"));
+
+        vm.expectRevert(abi.encodeWithSelector(selector));
+        stakingRewards = new ArcadeStakingRewards(owner, address(0x0000000000000000000000000000000000000000), address(rewardsToken), address(stakingToken));
+
+        vm.expectRevert(abi.encodeWithSelector(selector));
+        stakingRewards = new ArcadeStakingRewards(owner, admin, address(0x0000000000000000000000000000000000000000), address(stakingToken));
+
+        vm.expectRevert(abi.encodeWithSelector(selector));
+        stakingRewards = new ArcadeStakingRewards(owner, admin, address(rewardsToken), address(0x0000000000000000000000000000000000000000));
     }
 
     function testStake() public {
@@ -66,6 +67,33 @@ contract ArcadeStakingRewardsTest is Test {
         uint256 poolTotalSupply = stakingRewards.totalSupply();
 
         assertEq(poolTotalSupply, userStake);
+    }
+
+    function testStakeZeroToken() public {
+        setUp();
+
+        uint256 userStake = 20e18;
+
+        // mint rewardsTokens to stakingRewards contract
+        rewardsToken.mint(address(stakingRewards), 100e18);
+        // mint staking tokens to lender
+        stakingToken.mint(lenderA, userStake);
+
+        // Admin calls notifyRewardAmount to set the reward rate
+        vm.prank(admin);
+        stakingRewards.notifyRewardAmount(100e18);
+
+        // increase blochain time by 2 days
+        vm.warp(block.timestamp + 2 days);
+
+        bytes4 selector = bytes4(keccak256("ASR_ZeroAmount()"));
+
+        // lender approves stakingRewards contract to spend staking tokens
+        vm.startPrank(lenderA);
+        stakingToken.approve(address(stakingRewards), userStake);
+
+        vm.expectRevert(abi.encodeWithSelector(selector));
+        stakingRewards.stake(0);
     }
 
     function testWithdraw() public {
@@ -100,6 +128,62 @@ contract ArcadeStakingRewardsTest is Test {
         assertEq(balanceAfterWithdraw, balanceBeforeWithdraw + userStake);
         assertEq(poolTotalSupplyBeforeWithdraw, userStake);
         assertEq(poolTotalSupplyAfterWithdraw, 0);
+    }
+
+    function testWithdrawZeroToken() public {
+        setUp();
+
+        uint256 userStake = 20e18;
+
+        // mint rewardsTokens to stakingRewards contract
+        rewardsToken.mint(address(stakingRewards), 100e18);
+        // mint staking tokens to lender
+        stakingToken.mint(lenderA, userStake);
+
+        // Admin calls notifyRewardAmount to set the reward rate
+        vm.prank(admin);
+        stakingRewards.notifyRewardAmount(100e18);
+
+        // increase blochain time by 2 days
+        vm.warp(block.timestamp + 2 days);
+
+        // lender approves stakingRewards contract to spend staking tokens
+        vm.startPrank(lenderA);
+        stakingToken.approve(address(stakingRewards), userStake);
+        stakingRewards.stake(userStake);
+
+        bytes4 selector = bytes4(keccak256("ASR_ZeroAmount()"));
+
+        vm.expectRevert(abi.encodeWithSelector(selector));
+        stakingRewards.withdraw(0);
+    }
+
+    function testWithdrawMoreThanBalance() public {
+        setUp();
+
+        uint256 userStake = 20e18;
+
+        // mint rewardsTokens to stakingRewards contract
+        rewardsToken.mint(address(stakingRewards), 100e18);
+        // mint staking tokens to lender
+        stakingToken.mint(lenderA, userStake);
+
+        // Admin calls notifyRewardAmount to set the reward rate
+        vm.prank(admin);
+        stakingRewards.notifyRewardAmount(100e18);
+
+        // lender approves stakingRewards contract to spend staking tokens
+        vm.startPrank(lenderA);
+        stakingToken.approve(address(stakingRewards), userStake);
+        stakingRewards.stake(userStake);
+
+        // increase blockchain time by 2 days
+        vm.warp(block.timestamp + 2 days);
+
+        bytes4 selector = bytes4(keccak256("ASR_BalanceAmount()"));
+
+        vm.expectRevert(abi.encodeWithSelector(selector));
+        stakingRewards.withdraw(30e18);
     }
 
     function testPartialWithdraw() public {
@@ -200,6 +284,79 @@ contract ArcadeStakingRewardsTest is Test {
         assertEq(poolTotalSupplyBeforeWithdraw, userStake);
         assertEq(poolTotalSupplyAfterWithdraw, 0);
         assertEq(rewardsToken.balanceOf(lenderA), reward);
+    }
+
+    function testrecoverERC20() public {
+        setUp();
+
+        // mint rewardsTokens to stakingRewards contract
+        rewardsToken.mint(address(stakingRewards), 100e18);
+
+        uint256 balanceBefore = rewardsToken.balanceOf(owner);
+
+        vm.prank(owner);
+        stakingRewards.recoverERC20(address(rewardsToken), 100e18);
+
+        uint256 balanceAfter = rewardsToken.balanceOf(owner);
+
+        assertEq(balanceAfter, balanceBefore + 100e18);
+    }
+
+    function testRewardTooHigh() public {
+        setUp();
+
+        bytes4 selector = bytes4(keccak256("ASR_RewardTooHigh()"));
+        vm.expectRevert(abi.encodeWithSelector(selector));
+
+        // Admin calls notifyRewardAmount to set the reward rate
+        vm.prank(admin);
+        stakingRewards.notifyRewardAmount(1e18);
+    }
+
+    function testCustomRevertRecoverERC20() public {
+        setUp();
+
+        bytes4 selector = bytes4(keccak256("ASR_StakingToken()"));
+        vm.expectRevert(abi.encodeWithSelector(selector));
+
+        vm.prank(owner);
+        stakingRewards.recoverERC20(address(stakingToken), 1e18);
+
+        bytes4 selector2 = bytes4(keccak256("ASR_ZeroAddress()"));
+        vm.expectRevert(abi.encodeWithSelector(selector2));
+
+        vm.prank(owner);
+        stakingRewards.recoverERC20(address(0x0000000000000000000000000000000000000000), 1e18);
+
+        bytes4 selector3 = bytes4(keccak256("ASR_ZeroAmount()"));
+        vm.expectRevert(abi.encodeWithSelector(selector3));
+
+        vm.prank(owner);
+        stakingRewards.recoverERC20(address(rewardsToken), 0);
+    }
+
+    function testCustomRevertSetRewardsDuration() public {
+        setUp();
+
+        // mint rewardsTokens to stakingRewards contract
+        rewardsToken.mint(address(stakingRewards), 100e18);
+
+        // Admin calls notifyRewardAmount to set the reward rate
+        vm.prank(admin);
+        stakingRewards.notifyRewardAmount(100e18);
+
+        bytes4 selector = bytes4(keccak256("ASR_RewardsPeriod()"));
+
+        vm.expectRevert(abi.encodeWithSelector(selector));
+        vm.prank(owner);
+        stakingRewards.setRewardsDuration(7);
+
+        //increase blockchain time past 8 day rewards duration
+        vm.warp(block.timestamp + 8 days);
+
+        vm.expectRevert(abi.encodeWithSelector(selector));
+        vm.prank(owner);
+        stakingRewards.setRewardsDuration(7);
     }
 
     /**

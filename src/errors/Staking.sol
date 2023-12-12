@@ -19,11 +19,28 @@ pragma solidity 0.8.20;
 error ASR_ZeroAddress();
 
 /**
- * @notice Zero amount staking not allowed.
+ * @notice Cannot withdraw or stake amount zero.
  */
-error ASR_CannotStakeZero();
+error ASR_ZeroAmount();
 
 /**
- * @notice Reward period expired.
+ * @notice Previous rewards period must be complete
+ *         to update rewards duration.
  */
-error ASR_RewardTimeNotApplicable();
+error ASR_RewardsPeriod();
+
+/**
+ * @notice Staking token cannot be ERC20 recovered.
+ */
+error ASR_StakingToken();
+
+/**
+ * @notice notifyRewardAmount, reward too high.
+ */
+error ASR_RewardTooHigh();
+
+/**
+ * @notice User tries to withdraw an amount greater than
+ *         than their balance.
+ */
+error ASR_BalanceAmount();

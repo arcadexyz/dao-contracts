@@ -9,15 +9,23 @@ import "@openzeppelin/contracts/utils/Pausable.sol";
 
 import "./interfaces/IArcadeStakingRewards.sol";
 import "./ArcadeRewardsRecipient.sol";
-
-import { ASR_ZeroAddress, ASR_CannotStakeZero, ASR_RewardTimeNotApplicable } from "../src/errors/Staking.sol";
+import { console } from "forge-std/Test.sol";
+import {
+    ASR_ZeroAddress,
+    ASR_ZeroAmount,
+    ASR_RewardsPeriod,
+    ASR_StakingToken,
+    ASR_RewardTooHigh,
+    ASR_BalanceAmount
+} from "../src/errors/Staking.sol";
 
 /**
  * Add:
  * Natspec
  * 1 mo, 2 mo, 3mo locking bonuses
- * Replace all require statements with custom errors
+ * support locking on multiple deposits
  * Turn into voting vault
+ * README
  */
 
 contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, ReentrancyGuard, Pausable {
@@ -48,7 +56,6 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
         address _rewardsToken,
         address _stakingToken
     ) Ownable(_owner) {
-        if (address(_owner) == address(0)) revert ASR_ZeroAddress();
         if (address(_rewardsDistribution) == address(0)) revert ASR_ZeroAddress();
         if (address(_rewardsToken) == address(0)) revert ASR_ZeroAddress();
         if (address(_stakingToken) == address(0)) revert ASR_ZeroAddress();
@@ -90,7 +97,7 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
     /* ========== MUTATIVE FUNCTIONS ========== */
 
     function stake(uint256 amount) external nonReentrant whenNotPaused updateReward(msg.sender) {
-        if (amount == 0 ) revert ASR_CannotStakeZero();
+        if (amount == 0 ) revert ASR_ZeroAmount();
         _totalSupply = _totalSupply + amount;
         _balances[msg.sender] = _balances[msg.sender] + amount;
         stakingToken.safeTransferFrom(msg.sender, address(this), amount);
@@ -99,7 +106,9 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
     }
 
     function withdraw(uint256 amount) public nonReentrant updateReward(msg.sender) {
-        require(amount > 0, "Cannot withdraw 0");
+        if (amount == 0) revert ASR_ZeroAmount();
+        if (amount > _balances[msg.sender]) revert ASR_BalanceAmount();
+
         _totalSupply = _totalSupply - (amount);
         _balances[msg.sender] = _balances[msg.sender] - (amount);
         stakingToken.safeTransfer(msg.sender, amount);
@@ -137,7 +146,7 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
         // very high values of rewardRate in the earned and rewardsPerToken functions;
         // Reward + leftover must be less than 2^256 / 10^18 to avoid overflow.
         uint balance = rewardsToken.balanceOf(address(this));
-        require(rewardRate <= (balance / rewardsDuration), "Provided reward too high");
+        if (rewardRate > (balance / rewardsDuration)) revert ASR_RewardTooHigh();
 
         lastUpdateTime = block.timestamp;
         periodFinish = block.timestamp + rewardsDuration;
@@ -147,16 +156,16 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
 
     // Added to support recovering LP Rewards from other systems such as BAL to be distributed to holders
     function recoverERC20(address tokenAddress, uint256 tokenAmount) external onlyOwner {
-        require(tokenAddress != address(stakingToken), "Cannot withdraw the staking token");
+        if (tokenAddress == address(stakingToken)) revert ASR_StakingToken();
+        if (tokenAddress == address(0)) revert ASR_ZeroAddress();
+        if (tokenAmount == 0) revert ASR_ZeroAmount();
         IERC20(tokenAddress).safeTransfer(msg.sender, tokenAmount);
         emit Recovered(tokenAddress, tokenAmount);
     }
 
     function setRewardsDuration(uint256 _rewardsDuration) external onlyOwner {
-        require(
-            block.timestamp > periodFinish,
-            "Previous rewards period must be complete before changing the duration for the new period"
-        );
+        if (block.timestamp < periodFinish) revert ASR_RewardsPeriod();
+        if (block.timestamp == periodFinish) revert ASR_RewardsPeriod();
 
         rewardsDuration = _rewardsDuration;
         emit RewardsDurationUpdated(rewardsDuration);
