@@ -11,11 +11,9 @@ import { MockERC20 } from "../src/test/MockERC20.sol";
     * user tries to stake 0 tokens
     * user tries to stake very large amount excedding token supply
     * user tries to withdraw more than their balance
-    * changes in reward rate impacting users who staked before and after the change
     * test function recoverERC20
     * when users stake and unstake in the same block
     * reward calculation accuracy over different periods for different amounts
-    * accuracy for reward distribution when users stake or withdraw at diffrerent times in the same reward period
     * test for all custom errors
     * test for state changes via events
  */
@@ -43,48 +41,131 @@ contract ArcadeStakingRewardsTest is Test {
     }
 
     // test scenarios to add:
-    // 1. user stakes tokens
-    // 2. user withdraws tokens
-    // 3. user gets rewards
     // 4. user exits
     // 5. user withdraws rewards
     // 6. notifyRewardAmount is called with a new reward rate. getRewardForDuration should return the new reward rate
-    // 13. 1 user stakes, halfway through the staking period, they withdraw the amount they originally
-    //     staked. User 1's rewards should be half what is anticipated for the original amount.
-    // 14. a user stakes. does not withdraw their reward or their stake. they withdraw their rewards round
-    // of staking after a second rewards amount is called.
 
+    function testStake() public {
+        setUp();
 
+        uint256 userStake = 20e18;
 
-    /** TODO: FIX THIS TEST
+        // mint rewardsTokens to stakingRewards contract
+        rewardsToken.mint(address(stakingRewards), 100e18);
+        // mint staking tokens to lender
+        stakingToken.mint(lenderA, userStake);
+
+        // Admin calls notifyRewardAmount to set the reward rate
+        vm.prank(admin);
+        stakingRewards.notifyRewardAmount(100e18);
+
+        // increase blochain time by 2 days
+        vm.warp(block.timestamp + 2 days);
+
+        // lender approves stakingRewards contract to spend staking tokens
+        vm.startPrank(lenderA);
+        stakingToken.approve(address(stakingRewards), userStake);
+        // lender stakes staking tokens
+        stakingRewards.stake(userStake);
+
+        uint256 poolTotalSupply = stakingRewards.totalSupply();
+
+        assertEq(poolTotalSupply, userStake);
+    }
+
+    function testWithdraw() public {
+        setUp();
+
+        uint256 userStake = 20e18;
+
+        // mint rewardsTokens to stakingRewards contract
+        rewardsToken.mint(address(stakingRewards), 100e18);
+        // mint staking tokens to lender
+        stakingToken.mint(lenderA, userStake);
+
+        // Admin calls notifyRewardAmount to set the reward rate
+        vm.prank(admin);
+        stakingRewards.notifyRewardAmount(100e18);
+
+        // increase blochain time by 2 days
+        vm.warp(block.timestamp + 2 days);
+
+        // lender approves stakingRewards contract to spend staking tokens
+        vm.startPrank(lenderA);
+        stakingToken.approve(address(stakingRewards), userStake);
+        stakingRewards.stake(userStake);
+
+        uint256 poolTotalSupplyBeforeWithdraw = stakingRewards.totalSupply();
+        uint256 balanceBeforeWithdraw = stakingToken.balanceOf(lenderA);
+
+        stakingRewards.withdraw(userStake);
+        uint256 balanceAfterWithdraw = stakingToken.balanceOf(lenderA);
+        uint256 poolTotalSupplyAfterWithdraw = stakingRewards.totalSupply();
+
+        assertEq(balanceAfterWithdraw, balanceBeforeWithdraw + userStake);
+        assertEq(poolTotalSupplyBeforeWithdraw, userStake);
+        assertEq(poolTotalSupplyAfterWithdraw, 0);
+    }
+
+    function testPartialWithdraw() public {
+        setUp();
+
+        uint256 userStake = 20e18;
+
+        // mint rewardsTokens to stakingRewards contract
+        rewardsToken.mint(address(stakingRewards), 100e18);
+        // mint staking tokens to lender
+        stakingToken.mint(lenderA, userStake);
+
+        // Admin calls notifyRewardAmount to set the reward rate
+        vm.prank(admin);
+        stakingRewards.notifyRewardAmount(100e18);
+
+        // increase blochain time by 2 days
+        vm.warp(block.timestamp + 2 days);
+
+        // lender approves stakingRewards contract to spend staking tokens
+        vm.startPrank(lenderA);
+        stakingToken.approve(address(stakingRewards), userStake);
+        stakingRewards.stake(userStake);
+
+        uint256 poolTotalSupplyBeforeWithdraw = stakingRewards.totalSupply();
+
+        stakingRewards.withdraw(userStake / 2);
+        uint256 balanceAfterWithdraw = stakingToken.balanceOf(lenderA);
+        uint256 poolTotalSupplyAfterWithdraw = stakingRewards.totalSupply();
+
+        assertEq(balanceAfterWithdraw, userStake / 2);
+        assertEq(poolTotalSupplyBeforeWithdraw, userStake);
+        assertEq(poolTotalSupplyAfterWithdraw, userStake / 2);
+    }
+
+    /**
     * A user stakes. At the end of the reward period, their balance of the reward token
     * equals their reward earned amount.
     */
     function testGetReward() public {
-        setUp();
-
         // mint rewardsTokens to stakingRewards contract
-        rewardsToken.mint(address(stakingRewards), 100);
+        rewardsToken.mint(address(stakingRewards), 100e18);
         // mint staking tokens to lender
-        stakingToken.mint(lenderA, 20);
+        stakingToken.mint(lenderA, 20e18);
 
         // Admin calls notifyRewardAmount to set the reward rate
         vm.prank(admin);
-        stakingRewards.notifyRewardAmount(60);
+        stakingRewards.notifyRewardAmount(100e18);
 
         // increase blochain time by 2 days
-        vm.warp(1 days);
+        vm.warp(block.timestamp + 3 days);
 
         // lender approves stakingRewards contract to spend staking tokens
         vm.startPrank(lenderA);
-        stakingToken.approve(address(stakingRewards), 20);
+        stakingToken.approve(address(stakingRewards), 20e18);
         // lender stakes staking tokens
-        stakingRewards.stake(20);
+        stakingRewards.stake(20e18);
 
-        vm.warp(3 days);
+        vm.warp(block.timestamp + 5 days);
 
         uint256 reward = stakingRewards.earned(lenderA);
-        console.log("REWARD", reward);
         // lender calls getReward
         stakingRewards.getReward();
 
@@ -387,10 +468,9 @@ contract ArcadeStakingRewardsTest is Test {
 
     /**
     * 1 user stakes. At the end of the staking period, they do not withdraw, so their tokens
-    * are staked once more when a new notifyRewardAmount is called. They call getReward() after
-    * the second staking rewards period is complete.
-    * Their rewards balance should equal the total of equal amounts accumulated from each of the
-    * staking periods.
+    * are staked once more when a new notifyRewardAmount is called with an reward amount that is
+    * half of the previous one. They call getReward() after the second staking rewards period is
+    * complete.
     */
     function testScenario12() public {
         // deploy and initialize contracts, set rewards duration to 8 days
@@ -417,7 +497,6 @@ contract ArcadeStakingRewardsTest is Test {
 
         // get the total rewards for full the duration
         uint256 rewardForDuration = stakingRewards.getRewardForDuration();
-
         // rewards earned by lenderA
         uint256 earnedA = stakingRewards.earned(lenderA);
 
@@ -433,7 +512,6 @@ contract ArcadeStakingRewardsTest is Test {
 
         // get the total rewards for the new duration
         uint256 rewardForDuration2 = stakingRewards.getRewardForDuration();
-
         // rewards earned by lenderA
         uint256 earnedA2 = stakingRewards.earned(lenderA);
 
@@ -442,11 +520,49 @@ contract ArcadeStakingRewardsTest is Test {
         stakingRewards.getReward();
 
         // Rewards for the second staking period is half of the first staking period
-        // because the reward period is the same but the reward amount was halved
         assertEq(rewardForDuration / 2, rewardForDuration2);
-
-        // user A earns equal amounts for both reward periods
-        assertEq(earnedA, earnedA2); /// TODO: FIX THIS Assertion
+        // user earns rewards for both staking periods because they did not withdraw
+        assertEq(earnedA2, earnedA + rewardForDuration2);
     }
 
+    /**
+    * 1 user stakes, halfway through the staking period, they withdraw the amount they staked.
+    */
+    function testScenario13() public {
+        // deploy and initialize contracts, set rewards duration to 8 days
+        setUp();
+
+        // mint rewardsTokens to stakingRewards contract
+        rewardsToken.mint(address(stakingRewards), 100e18);
+        // mint staking tokens to lenderA
+        stakingToken.mint(lenderA, 20e18);
+
+        // Admin calls notifyRewardAmount to set the reward amount
+        vm.prank(admin);
+        stakingRewards.notifyRewardAmount(50e18);
+
+        // lenderA approves stakingRewards contract to spend staking tokens
+        vm.startPrank(lenderA);
+        stakingToken.approve(address(stakingRewards), 20e18);
+        // lender stakes staking tokens
+        stakingRewards.stake(20e18);
+        vm.stopPrank();
+
+        // increase blockchain time to 1/2 rewards period duration
+        vm.warp(block.timestamp + 4 days);
+
+        // get the total rewards for full the duration
+        uint256 rewardForDuration = stakingRewards.getRewardForDuration();
+        // rewards earned by lenderA
+        uint256 earnedA = stakingRewards.earned(lenderA);
+
+        // user earns 1/2 of rewards duration because they withdrew halfway through the period
+        assertEq(earnedA, rewardForDuration / 2);
+
+        vm.prank(lenderA);
+        // lender withdraws all reward tokens
+        stakingRewards.getReward();
+
+        assertEq(rewardsToken.balanceOf(lenderA), earnedA);
+    }
 }
