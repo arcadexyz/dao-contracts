@@ -40,11 +40,6 @@ contract ArcadeStakingRewardsTest is Test {
         stakingRewards.setRewardsDuration(8 days);
     }
 
-    // test scenarios to add:
-    // 4. user exits
-    // 5. user withdraws rewards
-    // 6. notifyRewardAmount is called with a new reward rate. getRewardForDuration should return the new reward rate
-
     function testStake() public {
         setUp();
 
@@ -140,10 +135,6 @@ contract ArcadeStakingRewardsTest is Test {
         assertEq(poolTotalSupplyAfterWithdraw, userStake / 2);
     }
 
-    /**
-    * A user stakes. At the end of the reward period, their balance of the reward token
-    * equals their reward earned amount.
-    */
     function testGetReward() public {
         // mint rewardsTokens to stakingRewards contract
         rewardsToken.mint(address(stakingRewards), 100e18);
@@ -170,6 +161,44 @@ contract ArcadeStakingRewardsTest is Test {
         stakingRewards.getReward();
 
         // check that lender has received rewardsTokens
+        assertEq(rewardsToken.balanceOf(lenderA), reward);
+    }
+
+    function testExit() public {
+        setUp();
+
+        uint256 userStake = 20e18;
+
+        // mint rewardsTokens to stakingRewards contract
+        rewardsToken.mint(address(stakingRewards), 100e18);
+        // mint staking tokens to lender
+        stakingToken.mint(lenderA, userStake);
+
+        // Admin calls notifyRewardAmount to set the reward rate
+        vm.prank(admin);
+        stakingRewards.notifyRewardAmount(100e18);
+
+        // lender approves stakingRewards contract to spend staking tokens
+        vm.startPrank(lenderA);
+        stakingToken.approve(address(stakingRewards), userStake);
+        stakingRewards.stake(userStake);
+
+        uint256 poolTotalSupplyBeforeWithdraw = stakingRewards.totalSupply();
+        uint256 balanceBeforeWithdraw = stakingToken.balanceOf(lenderA);
+
+        assertEq(rewardsToken.balanceOf(lenderA), 0);
+
+        vm.warp(block.timestamp + 8 days);
+
+        uint256 reward = stakingRewards.earned(lenderA);
+
+        stakingRewards.exit();
+        uint256 balanceAfterWithdraw = stakingToken.balanceOf(lenderA);
+        uint256 poolTotalSupplyAfterWithdraw = stakingRewards.totalSupply();
+
+        assertEq(balanceAfterWithdraw, balanceBeforeWithdraw + userStake);
+        assertEq(poolTotalSupplyBeforeWithdraw, userStake);
+        assertEq(poolTotalSupplyAfterWithdraw, 0);
         assertEq(rewardsToken.balanceOf(lenderA), reward);
     }
 
@@ -367,7 +396,6 @@ contract ArcadeStakingRewardsTest is Test {
 
         // get the total rewards for 1/2 the duration
         uint256 rewardForDurationHalfway = stakingRewards.getRewardForDuration();
-        console.log("rewardForDurationHalfway", rewardForDurationHalfway);
 
         // lenderA unstakes
         vm.startPrank(lenderA);
@@ -380,15 +408,10 @@ contract ArcadeStakingRewardsTest is Test {
 
         // get the total rewards for the duration
         uint256 rewardForDuration = stakingRewards.getRewardForDuration();
-        console.log("rewardForDuration", rewardForDuration);
-
         // get rewards earned by lenderA
         uint256 earnedA = stakingRewards.earned(lenderA);
-        console.log("earnedA", earnedA);
-
         // get rewards earned by lenderB
         uint256 earnedB = stakingRewards.earned(lenderB);
-        console.log("earnedB", earnedB);
 
         // user A should earn 1/3 of total rewards
         assertApproxEqAbs(earnedA, rewardForDuration / 4, 0);
