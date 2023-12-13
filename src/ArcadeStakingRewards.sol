@@ -45,7 +45,6 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
     using Math for uint256;
 
     // ============================================ STATE ==============================================
-
     IERC20 public rewardsToken;
     IERC20 public stakingToken;
     uint256 public periodFinish = 0;
@@ -61,7 +60,6 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
     mapping(address => uint256) private _balances;
 
     // ========================================== CONSTRUCTOR ===========================================
-
     /**
      * @notice Sets up the contract by initializing the staking and rewards tokens,
      *         and setting the owner and rewards distribution addresses.
@@ -87,8 +85,6 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
     }
 
     // ========================================== VIEW FUNCTIONS =========================================
-
-
     /**
      * @notice Returns the total amount of staking tokens held in the contract.
      *
@@ -155,7 +151,6 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
     }
 
     // ========================================= MUTATIVE FUNCTIONS ========================================
-
     /**
      * @notice Allows users to stake their tokens, which are then tracked in the contract. The total
      *         supply of staked tokens and individual user balances are updated accordingly.
@@ -210,7 +205,6 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
     }
 
     // ======================================== RESTRICTED FUNCTIONS =========================================
-
     /**
      * @notice Notifies the contract of new rewards available for distribution and adjusts the
      *         rewardRate rate at which rewards will be distributed to the users to over the remaining
@@ -272,7 +266,6 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
     }
 
     // =============================================== MODIFIERS ================================================
-
     /**
      * @notice Updates the reward calculation for a user before executing any transaction such as
      *         staking, withdrawing, or reward claiming, to ensure the correct calculation of rewards
@@ -292,7 +285,6 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
     }
 
     // ================================================= EVENTS ==================================================
-
     event RewardAdded(uint256 reward);
     event Staked(address indexed user, uint256 amount);
     event Withdrawn(address indexed user, uint256 amount);
