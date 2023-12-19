@@ -12,7 +12,6 @@ pragma solidity 0.8.20;
  */
 
 // ==================================== Arcade Staking Rewards Errors ======================================
-
 /**
  * @notice Zero address passed in where not allowed.
  */
@@ -44,3 +43,21 @@ error ASR_RewardTooHigh();
  *         than their balance.
  */
 error ASR_BalanceAmount();
+
+/**
+ * @notice The caller attempted to stake with a lock value
+ *         that does not correspond to a valid staking time.
+ *
+ */
+error ASR_InvalidLockValue(uint256);
+
+/**
+ * @notice There is no stake for this caller.
+ */
+error ASR_NoStake();
+
+/**
+ * @notice Cannot withdraw a deposit which is still locked.
+ *
+ */
+error ASR_Locked();
