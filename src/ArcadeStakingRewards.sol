@@ -271,8 +271,6 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
         if (amount > depositAmount) revert ASR_BalanceAmount();
         if (userStake.unlockTimestamp == 0 || block.timestamp < userStake.unlockTimestamp) revert ASR_Locked();
 
-        userStake.rewardPerTokenPaid = uint112(rewardPerTokenStored);
-
         uint256 depositAmountCast = uint256(depositAmount) - amount;
         // Update user stake
         userStake.amount = uint112(depositAmountCast);
@@ -296,8 +294,6 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
         // Get user's stake
         UserStake storage userStake = stakes[msg.sender];
         uint256 reward = userStake.rewards;
-
-        userStake.rewardPerTokenPaid = uint112(rewardPerTokenStored);
 
         if (reward > 0) {
             userStake.rewards = 0;
