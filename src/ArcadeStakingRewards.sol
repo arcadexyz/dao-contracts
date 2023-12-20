@@ -15,7 +15,7 @@ import {
     ASR_ZeroAmount,
     ASR_RewardsPeriod,
     ASR_StakingToken,
-    ASR_RewardTooBig,
+    ASR_RewardTooHigh,
     ASR_BalanceAmount,
     ASR_InvalidLockValue,
     ASR_NoStake,
@@ -178,7 +178,7 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
             return rewardPerTokenStored;
         }
         return rewardPerTokenStored +
-             ((((lastTimeRewardApplicable() - lastUpdateTime) * rewardRate) * 1e18) / totalDepositsWithBonus);
+             ((((lastTimeRewardApplicable() - lastUpdateTime) * rewardRate) * ONE) / totalDepositsWithBonus);
     }
 
     /**
@@ -195,7 +195,7 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
         uint256 userRewardPerTokenPaid = userStake.rewardPerTokenPaid;
         uint256 userRewards = userStake.rewards;
 
-        return (stakeAmountWithBonus * (rewardPerToken() - userRewardPerTokenPaid)) / 1e18 + userRewards;
+        return (stakeAmountWithBonus * (rewardPerToken() - userRewardPerTokenPaid)) / ONE + userRewards;
     }
 
     /**
@@ -271,9 +271,8 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
         if (amount > depositAmount) revert ASR_BalanceAmount();
         if (userStake.unlockTimestamp == 0 || block.timestamp < userStake.unlockTimestamp) revert ASR_Locked();
 
-        uint256 depositAmountCast = uint256(depositAmount) - amount;
         // Update user stake
-        userStake.amount = uint112(depositAmountCast);
+        userStake.amount -= uint112(amount);
 
         (uint256 bonus,) = _getBonus(userStake.lock);
         uint256 amountToWithdrawWithBonus = amount + (amount * bonus) / ONE;
@@ -338,7 +337,7 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
         // very high values of rewardRate in the earned and rewardsPerToken functions;
         // Reward + leftover must be less than 2^256 / 10^18 to avoid overflow.
         uint balance = rewardsToken.balanceOf(address(this));
-        if (rewardRate > (balance / rewardsDuration)) revert ASR_RewardTooBig();
+        if (rewardRate > balance) revert ASR_RewardTooHigh();
 
         lastUpdateTime = block.timestamp;
         periodFinish = block.timestamp + rewardsDuration;

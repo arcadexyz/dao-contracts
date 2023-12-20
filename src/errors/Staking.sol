@@ -34,10 +34,11 @@ error ASR_RewardsPeriod();
 error ASR_StakingToken();
 
 /**
- * @notice Reward + leftover must be less than 2^256 / 10^18
+ * @notice Reward + leftover must be less contract reward balance
+ *         which keeps the reward in a range less than 2^256 / 10^18
  *         to avoid overflow.
  */
-error ASR_RewardTooBig();
+error ASR_RewardTooHigh();
 
 /**
  * @notice User tries to withdraw an amount greater than

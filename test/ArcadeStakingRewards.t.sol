@@ -331,7 +331,7 @@ contract ArcadeStakingRewardsTest is Test {
     function testRewardTooBig() public {
         setUp();
 
-        bytes4 selector = bytes4(keccak256("ASR_RewardTooBig()"));
+        bytes4 selector = bytes4(keccak256("ASR_RewardTooHigh()"));
         vm.expectRevert(abi.encodeWithSelector(selector));
 
         // Admin calls notifyRewardAmount to set the reward rate
