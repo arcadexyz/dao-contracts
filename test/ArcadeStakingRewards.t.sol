@@ -13,16 +13,14 @@ contract ArcadeStakingRewardsTest is Test {
     MockERC20 stakingToken;
 
     uint256 public constant ONE = 1e18;
-    uint256 public constant ONE_CYCLE = 60 * 60 * 24 * 28; // 28 days
+    uint256 public constant ONE_CYCLE = 60 * 60 * 24 * 30; // 30 days
     uint256 public constant TWO_CYCLE = ONE_CYCLE * 2;
     uint256 public constant THREE_CYCLE = ONE_CYCLE * 3;
 
     address owner = address(0x1);
     address admin = address(0x2);
-    address lenderA = address(0x3);
-    address lenderB = address(0x4);
-    address lenderC = address(0x5);
-    address lenderD = address(0x6);
+    address userA = address(0x3);
+    address userB = address(0x4);
 
     function setUp() public {
         rewardsToken = new MockERC20("Rewards Token", "RWD");
@@ -66,7 +64,7 @@ contract ArcadeStakingRewardsTest is Test {
         // mint rewardsTokens to stakingRewards contract
         rewardsToken.mint(address(stakingRewards), 100e18);
         // mint staking tokens to lender
-        stakingToken.mint(lenderA, userStake);
+        stakingToken.mint(userA, userStake);
 
         // Admin calls notifyRewardAmount to set the reward rate
         vm.prank(admin);
@@ -76,10 +74,10 @@ contract ArcadeStakingRewardsTest is Test {
         vm.warp(block.timestamp + 2 days);
 
         // lender approves stakingRewards contract to spend staking tokens
-        vm.startPrank(lenderA);
+        vm.startPrank(userA);
         stakingToken.approve(address(stakingRewards), userStake);
         // lender stakes staking tokens
-        stakingRewards.stake(userStake, IArcadeStakingRewards.Lock.medium);
+        stakingRewards.stake(userStake, IArcadeStakingRewards.Lock.Medium);
 
         uint256 poolTotalSupply = stakingRewards.totalSupply();
 
@@ -94,7 +92,7 @@ contract ArcadeStakingRewardsTest is Test {
         // mint rewardsTokens to stakingRewards contract
         rewardsToken.mint(address(stakingRewards), 100e18);
         // mint staking tokens to lender
-        stakingToken.mint(lenderA, userStake);
+        stakingToken.mint(userA, userStake);
 
         // Admin calls notifyRewardAmount to set the reward rate
         vm.prank(admin);
@@ -106,11 +104,11 @@ contract ArcadeStakingRewardsTest is Test {
         bytes4 selector = bytes4(keccak256("ASR_ZeroAmount()"));
 
         // lender approves stakingRewards contract to spend staking tokens
-        vm.startPrank(lenderA);
+        vm.startPrank(userA);
         stakingToken.approve(address(stakingRewards), userStake);
 
         vm.expectRevert(abi.encodeWithSelector(selector));
-        stakingRewards.stake(0, IArcadeStakingRewards.Lock.short);
+        stakingRewards.stake(0, IArcadeStakingRewards.Lock.Short);
     }
 
     function testWithdraw() public {
@@ -121,7 +119,7 @@ contract ArcadeStakingRewardsTest is Test {
         // mint rewardsTokens to stakingRewards contract
         rewardsToken.mint(address(stakingRewards), 100e18);
         // mint staking tokens to lender
-        stakingToken.mint(lenderA, userStake);
+        stakingToken.mint(userA, userStake);
 
         // Admin calls notifyRewardAmount to set the reward rate
         vm.prank(admin);
@@ -131,18 +129,18 @@ contract ArcadeStakingRewardsTest is Test {
         vm.warp(block.timestamp + 2 days);
 
         // lender approves stakingRewards contract to spend staking tokens
-        vm.startPrank(lenderA);
+        vm.startPrank(userA);
         stakingToken.approve(address(stakingRewards), userStake);
-        stakingRewards.stake(userStake, IArcadeStakingRewards.Lock.medium);
+        stakingRewards.stake(userStake, IArcadeStakingRewards.Lock.Medium);
 
         uint256 poolTotalSupplyBeforeWithdraw = stakingRewards.totalSupply();
-        uint256 balanceBeforeWithdraw = stakingToken.balanceOf(lenderA);
+        uint256 balanceBeforeWithdraw = stakingToken.balanceOf(userA);
 
         // increase blochain time by the medium lock duration
         vm.warp(block.timestamp + TWO_CYCLE);
 
         stakingRewards.withdraw(userStake);
-        uint256 balanceAfterWithdraw = stakingToken.balanceOf(lenderA);
+        uint256 balanceAfterWithdraw = stakingToken.balanceOf(userA);
         uint256 poolTotalSupplyAfterWithdraw = stakingRewards.totalSupply();
 
         assertEq(balanceAfterWithdraw, balanceBeforeWithdraw + userStake);
@@ -158,7 +156,7 @@ contract ArcadeStakingRewardsTest is Test {
         // mint rewardsTokens to stakingRewards contract
         rewardsToken.mint(address(stakingRewards), 100e18);
         // mint staking tokens to lender
-        stakingToken.mint(lenderA, userStake);
+        stakingToken.mint(userA, userStake);
 
         // Admin calls notifyRewardAmount to set the reward rate
         vm.prank(admin);
@@ -168,9 +166,9 @@ contract ArcadeStakingRewardsTest is Test {
         vm.warp(block.timestamp + 2 days);
 
         // lender approves stakingRewards contract to spend staking tokens
-        vm.startPrank(lenderA);
+        vm.startPrank(userA);
         stakingToken.approve(address(stakingRewards), userStake);
-        stakingRewards.stake(userStake, IArcadeStakingRewards.Lock.long);
+        stakingRewards.stake(userStake, IArcadeStakingRewards.Lock.Long);
 
         bytes4 selector = bytes4(keccak256("ASR_ZeroAmount()"));
 
@@ -186,16 +184,16 @@ contract ArcadeStakingRewardsTest is Test {
         // mint rewardsTokens to stakingRewards contract
         rewardsToken.mint(address(stakingRewards), 100e18);
         // mint staking tokens to lender
-        stakingToken.mint(lenderA, userStake);
+        stakingToken.mint(userA, userStake);
 
         // Admin calls notifyRewardAmount to set the reward rate
         vm.prank(admin);
         stakingRewards.notifyRewardAmount(100e18);
 
         // lender approves stakingRewards contract to spend staking tokens
-        vm.startPrank(lenderA);
+        vm.startPrank(userA);
         stakingToken.approve(address(stakingRewards), userStake);
-        stakingRewards.stake(userStake, IArcadeStakingRewards.Lock.short);
+        stakingRewards.stake(userStake, IArcadeStakingRewards.Lock.Short);
 
         // increase blockchain time by 2 days
         vm.warp(block.timestamp + 2 days);
@@ -215,7 +213,7 @@ contract ArcadeStakingRewardsTest is Test {
         // mint rewardsTokens to stakingRewards contract
         rewardsToken.mint(address(stakingRewards), 100e18);
         // mint staking tokens to lender
-        stakingToken.mint(lenderA, userStake);
+        stakingToken.mint(userA, userStake);
 
         // Admin calls notifyRewardAmount to set the reward rate
         vm.prank(admin);
@@ -225,9 +223,9 @@ contract ArcadeStakingRewardsTest is Test {
         vm.warp(block.timestamp + 2 days);
 
         // lender approves stakingRewards contract to spend staking tokens
-        vm.startPrank(lenderA);
+        vm.startPrank(userA);
         stakingToken.approve(address(stakingRewards), userStake);
-        stakingRewards.stake(userStake, IArcadeStakingRewards.Lock.medium);
+        stakingRewards.stake(userStake, IArcadeStakingRewards.Lock.Medium);
 
         uint256 poolTotalSupplyBeforeWithdraw = stakingRewards.totalSupply();
 
@@ -235,7 +233,7 @@ contract ArcadeStakingRewardsTest is Test {
         vm.warp(block.timestamp + TWO_CYCLE);
 
         stakingRewards.withdraw(userStake / 2);
-        uint256 balanceAfterWithdraw = stakingToken.balanceOf(lenderA);
+        uint256 balanceAfterWithdraw = stakingToken.balanceOf(userA);
         uint256 poolTotalSupplyAfterWithdraw = stakingRewards.totalSupply();
 
         assertEq(balanceAfterWithdraw, userStake / 2);
@@ -247,7 +245,7 @@ contract ArcadeStakingRewardsTest is Test {
         // mint rewardsTokens to stakingRewards contract
         rewardsToken.mint(address(stakingRewards), 100e18);
         // mint staking tokens to lender
-        stakingToken.mint(lenderA, 20e18);
+        stakingToken.mint(userA, 20e18);
 
         // Admin calls notifyRewardAmount to set the reward rate
         vm.prank(admin);
@@ -257,20 +255,20 @@ contract ArcadeStakingRewardsTest is Test {
         vm.warp(block.timestamp + 3 days);
 
         // lender approves stakingRewards contract to spend staking tokens
-        vm.startPrank(lenderA);
+        vm.startPrank(userA);
         stakingToken.approve(address(stakingRewards), 20e18);
         // lender stakes staking tokens
-        stakingRewards.stake(20e18, IArcadeStakingRewards.Lock.medium);
+        stakingRewards.stake(20e18, IArcadeStakingRewards.Lock.Medium);
 
         vm.warp(block.timestamp + 5 days);
 
-        uint256 reward = stakingRewards.earned(lenderA);
+        uint256 reward = stakingRewards.earned(userA);
 
         // lender calls getReward
         stakingRewards.getReward();
 
         // check that lender has received rewardsTokens
-        assertEq(rewardsToken.balanceOf(lenderA), reward);
+        assertEq(rewardsToken.balanceOf(userA), reward);
     }
 
     function testExit() public {
@@ -281,37 +279,37 @@ contract ArcadeStakingRewardsTest is Test {
         // mint rewardsTokens to stakingRewards contract
         rewardsToken.mint(address(stakingRewards), 100e18);
         // mint staking tokens to lender
-        stakingToken.mint(lenderA, userStake);
+        stakingToken.mint(userA, userStake);
 
         // Admin calls notifyRewardAmount to set the reward rate
         vm.prank(admin);
         stakingRewards.notifyRewardAmount(100e18);
 
         // lender approves stakingRewards contract to spend staking tokens
-        vm.startPrank(lenderA);
+        vm.startPrank(userA);
         stakingToken.approve(address(stakingRewards), userStake);
-        stakingRewards.stake(userStake, IArcadeStakingRewards.Lock.medium);
+        stakingRewards.stake(userStake, IArcadeStakingRewards.Lock.Medium);
 
         uint256 poolTotalSupplyBeforeWithdraw = stakingRewards.totalSupply();
-        uint256 balanceBeforeWithdraw = stakingToken.balanceOf(lenderA);
+        uint256 balanceBeforeWithdraw = stakingToken.balanceOf(userA);
 
-        assertEq(rewardsToken.balanceOf(lenderA), 0);
+        assertEq(rewardsToken.balanceOf(userA), 0);
 
         // increase blockhain to end lock period
         vm.warp(block.timestamp + TWO_CYCLE);
 
-        uint256 reward = stakingRewards.earned(lenderA);
+        uint256 reward = stakingRewards.earned(userA);
 
-        vm.startPrank(lenderA);
+        vm.startPrank(userA);
         stakingRewards.exit();
 
-        uint256 balanceAfterWithdraw = stakingToken.balanceOf(lenderA);
+        uint256 balanceAfterWithdraw = stakingToken.balanceOf(userA);
         uint256 poolTotalSupplyAfterWithdraw = stakingRewards.totalSupply();
 
         assertEq(balanceAfterWithdraw, balanceBeforeWithdraw + userStake);
         assertEq(poolTotalSupplyBeforeWithdraw, userStake);
         assertEq(poolTotalSupplyAfterWithdraw, 0);
-        assertEq(rewardsToken.balanceOf(lenderA), reward);
+        assertEq(rewardsToken.balanceOf(userA), reward);
     }
 
     function testrecoverERC20() public {
@@ -330,10 +328,10 @@ contract ArcadeStakingRewardsTest is Test {
         assertEq(balanceAfter, balanceBefore + 100e18);
     }
 
-    function testRewardTooHigh() public {
+    function testRewardTooBig() public {
         setUp();
 
-        bytes4 selector = bytes4(keccak256("ASR_RewardTooHigh()"));
+        bytes4 selector = bytes4(keccak256("ASR_RewardTooBig()"));
         vm.expectRevert(abi.encodeWithSelector(selector));
 
         // Admin calls notifyRewardAmount to set the reward rate
@@ -401,7 +399,7 @@ contract ArcadeStakingRewardsTest is Test {
 
         vm.expectRevert(abi.encodeWithSelector(selector));
 
-        vm.startPrank(lenderA);
+        vm.startPrank(userA);
         stakingRewards.withdraw(20e18);
     }
 
@@ -410,23 +408,23 @@ contract ArcadeStakingRewardsTest is Test {
 
         // mint rewardsTokens to stakingRewards contract
         rewardsToken.mint(address(stakingRewards), 100e18);
-        // mint staking tokens to lenderA
-        stakingToken.mint(lenderA, 20e18);
+        // mint staking tokens to userA
+        stakingToken.mint(userA, 20e18);
 
         // Admin calls notifyRewardAmount to set the reward rate
         vm.prank(admin);
         stakingRewards.notifyRewardAmount(100e18);
 
-        uint256 invalidLock = uint256(IArcadeStakingRewards.Lock.invalid);
+        uint256 invalidLock = uint256(IArcadeStakingRewards.Lock.Invalid);
         bytes4 selector = bytes4(keccak256("ASR_InvalidLockValue(uint256)"));
 
-        // lenderA approves stakingRewards contract to spend staking tokens
-        vm.startPrank(lenderA);
+        // userA approves stakingRewards contract to spend staking tokens
+        vm.startPrank(userA);
         stakingToken.approve(address(stakingRewards), 20e18);
 
          vm.expectRevert(abi.encodeWithSelector(selector, invalidLock));
 
-        stakingRewards.stake(20e18, IArcadeStakingRewards.Lock.invalid);
+        stakingRewards.stake(20e18, IArcadeStakingRewards.Lock.Invalid);
     }
 
     function testLastTimeRewardApplicable() public {
@@ -452,28 +450,28 @@ contract ArcadeStakingRewardsTest is Test {
 
         // mint rewardsTokens to stakingRewards contract
         rewardsToken.mint(address(stakingRewards), 100e18);
-        // mint staking tokens to lenderA
-        stakingToken.mint(lenderA, userStakeAmount);
+        // mint staking tokens to userA
+        stakingToken.mint(userA, userStakeAmount);
 
         // Admin calls notifyRewardAmount to set the reward rate
         vm.prank(admin);
         stakingRewards.notifyRewardAmount(100e18);
 
-        // lenderA approves stakingRewards contract to spend staking tokens
-        vm.startPrank(lenderA);
+        // userA approves stakingRewards contract to spend staking tokens
+        vm.startPrank(userA);
         stakingToken.approve(address(stakingRewards), userStakeAmount);
-        // lenderA stakes staking tokens
-        stakingRewards.stake(userStakeAmount, IArcadeStakingRewards.Lock.medium);
+        // userA stakes staking tokens
+        stakingRewards.stake(userStakeAmount, IArcadeStakingRewards.Lock.Medium);
         vm.stopPrank();
 
         // increase blochain time
         vm.warp(block.timestamp + 8 days);
 
-        IArcadeStakingRewards.UserStake memory userStake = stakingRewards.getUserStakes(lenderA);
-        uint256 userStakedAmount = stakingRewards.balanceOf(lenderA);
+        IArcadeStakingRewards.UserStake memory userStake = stakingRewards.getUserStakes(userA);
+        uint256 userStakedAmount = stakingRewards.balanceOf(userA);
 
         assertEq(userStake.amount, userStakedAmount);
-        assertEq(uint256(userStake.lock), uint256(IArcadeStakingRewards.Lock.medium));
+        assertEq(uint256(userStake.lock), uint256(IArcadeStakingRewards.Lock.Medium));
         assertEq(userStake.unlockTimestamp, (block.timestamp + TWO_CYCLE) - 8 days);
         assertEq(userStake.amountWithBonus, (userStake.amount + (userStake.amount / 1e18) * 1.3e18));
     }
@@ -486,8 +484,8 @@ contract ArcadeStakingRewardsTest is Test {
 
         // mint rewardsTokens to stakingRewards contract
         rewardsToken.mint(address(stakingRewards), rewardAmount);
-        // mint staking tokens to lenderA
-        stakingToken.mint(lenderA, userStakeAmount);
+        // mint staking tokens to userA
+        stakingToken.mint(userA, userStakeAmount);
 
         // Admin calls notifyRewardAmount to set the reward rate
         vm.prank(admin);
@@ -497,11 +495,11 @@ contract ArcadeStakingRewardsTest is Test {
         // since no user has deposited into contract, rewardPerToken should be 0
         assertEq(rewardPerTokenAmount, 0);
 
-        // lenderA approves stakingRewards contract to spend staking tokens
-        vm.startPrank(lenderA);
+        // userA approves stakingRewards contract to spend staking tokens
+        vm.startPrank(userA);
         stakingToken.approve(address(stakingRewards), userStakeAmount);
-        // lenderA stakes staking tokens
-        stakingRewards.stake(userStakeAmount, IArcadeStakingRewards.Lock.medium);
+        // userA stakes staking tokens
+        stakingRewards.stake(userStakeAmount, IArcadeStakingRewards.Lock.Medium);
         vm.stopPrank();
 
         // increase blochain time
@@ -509,7 +507,7 @@ contract ArcadeStakingRewardsTest is Test {
 
         IArcadeStakingRewards.UserStake memory userStake;
         // Retrieve the entire struct from the mapping
-        (userStake.amount, userStake.amountWithBonus, userStake.unlockTimestamp, userStake.rewardPerTokenPaid, userStake.rewards, userStake.lock) = stakingRewards.stakes(lenderA);
+        (userStake.amount, userStake.amountWithBonus, userStake.unlockTimestamp, userStake.rewardPerTokenPaid, userStake.rewards, userStake.lock) = stakingRewards.stakes(userA);
 
         uint256 rewardPerTokenAmount2 = stakingRewards.rewardPerToken();
         uint256 rewardRate = rewardAmount / 8 days;
@@ -526,30 +524,30 @@ contract ArcadeStakingRewardsTest is Test {
 
         // mint rewardsTokens to stakingRewards contract
         rewardsToken.mint(address(stakingRewards), 100e18);
-        // mint staking tokens to lenderA
-        stakingToken.mint(lenderA, 20e18);
-        // mint staking tokens to lenderB
-        stakingToken.mint(lenderB, 20e18);
+        // mint staking tokens to userA
+        stakingToken.mint(userA, 20e18);
+        // mint staking tokens to userB
+        stakingToken.mint(userB, 20e18);
 
         // Admin calls notifyRewardAmount to set the reward rate
         vm.prank(admin);
         stakingRewards.notifyRewardAmount(100e18);
 
-        // lenderA approves stakingRewards contract to spend staking tokens
-        vm.startPrank(lenderA);
+        // userA approves stakingRewards contract to spend staking tokens
+        vm.startPrank(userA);
         stakingToken.approve(address(stakingRewards), 20e18);
         // lender stakes staking tokens
-        stakingRewards.stake(20e18, IArcadeStakingRewards.Lock.medium);
+        stakingRewards.stake(20e18, IArcadeStakingRewards.Lock.Medium);
         vm.stopPrank();
 
         // increase blochain time by 1/2 of the rewards period
         vm.warp(block.timestamp + 4 days);
 
-        // lenderB approves stakingRewards contract to spend staking tokens
-        vm.startPrank(lenderB);
+        // userB approves stakingRewards contract to spend staking tokens
+        vm.startPrank(userB);
         stakingToken.approve(address(stakingRewards), 20e18);
         // lender stakes staking tokens
-        stakingRewards.stake(20e18, IArcadeStakingRewards.Lock.medium);
+        stakingRewards.stake(20e18, IArcadeStakingRewards.Lock.Medium);
         vm.stopPrank();
 
         // increase blochain time to end the rewards period
@@ -558,17 +556,17 @@ contract ArcadeStakingRewardsTest is Test {
         // get the total rewards for the duration
         uint256 rewardForDuration = stakingRewards.getRewardForDuration();
 
-        // get rewards earned by lenderA
-        uint256 earnedA = stakingRewards.earned(lenderA);
+        // get rewards earned by userA
+        uint256 earnedA = stakingRewards.earned(userA);
 
-        // get rewards earned by lenderB
-        uint256 earnedB = stakingRewards.earned(lenderB);
+        // get rewards earned by userB
+        uint256 earnedB = stakingRewards.earned(userB);
 
         uint256 tolerance = 1e2;
         // user B should earn 25% of total rewards
         assertApproxEqAbs(earnedB, rewardForDuration / 4, tolerance);
         // user A should earn 75% of total rewards
-        assertApproxEqAbs(earnedA, (rewardForDuration * 3) /4, tolerance);
+        assertApproxEqAbs(earnedA, (rewardForDuration * 3) / 4, tolerance);
     }
 
     /**
@@ -580,27 +578,27 @@ contract ArcadeStakingRewardsTest is Test {
 
         // mint rewardsTokens to stakingRewards contract
         rewardsToken.mint(address(stakingRewards), 100e18);
-        // mint staking tokens to lenderA
-        stakingToken.mint(lenderA, 20e18);
-        // mint staking tokens to lenderB
-        stakingToken.mint(lenderB, 10e18);
+        // mint staking tokens to userA
+        stakingToken.mint(userA, 20e18);
+        // mint staking tokens to userB
+        stakingToken.mint(userB, 10e18);
 
         // Admin calls notifyRewardAmount to set the reward rate
         vm.prank(admin);
         stakingRewards.notifyRewardAmount(100e18);
 
-        // lenderA approves stakingRewards contract to spend staking tokens
-        vm.startPrank(lenderA);
+        // userA approves stakingRewards contract to spend staking tokens
+        vm.startPrank(userA);
         stakingToken.approve(address(stakingRewards), 20e18);
         // lender stakes staking tokens
-        stakingRewards.stake(20e18, IArcadeStakingRewards.Lock.medium);
+        stakingRewards.stake(20e18, IArcadeStakingRewards.Lock.Medium);
         vm.stopPrank();
 
-        // lenderB approves stakingRewards contract to spend staking tokens
-        vm.startPrank(lenderB);
+        // userB approves stakingRewards contract to spend staking tokens
+        vm.startPrank(userB);
         stakingToken.approve(address(stakingRewards), 10e18);
         // lender stakes staking tokens
-        stakingRewards.stake(10e18, IArcadeStakingRewards.Lock.medium);
+        stakingRewards.stake(10e18, IArcadeStakingRewards.Lock.Medium);
         vm.stopPrank();
 
         // increase blochain time to end the rewards period
@@ -609,11 +607,11 @@ contract ArcadeStakingRewardsTest is Test {
         // get the total rewards for the duration
         uint256 rewardForDuration = stakingRewards.getRewardForDuration();
 
-        // get rewards earned by lenderA
-        uint256 earnedA = stakingRewards.earned(lenderA);
+        // get rewards earned by userA
+        uint256 earnedA = stakingRewards.earned(userA);
 
-        // get rewards earned by lenderB
-        uint256 earnedB = stakingRewards.earned(lenderB);
+        // get rewards earned by userB
+        uint256 earnedB = stakingRewards.earned(userB);
 
         uint256 tolerance = 1e2;
         // user B should earn 1/3 of total rewards
@@ -631,34 +629,34 @@ contract ArcadeStakingRewardsTest is Test {
 
         // mint rewardsTokens to stakingRewards contract
         rewardsToken.mint(address(stakingRewards), 100e18);
-        // mint staking tokens to lenderA
-        stakingToken.mint(lenderA, 20e18);
-        // mint staking tokens to lenderB
-        stakingToken.mint(lenderB, 20e18);
+        // mint staking tokens to userA
+        stakingToken.mint(userA, 20e18);
+        // mint staking tokens to userB
+        stakingToken.mint(userB, 20e18);
 
         // Admin calls notifyRewardAmount to set the reward rate
         vm.prank(admin);
         stakingRewards.notifyRewardAmount(100e18);
 
-        // lenderA approves stakingRewards contract to spend staking tokens
-        vm.startPrank(lenderA);
+        // userA approves stakingRewards contract to spend staking tokens
+        vm.startPrank(userA);
         stakingToken.approve(address(stakingRewards), 20e18);
         // lender stakes staking tokens
-        stakingRewards.stake(20e18, IArcadeStakingRewards.Lock.medium);
+        stakingRewards.stake(20e18, IArcadeStakingRewards.Lock.Medium);
         vm.stopPrank();
 
         // increase blockchain time to half of reward period
         vm.warp(block.timestamp + 4 days);
 
-        // lenderB approves stakingRewards contract to spend staking tokens
-        vm.startPrank(lenderB);
+        // userB approves stakingRewards contract to spend staking tokens
+        vm.startPrank(userB);
         stakingToken.approve(address(stakingRewards), 20e18);
         // lender stakes staking tokens
-        stakingRewards.stake(20e18, IArcadeStakingRewards.Lock.medium);
+        stakingRewards.stake(20e18, IArcadeStakingRewards.Lock.Medium);
         vm.stopPrank();
 
-        // lenderA unstakes
-        vm.startPrank(lenderA);
+        // userA unstakes
+        vm.startPrank(userA);
 
         bytes4 selector = bytes4(keccak256("ASR_Locked()"));
         vm.expectRevert(abi.encodeWithSelector(selector));
@@ -672,10 +670,10 @@ contract ArcadeStakingRewardsTest is Test {
 
         // get the total rewards for the duration
         uint256 rewardForDuration = stakingRewards.getRewardForDuration();
-        // get rewards earned by lenderA
-        uint256 earnedA = stakingRewards.earned(lenderA);
-        // get rewards earned by lenderB
-        uint256 earnedB = stakingRewards.earned(lenderB);
+        // get rewards earned by userA
+        uint256 earnedA = stakingRewards.earned(userA);
+        // get rewards earned by userB
+        uint256 earnedB = stakingRewards.earned(userB);
 
         assertApproxEqAbs(earnedA, (((rewardForDuration / 8) * 4) + ((rewardForDuration / 8) * 4) / 2), 1e5);
         assertApproxEqAbs(earnedB, ((rewardForDuration / 8) * 4) / 2, 1e1);
@@ -694,18 +692,18 @@ contract ArcadeStakingRewardsTest is Test {
 
         // mint rewardsTokens to stakingRewards contract
         rewardsToken.mint(address(stakingRewards), 100e18);
-        // mint staking tokens to lenderA
-        stakingToken.mint(lenderA, 20e18);
+        // mint staking tokens to userA
+        stakingToken.mint(userA, 20e18);
 
         // Admin calls notifyRewardAmount to set the reward amount
         vm.prank(admin);
         stakingRewards.notifyRewardAmount(50e18);
 
-        // lenderA approves stakingRewards contract to spend staking tokens
-        vm.startPrank(lenderA);
+        // userA approves stakingRewards contract to spend staking tokens
+        vm.startPrank(userA);
         stakingToken.approve(address(stakingRewards), 20e18);
         // lender stakes staking tokens
-        stakingRewards.stake(20e18, IArcadeStakingRewards.Lock.medium);
+        stakingRewards.stake(20e18, IArcadeStakingRewards.Lock.Medium);
         vm.stopPrank();
 
         // increase blochain time to end of day 4
@@ -714,8 +712,8 @@ contract ArcadeStakingRewardsTest is Test {
         // get the total rewards for 1/2 the duration
         uint256 rewardForDuration = stakingRewards.getRewardForDuration();
 
-        // rewards earned by lenderA
-        uint256 earnedA = stakingRewards.earned(lenderA);
+        // rewards earned by userA
+        uint256 earnedA = stakingRewards.earned(userA);
 
         // Admin calls notifyRewardAmount to set the reward rate to half of the
         // initial amount
@@ -725,7 +723,7 @@ contract ArcadeStakingRewardsTest is Test {
         // increase blochain time to half of the new rewards period
         vm.warp(block.timestamp + 4 days);
 
-        vm.prank(lenderA);
+        vm.prank(userA);
         // lender withdraws reward tokens from the first reward period
         // and half of the second
         stakingRewards.getReward();
@@ -736,8 +734,8 @@ contract ArcadeStakingRewardsTest is Test {
         // get the total rewards for the duration
         uint256 rewardForDuration2 = stakingRewards.getRewardForDuration();
 
-        // get rewards earned by lenderA after the first reward rate change
-        uint256 earnedA3 = stakingRewards.earned(lenderA);
+        // get rewards earned by userA after the first reward rate change
+        uint256 earnedA3 = stakingRewards.earned(userA);
 
         // user A earns equal amounts for both reward periods
         assertEq(earnedA, earnedA3);
@@ -759,18 +757,18 @@ contract ArcadeStakingRewardsTest is Test {
 
         // mint rewardsTokens to stakingRewards contract
         rewardsToken.mint(address(stakingRewards), 100e18);
-        // mint staking tokens to lenderA
-        stakingToken.mint(lenderA, 20e18);
+        // mint staking tokens to userA
+        stakingToken.mint(userA, 20e18);
 
         // Admin calls notifyRewardAmount to set the reward amount
         vm.prank(admin);
         stakingRewards.notifyRewardAmount(50e18);
 
-        // lenderA approves stakingRewards contract to spend staking tokens
-        vm.startPrank(lenderA);
+        // userA approves stakingRewards contract to spend staking tokens
+        vm.startPrank(userA);
         stakingToken.approve(address(stakingRewards), 20e18);
         // lender stakes staking tokens
-        stakingRewards.stake(20e18, IArcadeStakingRewards.Lock.medium);
+        stakingRewards.stake(20e18, IArcadeStakingRewards.Lock.Medium);
         vm.stopPrank();
 
         // increase blochain time to end rewards period
@@ -778,8 +776,8 @@ contract ArcadeStakingRewardsTest is Test {
 
         // get the total rewards for full the duration
         uint256 rewardForDuration = stakingRewards.getRewardForDuration();
-        // rewards earned by lenderA
-        uint256 earnedA = stakingRewards.earned(lenderA);
+        // rewards earned by userA
+        uint256 earnedA = stakingRewards.earned(userA);
 
         // increase blochain time for 5 days in between 2 reward periods
         vm.warp(block.timestamp + 5 days);
@@ -793,8 +791,8 @@ contract ArcadeStakingRewardsTest is Test {
 
         // get the total rewards for the new duration
         uint256 rewardForDuration2 = stakingRewards.getRewardForDuration();
-        // rewards earned by lenderA
-        uint256 earnedA2 = stakingRewards.earned(lenderA);
+        // rewards earned by userA
+        uint256 earnedA2 = stakingRewards.earned(userA);
 
         // Rewards for the second staking period is half of the first staking period
         assertEq(rewardForDuration / 2, rewardForDuration2);

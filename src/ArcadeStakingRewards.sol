@@ -15,7 +15,7 @@ import {
     ASR_ZeroAmount,
     ASR_RewardsPeriod,
     ASR_StakingToken,
-    ASR_RewardTooHigh,
+    ASR_RewardTooBig,
     ASR_BalanceAmount,
     ASR_InvalidLockValue,
     ASR_NoStake,
@@ -63,7 +63,7 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
     // ============== Constants ==============
 
     uint256 public constant ONE = 1e18;
-    uint256 public constant ONE_CYCLE = 60 * 60 * 24 * 28; // 28 days
+    uint256 public constant ONE_CYCLE = 60 * 60 * 24 * 30; // 30 days
     uint256 public constant TWO_CYCLE = ONE_CYCLE * 2;
     uint256 public constant THREE_CYCLE = ONE_CYCLE * 3;
 
@@ -230,7 +230,7 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
      * @param lock                             The amount of time to lock the stake for.
      */
     function stake(uint256 amount, Lock lock) external nonReentrant whenNotPaused updateReward(msg.sender) {
-        if (amount == 0 ) revert ASR_ZeroAmount();
+        if (amount == 0) revert ASR_ZeroAmount();
 
         // Accounting with bonus
         (uint256 bonus, uint256 lockDuration) = _getBonus(lock);
@@ -338,7 +338,7 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
         // very high values of rewardRate in the earned and rewardsPerToken functions;
         // Reward + leftover must be less than 2^256 / 10^18 to avoid overflow.
         uint balance = rewardsToken.balanceOf(address(this));
-        if (rewardRate > (balance / rewardsDuration)) revert ASR_RewardTooHigh();
+        if (rewardRate > (balance / rewardsDuration)) revert ASR_RewardTooBig();
 
         lastUpdateTime = block.timestamp;
         periodFinish = block.timestamp + rewardsDuration;
@@ -371,8 +371,7 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
      * @param _rewardsDuration                    The amount of time the rewards period will be.
      */
     function setRewardsDuration(uint256 _rewardsDuration) external onlyOwner {
-        if (block.timestamp < periodFinish) revert ASR_RewardsPeriod();
-        if (block.timestamp == periodFinish) revert ASR_RewardsPeriod();
+        if (block.timestamp <= periodFinish) revert ASR_RewardsPeriod();
 
         rewardsDuration = _rewardsDuration;
 
@@ -405,11 +404,11 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
      * @dev Maps Lock enum values to corresponding lengths of time and reward bonuses.
      */
     function _getBonus(Lock _lock) internal view returns (uint256 bonus, uint256 lockDuration) {
-        if (_lock == Lock.short) {
+        if (_lock == Lock.Short) {
             return (SHORT_BONUS, SHORT_LOCK_TIME);
-        } else if (_lock == Lock.medium) {
+        } else if (_lock == Lock.Medium) {
             return (MEDIUM_BONUS, MEDIUM_LOCK_TIME);
-        } else if (_lock == Lock.long) {
+        } else if (_lock == Lock.Long) {
             return (LONG_BONUS, LONG_LOCK_TIME);
         } else {
             revert ASR_InvalidLockValue(uint256(_lock));

@@ -15,10 +15,10 @@ interface IArcadeStakingRewards {
 
     // ================================================= STRUCTS =================================================
     enum Lock {
-        short,
-        medium,
-        long,
-        invalid // added for testing purposes
+        Short,
+        Medium,
+        Long,
+        Invalid // added for testing purposes
     }
 
     struct UserStake {
