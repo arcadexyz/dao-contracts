@@ -9,7 +9,7 @@ import "@openzeppelin/contracts/utils/Pausable.sol";
 
 import "./interfaces/IArcadeStakingRewards.sol";
 import "./ArcadeRewardsRecipient.sol";
-import { Test } from "forge-std/Test.sol";
+
 import {
     ASR_ZeroAddress,
     ASR_ZeroAmount,
@@ -19,7 +19,8 @@ import {
     ASR_BalanceAmount,
     ASR_InvalidLockValue,
     ASR_NoStake,
-    ASR_Locked
+    ASR_Locked,
+    ASR_RewardsToken
 } from "../src/errors/Staking.sol";
 
 /**
@@ -61,7 +62,6 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
 
     // ============================================ STATE ==============================================
     // ============== Constants ==============
-
     uint256 public constant ONE = 1e18;
     uint256 public constant ONE_CYCLE = 60 * 60 * 24 * 30; // 30 days
     uint256 public constant TWO_CYCLE = ONE_CYCLE * 2;
@@ -76,8 +76,8 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
     uint256 public immutable LONG_LOCK_TIME;
 
     // ============ Global State =============
-    IERC20 public rewardsToken;
-    IERC20 public stakingToken;
+    IERC20 public immutable rewardsToken;
+    IERC20 public immutable stakingToken;
     uint256 public periodFinish = 0;
     uint256 public rewardRate = 0;
     uint256 public rewardsDuration = 7 days;
@@ -86,7 +86,7 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
 
     mapping(address => UserStake) public stakes;
 
-    uint256 private totalDeposits;
+    uint256 public totalDeposits;
     uint256 public totalDepositsWithBonus;
 
     // ========================================== CONSTRUCTOR ===========================================
@@ -154,7 +154,7 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
     function balanceOf(address account) external view returns (uint256) {
         UserStake storage userStake = stakes[account];
 
-        return uint256(userStake.amount);
+        return userStake.amount;
     }
 
     /**
@@ -238,10 +238,10 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
 
          // populate user stake information
         stakes[msg.sender] = UserStake({
-            amount: uint112(amount),
-            amountWithBonus: uint112(amountWithBonus),
+            amount: amount,
+            amountWithBonus: amountWithBonus,
             unlockTimestamp: uint32(block.timestamp + lockDuration),
-            rewardPerTokenPaid: uint112(rewardPerTokenStored),
+            rewardPerTokenPaid: rewardPerTokenStored,
             rewards: 0,
             lock: lock
         });
@@ -272,11 +272,11 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
         if (userStake.unlockTimestamp == 0 || block.timestamp < userStake.unlockTimestamp) revert ASR_Locked();
 
         // Update user stake
-        userStake.amount -= uint112(amount);
+        userStake.amount -= amount;
 
         (uint256 bonus,) = _getBonus(userStake.lock);
         uint256 amountToWithdrawWithBonus = amount + (amount * bonus) / ONE;
-        userStake.amountWithBonus -= uint112(amountToWithdrawWithBonus);
+        userStake.amountWithBonus -= amountToWithdrawWithBonus;
 
         totalDeposits -= amount;
         totalDepositsWithBonus -= amountToWithdrawWithBonus;
@@ -355,6 +355,7 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
      */
     function recoverERC20(address tokenAddress, uint256 tokenAmount) external onlyOwner {
         if (tokenAddress == address(stakingToken)) revert ASR_StakingToken();
+        if (tokenAddress == address(rewardsToken) && totalDeposits != 0) revert ASR_RewardsToken();
         if (tokenAddress == address(0)) revert ASR_ZeroAddress();
         if (tokenAmount == 0) revert ASR_ZeroAmount();
 
@@ -393,8 +394,8 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
         if (account != address(0)) {
             // Get user's stake
             UserStake storage userStake = stakes[msg.sender];
-            userStake.rewards = uint112(earned(account));
-            userStake.rewardPerTokenPaid = uint112(rewardPerTokenStored);
+            userStake.rewards = earned(account);
+            userStake.rewardPerTokenPaid = rewardPerTokenStored;
         }
         _;
     }

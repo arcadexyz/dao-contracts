@@ -63,3 +63,10 @@ error ASR_NoStake();
  *
  */
 error ASR_Locked();
+
+/**
+ * @notice Cannot withdraw reward tokens unless totalDeposits == 0 to
+           safeguard rewardsRate.
+ *
+ */
+error ASR_RewardsToken();

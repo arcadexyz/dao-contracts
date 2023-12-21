@@ -22,11 +22,11 @@ interface IArcadeStakingRewards {
     }
 
     struct UserStake {
-        uint112 amount;
-        uint112 amountWithBonus;
+        uint256 amount;
+        uint256 amountWithBonus;
+        uint256 rewardPerTokenPaid;
+        uint256 rewards;
         uint32 unlockTimestamp;
-        uint112 rewardPerTokenPaid;
-        uint112 rewards;
         Lock lock;
     }
 

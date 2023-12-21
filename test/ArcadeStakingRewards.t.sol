@@ -47,13 +47,13 @@ contract ArcadeStakingRewardsTest is Test {
         bytes4 selector = bytes4(keccak256("ASR_ZeroAddress()"));
 
         vm.expectRevert(abi.encodeWithSelector(selector));
-        stakingRewards = new ArcadeStakingRewards(owner, address(0x0000000000000000000000000000000000000000), address(rewardsToken), address(stakingToken), ONE_CYCLE, TWO_CYCLE, THREE_CYCLE, 1.1e18, 1.3e18, 1.5e18);
+        stakingRewards = new ArcadeStakingRewards(owner, address(0), address(rewardsToken), address(stakingToken), ONE_CYCLE, TWO_CYCLE, THREE_CYCLE, 1.1e18, 1.3e18, 1.5e18);
 
         vm.expectRevert(abi.encodeWithSelector(selector));
-        stakingRewards = new ArcadeStakingRewards(owner, admin, address(0x0000000000000000000000000000000000000000), address(stakingToken), ONE_CYCLE, TWO_CYCLE, THREE_CYCLE, 1.1e18, 1.3e18, 1.5e18);
+        stakingRewards = new ArcadeStakingRewards(owner, admin, address(0), address(stakingToken), ONE_CYCLE, TWO_CYCLE, THREE_CYCLE, 1.1e18, 1.3e18, 1.5e18);
 
         vm.expectRevert(abi.encodeWithSelector(selector));
-        stakingRewards = new ArcadeStakingRewards(owner, admin, address(rewardsToken), address(0x0000000000000000000000000000000000000000), ONE_CYCLE, TWO_CYCLE, THREE_CYCLE, 1.1e18, 1.3e18, 1.5e18);
+        stakingRewards = new ArcadeStakingRewards(owner, admin, address(rewardsToken), address(0), ONE_CYCLE, TWO_CYCLE, THREE_CYCLE, 1.1e18, 1.3e18, 1.5e18);
     }
 
     function testStake() public {
@@ -70,7 +70,7 @@ contract ArcadeStakingRewardsTest is Test {
         vm.prank(admin);
         stakingRewards.notifyRewardAmount(100e18);
 
-        // increase blochain time by 2 days
+        // increase blockchain time by 2 days
         vm.warp(block.timestamp + 2 days);
 
         // lender approves stakingRewards contract to spend staking tokens
@@ -98,7 +98,7 @@ contract ArcadeStakingRewardsTest is Test {
         vm.prank(admin);
         stakingRewards.notifyRewardAmount(100e18);
 
-        // increase blochain time by 2 days
+        // increase blockchain time by 2 days
         vm.warp(block.timestamp + 2 days);
 
         bytes4 selector = bytes4(keccak256("ASR_ZeroAmount()"));
@@ -125,7 +125,7 @@ contract ArcadeStakingRewardsTest is Test {
         vm.prank(admin);
         stakingRewards.notifyRewardAmount(100e18);
 
-        // increase blochain time by 2 days
+        // increase blockchain time by 2 days
         vm.warp(block.timestamp + 2 days);
 
         // lender approves stakingRewards contract to spend staking tokens
@@ -136,7 +136,7 @@ contract ArcadeStakingRewardsTest is Test {
         uint256 poolTotalSupplyBeforeWithdraw = stakingRewards.totalSupply();
         uint256 balanceBeforeWithdraw = stakingToken.balanceOf(userA);
 
-        // increase blochain time by the medium lock duration
+        // increase blockchain time by the medium lock duration
         vm.warp(block.timestamp + TWO_CYCLE);
 
         stakingRewards.withdraw(userStake);
@@ -162,7 +162,7 @@ contract ArcadeStakingRewardsTest is Test {
         vm.prank(admin);
         stakingRewards.notifyRewardAmount(100e18);
 
-        // increase blochain time by 2 days
+        // increase blockchain time by 2 days
         vm.warp(block.timestamp + 2 days);
 
         // lender approves stakingRewards contract to spend staking tokens
@@ -219,7 +219,7 @@ contract ArcadeStakingRewardsTest is Test {
         vm.prank(admin);
         stakingRewards.notifyRewardAmount(100e18);
 
-        // increase blochain time by 2 days
+        // increase blockchain time by 2 days
         vm.warp(block.timestamp + 2 days);
 
         // lender approves stakingRewards contract to spend staking tokens
@@ -251,7 +251,7 @@ contract ArcadeStakingRewardsTest is Test {
         vm.prank(admin);
         stakingRewards.notifyRewardAmount(100e18);
 
-        // increase blochain time by 2 days
+        // increase blockchain time by 2 days
         vm.warp(block.timestamp + 3 days);
 
         // lender approves stakingRewards contract to spend staking tokens
@@ -352,13 +352,37 @@ contract ArcadeStakingRewardsTest is Test {
         vm.expectRevert(abi.encodeWithSelector(selector2));
 
         vm.prank(owner);
-        stakingRewards.recoverERC20(address(0x0000000000000000000000000000000000000000), 1e18);
+        stakingRewards.recoverERC20(address(0), 1e18);
 
         bytes4 selector3 = bytes4(keccak256("ASR_ZeroAmount()"));
         vm.expectRevert(abi.encodeWithSelector(selector3));
 
         vm.prank(owner);
         stakingRewards.recoverERC20(address(rewardsToken), 0);
+    }
+
+    function testRewardsTokenRecoverERC20() public {
+        setUp();
+
+        // mint rewardsTokens to stakingRewards contract
+        rewardsToken.mint(address(stakingRewards), 100e18);
+        // mint staking tokens to userA
+        stakingToken.mint(userA, 20e18);
+
+        // Admin calls notifyRewardAmount to set the reward rate
+        vm.prank(admin);
+        stakingRewards.notifyRewardAmount(100e18);
+
+        // userA approves stakingRewards contract to spend staking tokens
+        vm.startPrank(userA);
+        stakingToken.approve(address(stakingRewards), 20e18);
+        stakingRewards.stake(20e18, IArcadeStakingRewards.Lock.Short);
+
+        bytes4 selector = bytes4(keccak256("ASR_RewardsToken()"));
+        vm.expectRevert(abi.encodeWithSelector(selector));
+
+        vm.startPrank(owner);
+        stakingRewards.recoverERC20(address(rewardsToken), 1e18);
     }
 
     function testCustomRevertSetRewardsDuration() public {
@@ -464,7 +488,7 @@ contract ArcadeStakingRewardsTest is Test {
         stakingRewards.stake(userStakeAmount, IArcadeStakingRewards.Lock.Medium);
         vm.stopPrank();
 
-        // increase blochain time
+        // increase blockchain time
         vm.warp(block.timestamp + 8 days);
 
         IArcadeStakingRewards.UserStake memory userStake = stakingRewards.getUserStakes(userA);
@@ -502,12 +526,12 @@ contract ArcadeStakingRewardsTest is Test {
         stakingRewards.stake(userStakeAmount, IArcadeStakingRewards.Lock.Medium);
         vm.stopPrank();
 
-        // increase blochain time
+        // increase blockchain time
         vm.warp(block.timestamp + 8 days);
 
         IArcadeStakingRewards.UserStake memory userStake;
         // Retrieve the entire struct from the mapping
-        (userStake.amount, userStake.amountWithBonus, userStake.unlockTimestamp, userStake.rewardPerTokenPaid, userStake.rewards, userStake.lock) = stakingRewards.stakes(userA);
+        (userStake.amount, userStake.amountWithBonus, userStake.rewardPerTokenPaid, userStake.rewards, userStake.unlockTimestamp, userStake.lock) = stakingRewards.stakes(userA);
 
         uint256 rewardPerTokenAmount2 = stakingRewards.rewardPerToken();
         uint256 rewardRate = rewardAmount / 8 days;
@@ -540,7 +564,7 @@ contract ArcadeStakingRewardsTest is Test {
         stakingRewards.stake(20e18, IArcadeStakingRewards.Lock.Medium);
         vm.stopPrank();
 
-        // increase blochain time by 1/2 of the rewards period
+        // increase blockchain time by 1/2 of the rewards period
         vm.warp(block.timestamp + 4 days);
 
         // userB approves stakingRewards contract to spend staking tokens
@@ -550,7 +574,7 @@ contract ArcadeStakingRewardsTest is Test {
         stakingRewards.stake(20e18, IArcadeStakingRewards.Lock.Medium);
         vm.stopPrank();
 
-        // increase blochain time to end the rewards period
+        // increase blockchain time to end the rewards period
         vm.warp(block.timestamp + 4 days);
 
         // get the total rewards for the duration
@@ -601,7 +625,7 @@ contract ArcadeStakingRewardsTest is Test {
         stakingRewards.stake(10e18, IArcadeStakingRewards.Lock.Medium);
         vm.stopPrank();
 
-        // increase blochain time to end the rewards period
+        // increase blockchain time to end the rewards period
         vm.warp(block.timestamp + 8 days);
 
         // get the total rewards for the duration
@@ -665,7 +689,7 @@ contract ArcadeStakingRewardsTest is Test {
         stakingRewards.withdraw(20e18);
         vm.stopPrank();
 
-        // increase blochain time to end the rewards period
+        // increase blockchain time to end the rewards period
         vm.warp(block.timestamp + 4 days);
 
         // get the total rewards for the duration
@@ -706,7 +730,7 @@ contract ArcadeStakingRewardsTest is Test {
         stakingRewards.stake(20e18, IArcadeStakingRewards.Lock.Medium);
         vm.stopPrank();
 
-        // increase blochain time to end of day 4
+        // increase blockchain time to end of day 4
         vm.warp(block.timestamp + 4 days);
 
         // get the total rewards for 1/2 the duration
@@ -720,7 +744,7 @@ contract ArcadeStakingRewardsTest is Test {
         vm.prank(admin);
         stakingRewards.notifyRewardAmount(25e18);
 
-        // increase blochain time to half of the new rewards period
+        // increase blockchain time to half of the new rewards period
         vm.warp(block.timestamp + 4 days);
 
         vm.prank(userA);
@@ -728,7 +752,7 @@ contract ArcadeStakingRewardsTest is Test {
         // and half of the second
         stakingRewards.getReward();
 
-        // increase blochain time to the end the rewards period
+        // increase blockchain time to the end the rewards period
         vm.warp(block.timestamp + 4 days);
 
         // get the total rewards for the duration
@@ -771,7 +795,7 @@ contract ArcadeStakingRewardsTest is Test {
         stakingRewards.stake(20e18, IArcadeStakingRewards.Lock.Medium);
         vm.stopPrank();
 
-        // increase blochain time to end rewards period
+        // increase blockchain time to end rewards period
         vm.warp(block.timestamp + 8 days);
 
         // get the total rewards for full the duration
@@ -779,14 +803,14 @@ contract ArcadeStakingRewardsTest is Test {
         // rewards earned by userA
         uint256 earnedA = stakingRewards.earned(userA);
 
-        // increase blochain time for 5 days in between 2 reward periods
+        // increase blockchain time for 5 days in between 2 reward periods
         vm.warp(block.timestamp + 5 days);
 
         // Admin calls notifyRewardAmount to set a new reward amount
         vm.prank(admin);
         stakingRewards.notifyRewardAmount(25e18);
 
-        // increase blochain time to end of the new rewards period
+        // increase blockchain time to end of the new rewards period
         vm.warp(block.timestamp + 8 days);
 
         // get the total rewards for the new duration
