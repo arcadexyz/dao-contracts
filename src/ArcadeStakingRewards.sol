@@ -235,8 +235,6 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
         // Accounting with bonus
         (uint256 bonus,) = _getBonus(lock);
         amountWithBonus = amount + ((amount * bonus) / ONE);
-
-        return amountWithBonus;
     }
 
     // ========================================= MUTATIVE FUNCTIONS ========================================

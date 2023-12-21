@@ -556,7 +556,7 @@ contract ArcadeStakingRewardsTest is Test {
 
         IArcadeStakingRewards.UserStake memory userStake;
         // Retrieve the entire struct from the mapping
-        (userStake.amount, userStake.rewardPerTokenPaid, userStake.rewards, userStake.unlockTimestamp, userStake.lock) = stakingRewards.stakes(userA);
+        (userStake.lock, userStake.unlockTimestamp, userStake.amount, userStake.rewardPerTokenPaid, userStake.rewards) = stakingRewards.stakes(userA);
 
         uint256 rewardPerTokenAmount2 = stakingRewards.rewardPerToken();
         uint256 rewardRate = rewardAmount / 8 days;
