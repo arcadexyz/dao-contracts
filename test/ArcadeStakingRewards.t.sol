@@ -497,7 +497,32 @@ contract ArcadeStakingRewardsTest is Test {
         assertEq(userStake.amount, userStakedAmount);
         assertEq(uint256(userStake.lock), uint256(IArcadeStakingRewards.Lock.Medium));
         assertEq(userStake.unlockTimestamp, (block.timestamp + TWO_CYCLE) - 8 days);
-        assertEq(userStake.amountWithBonus, (userStake.amount + (userStake.amount / 1e18) * 1.3e18));
+    }
+
+    function testGetAmountWithBonus() public {
+        setUp();
+
+        uint256 userStakeAmount = 20e18;
+
+        // mint rewardsTokens to stakingRewards contract
+        rewardsToken.mint(address(stakingRewards), 100e18);
+        // mint staking tokens to userA
+        stakingToken.mint(userA, userStakeAmount);
+
+        // Admin calls notifyRewardAmount to set the reward rate
+        vm.prank(admin);
+        stakingRewards.notifyRewardAmount(100e18);
+
+        // userA approves stakingRewards contract to spend staking tokens
+        vm.startPrank(userA);
+        stakingToken.approve(address(stakingRewards), userStakeAmount);
+        // userA stakes staking tokens
+        stakingRewards.stake(userStakeAmount, IArcadeStakingRewards.Lock.Medium);
+        vm.stopPrank();
+
+        uint256 userAmountWithBonus = stakingRewards.getAmountWithBonus(userA);
+
+        assertEq(userAmountWithBonus, (userStakeAmount + ((userStakeAmount / 1e18) * 1.3e18)));
     }
 
     function testRewardPerToken() public {
@@ -531,12 +556,14 @@ contract ArcadeStakingRewardsTest is Test {
 
         IArcadeStakingRewards.UserStake memory userStake;
         // Retrieve the entire struct from the mapping
-        (userStake.amount, userStake.amountWithBonus, userStake.rewardPerTokenPaid, userStake.rewards, userStake.unlockTimestamp, userStake.lock) = stakingRewards.stakes(userA);
+        (userStake.amount, userStake.rewardPerTokenPaid, userStake.rewards, userStake.unlockTimestamp, userStake.lock) = stakingRewards.stakes(userA);
 
         uint256 rewardPerTokenAmount2 = stakingRewards.rewardPerToken();
         uint256 rewardRate = rewardAmount / 8 days;
 
-        assertEq(rewardPerTokenAmount2, (8 days * rewardRate * 1e18) / userStake.amountWithBonus);
+        uint256 amountStakedWithBonus = stakingRewards.getAmountWithBonus(userA);
+
+        assertEq(rewardPerTokenAmount2, (8 days * rewardRate * 1e18) / amountStakedWithBonus);
     }
 
     /**

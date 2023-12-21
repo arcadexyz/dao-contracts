@@ -191,7 +191,7 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
      */
     function earned(address account) public view returns (uint256) {
         UserStake storage userStake = stakes[account];
-        uint256 stakeAmountWithBonus = userStake.amountWithBonus;
+        uint256 stakeAmountWithBonus = getAmountWithBonus(account);
         uint256 userRewardPerTokenPaid = userStake.rewardPerTokenPaid;
         uint256 userRewards = userStake.rewards;
 
@@ -220,6 +220,25 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
         return stakes[account];
     }
 
+    /**
+     * @notice Gets a user's stake amount reflecting their locking bonus multiplier.
+     *
+     * @param account                           The user's account.
+     *
+     * @return amountWithBonus                  Value of user stake with bonus.
+     */
+    function getAmountWithBonus(address account) public view returns (uint256 amountWithBonus) {
+        UserStake storage userStake = stakes[account];
+        uint256 amount = userStake.amount;
+        Lock lock = userStake.lock;
+
+        // Accounting with bonus
+        (uint256 bonus,) = _getBonus(lock);
+        amountWithBonus = amount + ((amount * bonus) / ONE);
+
+        return amountWithBonus;
+    }
+
     // ========================================= MUTATIVE FUNCTIONS ========================================
     /**
      * @notice Allows users to stake their tokens, which are then tracked in the contract. The total
@@ -239,7 +258,6 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
          // populate user stake information
         stakes[msg.sender] = UserStake({
             amount: amount,
-            amountWithBonus: amountWithBonus,
             unlockTimestamp: uint32(block.timestamp + lockDuration),
             rewardPerTokenPaid: rewardPerTokenStored,
             rewards: 0,
@@ -276,7 +294,6 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
 
         (uint256 bonus,) = _getBonus(userStake.lock);
         uint256 amountToWithdrawWithBonus = amount + (amount * bonus) / ONE;
-        userStake.amountWithBonus -= amountToWithdrawWithBonus;
 
         totalDeposits -= amount;
         totalDepositsWithBonus -= amountToWithdrawWithBonus;
