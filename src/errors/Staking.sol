@@ -34,9 +34,9 @@ error ASR_RewardsPeriod();
 error ASR_StakingToken();
 
 /**
- * @notice Reward + leftover must be less contract reward balance
- *         which keeps the reward in a range less than 2^256 / 10^18
- *         to avoid overflow.
+ * @notice Reward + leftover must be less than contract reward balance.
+ *         This keeps the reward in a range less than 2^256 / 10^18
+ *         and prevents overflow.
  */
 error ASR_RewardTooHigh();
 
@@ -60,13 +60,18 @@ error ASR_NoStake();
 
 /**
  * @notice Cannot withdraw a deposit which is still locked.
- *
  */
 error ASR_Locked();
 
 /**
  * @notice Cannot withdraw reward tokens unless totalDeposits == 0 to
-           safeguard rewardsRate.
+ *         safeguard rewardsRate.
  *
  */
 error ASR_RewardsToken();
+
+/**
+ * @notice The depositId does not exist.
+ *
+ */
+error ASR_InvalidDepositId();

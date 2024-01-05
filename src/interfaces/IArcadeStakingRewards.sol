@@ -7,7 +7,7 @@ import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 interface IArcadeStakingRewards {
     // ================================================= EVENTS ==================================================
     event RewardAdded(uint256 reward);
-    event Staked(address indexed user, uint256 amount);
+    event Staked(address indexed user, uint256 depositId, uint256 amount);
     event Withdrawn(address indexed user, uint256 amount);
     event RewardPaid(address indexed user, uint256 reward);
     event RewardsDurationUpdated(uint256 newDuration);
@@ -32,7 +32,7 @@ interface IArcadeStakingRewards {
     // ============================================= VIEW FUNCTIONS ==============================================
     function balanceOf(address account) external view returns (uint256);
 
-    function earned(address account) external view returns (uint256);
+    function earned(address account) external view returns (uint256, uint256[] memory);
 
     function getRewardForDuration() external view returns (uint256);
 
@@ -47,9 +47,9 @@ interface IArcadeStakingRewards {
     // =========================================== MUTATIVE FUNCTIONS ============================================
     function exit() external;
 
-    function getReward() external;
+    function getReward(uint256 depositId) external;
 
     function stake(uint256 amount, Lock lock) external;
 
-    function withdraw(uint256 amount) external;
+    function withdraw(uint256 amount, uint256 depositId) external;
 }

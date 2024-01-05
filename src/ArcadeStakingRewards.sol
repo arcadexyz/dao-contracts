@@ -20,14 +20,14 @@ import {
     ASR_InvalidLockValue,
     ASR_NoStake,
     ASR_Locked,
-    ASR_RewardsToken
+    ASR_RewardsToken,
+    ASR_InvalidDepositId
 } from "../src/errors/Staking.sol";
 
 /**
- * TODO in next sprint:
- * support for locking multiple deposits
+ * TODO next:
  * turn pool into voting vault
- * README
+ * Add README
  */
 
 /**
@@ -42,9 +42,21 @@ import {
  * and earn rewards over time, paid in the ERC20 rewardsToken.  Rewards are earned based
  * on the amount of stakingToken staked and the length of time staked.
  *
- * A user has the opportunity to enhance their reward earnings by opting for
- * a bonus multiplier that is contingent on the duration for which the user
- * locks their staking tokens. The available lock durations are categorized
+ * Users have the flexibility to make multiple deposits, each accruing
+ * rewards separately until the staking period concludes. Upon depositing
+ * their tokens for staking, users are required to commit to a lock period
+ * where funds are immovable (even if the staking cycle concludes), until
+ * the chosen lock period expires. Early withdrawal is not permitted before
+ * the locking period is over.
+ * Should users choose not to withdraw their funds post the lock period, these
+ * funds will seamlessly transition into a subsequent staking cycle. Unlike the
+ * initial deposit, these automatically re-staked funds are not bound by a lock
+ * period and can be freely withdrawn at any point, even before the current
+ * staking cycle concludes.
+ *
+ * The lock period gives users the opportunity to enhance their reward earnings
+ * with a bonus multiplier that is contingent on the duration for which the user
+ * chooses to lock their staking tokens. The available lock durations are categorized
  * as short, medium, and long. Each category is associated with a progressively
  * increasing multiplier, with the short duration offering the smallest and
  * the long duration offering the largest.
@@ -84,7 +96,7 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
     uint256 public lastUpdateTime;
     uint256 public rewardPerTokenStored;
 
-    mapping(address => UserStake) public stakes;
+    mapping(address => UserStake[]) public stakes;
 
     uint256 public totalDeposits;
     uint256 public totalDepositsWithBonus;
@@ -149,12 +161,16 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
      *
      * @param account                       The address of the account.
      *
-     * @return uint256                      The amount that the user is staking.
+     * @return userBalance                  The total amount that the user is staking.
      */
-    function balanceOf(address account) external view returns (uint256) {
-        UserStake storage userStake = stakes[account];
+    function balanceOf(address account) external view returns (uint256 userBalance) {
+        UserStake[] storage userStakes = stakes[account];
+        userBalance = 0;
 
-        return userStake.amount;
+        for (uint256 i = 0; i < userStakes.length; ++i) {
+            UserStake storage userStake = userStakes[i];
+            userBalance += userStake.amount;
+        }
     }
 
     /**
@@ -177,6 +193,7 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
         if (totalDepositsWithBonus == 0) {
             return rewardPerTokenStored;
         }
+
         return rewardPerTokenStored +
              ((((lastTimeRewardApplicable() - lastUpdateTime) * rewardRate) * ONE) / totalDepositsWithBonus);
     }
@@ -187,15 +204,25 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
      *
      * @param account                         The address of the user that is staking.
      *
-     * @return uint256                        The amount of reward token earned.
+     * @return totalEarned                    The total amount of reward token earned.
+     * @return rewards                        Array of rewards amounts earned for each deposit.
      */
-    function earned(address account) public view returns (uint256) {
-        UserStake storage userStake = stakes[account];
-        uint256 stakeAmountWithBonus = getAmountWithBonus(account);
-        uint256 userRewardPerTokenPaid = userStake.rewardPerTokenPaid;
-        uint256 userRewards = userStake.rewards;
+    function earned(address account) public view returns (uint256 totalEarned, uint256[] memory rewards) {
+        rewards = new uint256[](stakes[account].length);
 
-        return (stakeAmountWithBonus * (rewardPerToken() - userRewardPerTokenPaid)) / ONE + userRewards;
+        UserStake[] storage userStakes = stakes[account];
+        totalEarned = 0;
+
+        for (uint256 i = 0; i < userStakes.length; ++i) {
+            uint256 stakeAmountWithBonus = getAmountWithBonus(account, i);
+
+            UserStake storage userStake = userStakes[i];
+            uint256 userRewardPerTokenPaid = userStake.rewardPerTokenPaid;
+            uint256 userRewards = userStake.rewards;
+
+            rewards[i] = ((stakeAmountWithBonus * (rewardPerToken() - userRewardPerTokenPaid)) / ONE + userRewards);
+            totalEarned += ((stakeAmountWithBonus * (rewardPerToken() - userRewardPerTokenPaid)) / ONE + userRewards);
+        }
     }
 
     /**
@@ -214,27 +241,29 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
 
      * @param account                           The user whose stakes to get.
      *
-     * @return UserStake                        User's stake struct.
+     * @return UserStake                        Array of user's stake structs.
      */
-    function getUserStakes(address account) public view returns (UserStake memory) {
+    function getUserStakes(address account) public view returns (UserStake[] memory) {
         return stakes[account];
     }
 
     /**
-     * @notice Gets a user's stake amount reflecting their locking bonus multiplier.
+     * @notice Gets a user's staked amount reflecting their locking bonus multiplier.
      *
      * @param account                           The user's account.
      *
      * @return amountWithBonus                  Value of user stake with bonus.
      */
-    function getAmountWithBonus(address account) public view returns (uint256 amountWithBonus) {
-        UserStake storage userStake = stakes[account];
+    function getAmountWithBonus(address account, uint256 depositId) public view returns (uint256 amountWithBonus) {
+        UserStake[] storage userStakes = stakes[account];
+
+        UserStake storage userStake = userStakes[depositId];
         uint256 amount = userStake.amount;
         Lock lock = userStake.lock;
 
         // Accounting with bonus
         (uint256 bonus,) = _getBonus(lock);
-        amountWithBonus = amount + ((amount * bonus) / ONE);
+        amountWithBonus = (amount + ((amount * bonus) / ONE));
     }
 
     // ========================================= MUTATIVE FUNCTIONS ========================================
@@ -243,8 +272,8 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
      *         supply of staked tokens and individual user balances are updated accordingly.
      * @dev    Valid lock values are 0 (one 28 day cycle), 1 (two 28 day cycle), and 2 (three 28 day cycle).
      *
-     * @param amount                           The amount of tokens the user stakes.
-     * @param lock                             The amount of time to lock the stake for.
+     * @param amount                            The amount of tokens the user stakes.
+     * @param lock                              The amount of time to lock the stake for.
      */
     function stake(uint256 amount, Lock lock) external nonReentrant whenNotPaused updateReward(msg.sender) {
         if (amount == 0) revert ASR_ZeroAmount();
@@ -253,21 +282,23 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
         (uint256 bonus, uint256 lockDuration) = _getBonus(lock);
         uint256 amountWithBonus = amount + ((amount * bonus) / ONE);
 
-         // populate user stake information
-        stakes[msg.sender] = UserStake({
-            amount: amount,
-            unlockTimestamp: uint32(block.timestamp + lockDuration),
-            rewardPerTokenPaid: rewardPerTokenStored,
-            rewards: 0,
-            lock: lock
-        });
+        // populate user stake information
+        stakes[msg.sender].push(
+            UserStake({
+                amount: amount,
+                unlockTimestamp: uint32(block.timestamp + lockDuration),
+                rewardPerTokenPaid: rewardPerTokenStored,
+                rewards: 0,
+                lock: lock
+            })
+        );
 
         totalDeposits += amount;
         totalDepositsWithBonus += amountWithBonus;
 
         stakingToken.safeTransferFrom(msg.sender, address(this), amount);
 
-        emit Staked(msg.sender, amount);
+        emit Staked(msg.sender, stakes[msg.sender].length - 1, amount);
     }
 
     /**
@@ -275,12 +306,14 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
      *         individual user balances are updated accordingly.
      *
      * @param amount                           The amount of tokens the user withdraws.
+     * @param depositId                        The specified deposit to withdraw.
      */
-    function withdraw(uint256 amount) public nonReentrant updateReward(msg.sender) {
+    function withdraw(uint256 amount, uint256 depositId) public nonReentrant updateReward(msg.sender) {
         if (amount == 0) revert ASR_ZeroAmount();
+        if (depositId >= stakes[msg.sender].length) revert ASR_InvalidDepositId();
 
         // Get user's stake
-        UserStake storage userStake = stakes[msg.sender];
+        UserStake storage userStake = stakes[msg.sender][depositId];
         uint256 depositAmount = userStake.amount;
 
         if (depositAmount == 0) revert ASR_NoStake();
@@ -303,10 +336,12 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
 
     /**
      * @notice Enables the claim of accumulated rewards.
+     *
+     * @param depositId                        The specified deposit to get the reward for.
      */
-    function getReward() public nonReentrant updateReward(msg.sender) {
+    function getReward(uint256 depositId) public nonReentrant updateReward(msg.sender) {
         // Get user's stake
-        UserStake storage userStake = stakes[msg.sender];
+        UserStake storage userStake = stakes[msg.sender][depositId];
         uint256 reward = userStake.rewards;
 
         if (reward > 0) {
@@ -317,18 +352,21 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
     }
 
     /**
-     * @notice Allows users to withdraw their staked tokens and claim their reward tokens
-     *         all in one transaction.
+     * @notice Allows users to withdraw all their staked tokens and claim their reward tokens
+     *         all in one transaction. Lock period needs to have ended.
      */
     function exit() external {
-        // Get user's stake
-        UserStake storage userStake = stakes[msg.sender];
-        uint256 depositAmount = userStake.amount;
+        UserStake[] storage userStakes = stakes[msg.sender];
 
-        withdraw(depositAmount);
-        getReward();
+        for (uint256 i = 0; i < userStakes.length; ++i) {
+            // Get user's stake
+            UserStake storage userStake = userStakes[i];
+            uint256 depositAmount = userStake.amount;
+
+            withdraw(depositAmount, i);
+            getReward(i);
+        }
     }
-
     // ======================================== RESTRICTED FUNCTIONS =========================================
     /**
      * @notice Notifies the contract of new rewards available for distribution and adjusts the
@@ -352,6 +390,7 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
         // very high values of rewardRate in the earned and rewardsPerToken functions;
         // Reward + leftover must be less than 2^256 / 10^18 to avoid overflow.
         uint balance = rewardsToken.balanceOf(address(this));
+
         if (rewardRate > balance) revert ASR_RewardTooHigh();
 
         lastUpdateTime = block.timestamp;
@@ -406,11 +445,16 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
         rewardPerTokenStored = rewardPerToken();
         lastUpdateTime = lastTimeRewardApplicable();
 
+        UserStake[] storage userStakes = stakes[account];
+
         if (account != address(0)) {
-            // Get user's stake
-            UserStake storage userStake = stakes[msg.sender];
-            userStake.rewards = earned(account);
-            userStake.rewardPerTokenPaid = rewardPerTokenStored;
+            for (uint256 i = 0; i < userStakes.length; ++i) {
+                UserStake storage userStake = userStakes[i];
+                (, uint256[] memory rewards) = earned(account);
+
+                userStake.rewards = rewards[i];
+                userStake.rewardPerTokenPaid = rewardPerTokenStored;
+            }
         }
         _;
     }
