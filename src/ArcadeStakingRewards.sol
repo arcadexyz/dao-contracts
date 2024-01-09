@@ -23,7 +23,7 @@ import {
     ASR_RewardsToken,
     ASR_InvalidDepositId
 } from "../src/errors/Staking.sol";
-
+import { console } from "forge-std/Test.sol";
 /**
  * TODO next:
  * turn pool into voting vault
@@ -248,6 +248,82 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
     }
 
     /**
+     * @notice Gets all of a user's active stakes.
+     * @dev This is provided because Solidity converts public arrays into index getters,
+     *      but we need a way to allow external contracts and users to access the whole array.
+
+     * @param account                           The user whose stakes to get.
+     *
+     * @return activeStakes                     Array of id's of user's active stakes.
+     */
+    function getActiveStakes(address account) public view returns (uint256[] memory) {
+        UserStake[] storage userStakes = stakes[account];
+        uint256 activeCount = 0;
+
+        for (uint256 i = 0; i < userStakes.length; ++i) {
+            UserStake storage userStake = userStakes[i];
+            if (userStake.amount > 0) {
+                activeCount++;
+            }
+        }
+
+        uint256[] memory activeStakes = new uint256[](activeCount);
+        uint256 activeIndex;
+
+        for (uint256 i = 0; i < userStakes.length; ++i) {
+            if (userStakes[i].amount > 0) {
+                activeStakes[activeIndex] = i;
+                activeIndex++;
+            }
+        }
+
+        return activeStakes;
+    }
+
+    /**
+     * @notice Gets all of a user's deposit ids for stakes that are holding a reward.
+     *         If the stake is inactive, i.e., userStake.amount == 0, the function
+     *         automatically sends the rewards for that deposit to the user.
+     *
+     * @return rewardedDeposits                 Array of id's of user's stakes holding rewards.
+     */
+    function getRewardDeposit() public returns (uint256[] memory) {
+       uint256[] memory rewards = new uint256[](stakes[msg.sender].length);
+
+        UserStake[] storage userStakes = stakes[msg.sender];
+        uint256 rewarded = 0;
+
+        for (uint256 i = 0; i < userStakes.length; ++i) {
+            uint256 stakeAmountWithBonus = getAmountWithBonus(msg.sender, i);
+
+            UserStake storage userStake = userStakes[i];
+            uint256 userRewardPerTokenPaid = userStake.rewardPerTokenPaid;
+            uint256 userRewards = userStake.rewards;
+
+            rewards[i] = ((stakeAmountWithBonus * (rewardPerToken() - userRewardPerTokenPaid)) / ONE + userRewards);
+
+            if (rewards[i] > 0) {
+                rewarded++;
+            }
+        }
+
+        uint256[] memory rewardedDeposits = new uint256[](rewarded);
+        uint256 rewardedIndex;
+
+        for (uint256 i = 0; i < userStakes.length; ++i) {
+            if (userStakes[i].rewards > 0) {
+                rewardedDeposits[rewardedIndex] = i;
+                rewardedIndex++;
+
+                if (userStakes[i].amount == 0) {
+                    getReward(i);
+                }
+            }
+        }
+        return rewardedDeposits;
+    }
+
+    /**
      * @notice Gets a user's staked amount reflecting their locking bonus multiplier.
      *
      * @param account                           The user's account.
@@ -349,6 +425,21 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
             rewardsToken.safeTransfer(msg.sender, reward);
             emit RewardPaid(msg.sender, reward);
         }
+    }
+
+    /**
+     * @notice Allows users to withdraw their staked tokens and claim their rewards
+     *         for a specific deposit id, all in one transaction.
+     *         Lock period needs to have ended.
+     *
+     * @param depositId                        The specified deposit to exit.
+     */
+    function exit(uint256 depositId) external {
+        UserStake[] storage userStakes = stakes[msg.sender];
+        UserStake storage userStake = userStakes[depositId];
+
+        withdraw(userStake.amount, depositId);
+        getReward(depositId);
     }
 
     /**
