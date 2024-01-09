@@ -287,7 +287,7 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
      *
      * @return rewardedDeposits                 Array of id's of user's stakes holding rewards.
      */
-    function getRewardDeposit() public returns (uint256[] memory) {
+    function getRewardDeposit() public view returns (uint256[] memory) {
        uint256[] memory rewards = new uint256[](stakes[msg.sender].length);
 
         UserStake[] storage userStakes = stakes[msg.sender];
@@ -314,10 +314,6 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
             if (userStakes[i].rewards > 0) {
                 rewardedDeposits[rewardedIndex] = i;
                 rewardedIndex++;
-
-                if (userStakes[i].amount == 0) {
-                    getReward(i);
-                }
             }
         }
         return rewardedDeposits;
@@ -424,6 +420,25 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
             userStake.rewards = 0;
             rewardsToken.safeTransfer(msg.sender, reward);
             emit RewardPaid(msg.sender, reward);
+        }
+    }
+
+    /**
+     * @notice Enables the claim of all accumulated rewards in one transaction.
+     */
+    function getRewards() public nonReentrant updateReward(msg.sender) {
+        UserStake[] storage userStakes = stakes[msg.sender];
+
+        for (uint256 i = 0; i < userStakes.length; ++i) {
+            // Get user's stake
+            UserStake storage userStake = userStakes[i];
+            uint256 reward = userStake.rewards;
+
+            if (reward > 0) {
+                userStake.rewards = 0;
+                rewardsToken.safeTransfer(msg.sender, reward);
+                emit RewardPaid(msg.sender, reward);
+            }
         }
     }
 

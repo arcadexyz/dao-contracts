@@ -50,12 +50,16 @@ interface IArcadeStakingRewards {
 
     function getUserStakes(address account) external view returns (UserStake[] memory);
 
+    function getRewardDeposit() external view returns (uint256[] memory);
+
     // =========================================== MUTATIVE FUNCTIONS ============================================
     function exit() external;
 
     function exit(uint256 depositId) external;
 
     function getReward(uint256 depositId) external;
+
+    function getRewards() external;
 
     function stake(uint256 amount, Lock lock) external;
 
@@ -64,6 +68,4 @@ interface IArcadeStakingRewards {
     function setRewardsDuration(uint256 _rewardsDuration) external;
 
     function recoverERC20(address tokenAddress, uint256 tokenAmount) external;
-
-    function getRewardDeposit() external returns (uint256[] memory);
 }
