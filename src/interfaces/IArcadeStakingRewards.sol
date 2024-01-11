@@ -32,7 +32,7 @@ interface IArcadeStakingRewards {
     // ============================================= VIEW FUNCTIONS ==============================================
     function balanceOf(address account) external view returns (uint256);
 
-    function earned(address account) external view returns (uint256, uint256[] memory);
+    function earned(address account, uint256 depositId) external view returns (uint256);
 
     function getRewardForDuration() external view returns (uint256);
 
@@ -50,20 +50,22 @@ interface IArcadeStakingRewards {
 
     function getUserStakes(address account) external view returns (UserStake[] memory);
 
-    function getRewardDeposit() external view returns (uint256[] memory);
+    function getDepositIndicesWithRewards() external view returns (uint256[] memory, uint256[] memory);
 
     // =========================================== MUTATIVE FUNCTIONS ============================================
-    function exit() external;
+    function exitAll() external;
 
     function exit(uint256 depositId) external;
 
-    function getReward(uint256 depositId) external;
+    function claimReward(uint256 depositId) external;
 
-    function getRewards() external;
+    function claimRewardAll() external;
 
     function stake(uint256 amount, Lock lock) external;
 
     function withdraw(uint256 amount, uint256 depositId) external;
+
+    function withdrawAll() external;
 
     function setRewardsDuration(uint256 _rewardsDuration) external;
 
