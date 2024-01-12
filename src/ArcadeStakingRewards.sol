@@ -392,28 +392,17 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
         if (amount > depositAmount) revert ASR_BalanceAmount();
         if (block.timestamp < userStake.unlockTimestamp) revert ASR_Locked();
 
-        _updateRewardForDeposit(msg.sender, depositId);
 
-        // Update user stake
-        userStake.amount -= amount;
+        (uint256 withdrawAmount, uint256 reward) = _withdraw(msg.sender, amount, depositId);
 
-        uint256 reward = userStake.rewards;
-
-        (uint256 bonus,) = _getBonus(userStake.lock);
-        uint256 amountToWithdrawWithBonus = amount + (amount * bonus) / ONE;
-
-        totalDeposits -= amount;
-        totalDepositsWithBonus -= amountToWithdrawWithBonus;
-
-        stakingToken.safeTransfer(msg.sender, amount);
+        if (withdrawAmount > 0) {
+            stakingToken.safeTransfer(msg.sender, withdrawAmount);
+        }
 
         if (reward > 0) {
-            userStake.rewards = 0;
             rewardsToken.safeTransfer(msg.sender, reward);
             emit RewardPaid(msg.sender, reward);
         }
-
-        emit Withdrawn(msg.sender, amount);
     }
 
     /**
@@ -421,25 +410,30 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
      */
     function withdrawAll() public nonReentrant updateReward {
         UserStake[] storage userStakes = stakes[msg.sender];
+        uint256 totalWithdrawAmount = 0;
+        uint256 totalRewardAmount = 0;
 
         for (uint256 i = 0; i < userStakes.length; ++i) {
             UserStake storage userStake = userStakes[i];
             uint256 depositAmount = userStake.amount;
 
-            if (depositAmount == 0) continue;
-            if (block.timestamp < userStake.unlockTimestamp) continue;
+            if (depositAmount == 0 || block.timestamp < userStake.unlockTimestamp) continue;
 
-            _updateRewardForDeposit(msg.sender, i);
+            (uint256 withdrawAmount, uint256 reward) = _withdraw(msg.sender, depositAmount, i);
+            totalWithdrawAmount += withdrawAmount;
+            totalRewardAmount += reward;
 
-            (uint256 bonus,) = _getBonus(userStake.lock);
-            uint256 amountToWithdrawWithBonus = depositAmount + (depositAmount * bonus) / ONE;
+            if (reward > 0) {
+                emit RewardPaid(msg.sender, reward);
+            }
+        }
 
-            totalDeposits -= depositAmount;
-            totalDepositsWithBonus -= amountToWithdrawWithBonus;
+        if (totalWithdrawAmount > 0) {
+            stakingToken.safeTransfer(msg.sender, totalWithdrawAmount);
+        }
 
-            stakingToken.safeTransfer(msg.sender, depositAmount);
-
-            emit Withdrawn(msg.sender, depositAmount);
+        if (totalRewardAmount > 0) {
+            rewardsToken.safeTransfer(msg.sender, totalRewardAmount);
         }
     }
 
@@ -449,16 +443,12 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
      * @param depositId                        The specified deposit to get the reward for.
      */
     function claimReward(uint256 depositId) public nonReentrant updateReward {
-        UserStake storage userStake = stakes[msg.sender][depositId];
+        uint256 reward = 0;
 
-        _updateRewardForDeposit(msg.sender, depositId);
-
-        uint256 reward = userStake.rewards;
+        reward = _claimReward(depositId);
 
         if (reward > 0) {
-            userStake.rewards = 0;
             rewardsToken.safeTransfer(msg.sender, reward);
-            emit RewardPaid(msg.sender, reward);
         }
     }
 
@@ -467,18 +457,14 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
      */
     function claimRewardAll() public nonReentrant updateReward {
         UserStake[] storage userStakes = stakes[msg.sender];
+        uint256 totalReward = 0;
 
         for (uint256 i = 0; i < userStakes.length; ++i) {
-            _updateRewardForDeposit(msg.sender, i);
+            totalReward += _claimReward(i);
+        }
 
-            UserStake storage userStake = userStakes[i];
-            uint256 reward = userStake.rewards;
-
-            if (reward > 0) {
-                userStake.rewards = 0;
-                rewardsToken.safeTransfer(msg.sender, reward);
-                emit RewardPaid(msg.sender, reward);
-            }
+        if (totalReward > 0) {
+            rewardsToken.safeTransfer(msg.sender, totalReward);
         }
     }
 
@@ -490,10 +476,7 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
      * @param depositId                        The specified deposit to exit.
      */
     function exit(uint256 depositId) external {
-        UserStake[] storage userStakes = stakes[msg.sender];
-        UserStake storage userStake = userStakes[depositId];
-
-        withdraw(userStake.amount, depositId);
+        _exit(depositId);
     }
 
     /**
@@ -504,11 +487,7 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
         UserStake[] storage userStakes = stakes[msg.sender];
 
         for (uint256 i = 0; i < userStakes.length; ++i) {
-            // Get user's stake
-            UserStake storage userStake = userStakes[i];
-            uint256 depositAmount = userStake.amount;
-
-            withdraw(depositAmount, i);
+            _exit(i);
         }
     }
     // ======================================== RESTRICTED FUNCTIONS =========================================
@@ -587,6 +566,74 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
     }
 
     /**
+     * @notice Withdraws staked tokens that are unlocked.
+     *
+     * @param depositId                        The specified deposit to get the reward for.
+     * @param amount                           The amount to be withdrawn.
+     * @param user                             The account whose stake is being withdrawn.
+     *
+     * @return amountToWithdraw                The staked amount which will be withdrawn.
+     * @return reward                          The reward amount which will be withdrawn.
+     */
+    function _withdraw(address user, uint256 amount, uint256 depositId) internal returns (uint256 amountToWithdraw, uint256 reward) {
+        UserStake storage userStake = stakes[user][depositId];
+        uint256 depositAmount = userStake.amount;
+        amountToWithdraw = amount;
+
+        _updateRewardForDeposit(user, depositId);
+
+        // Update user stake
+        userStake.amount -= amount;
+
+        uint256 reward = userStake.rewards;
+        userStake.rewards = 0;
+
+        (uint256 bonus,) = _getBonus(userStake.lock);
+        uint256 amountToWithdrawWithBonus = amount + (amount * bonus) / ONE;
+
+        totalDeposits -= amount;
+        totalDepositsWithBonus -= amountToWithdrawWithBonus;
+
+        emit Withdrawn(user, amount);
+
+        return (amountToWithdraw, reward);
+    }
+
+    /**
+     * @notice Claim accumulated rewards.
+     *
+     * @param depositId                        The specified deposit to get the reward for.
+     *
+     * @return reward                          The reward amount claimed.
+     */
+    function _claimReward(uint256 depositId) internal returns (uint256 reward) {
+        UserStake storage userStake = stakes[msg.sender][depositId];
+
+        _updateRewardForDeposit(msg.sender, depositId);
+
+        uint256 reward = userStake.rewards;
+
+        if (reward > 0) {
+            userStake.rewards = 0;
+            emit RewardPaid(msg.sender, reward);
+        }
+
+        return reward;
+    }
+
+    /**
+     * @notice Allows users to withdraw staked tokens and claim rewards.
+     *
+     * @param depositId                        The specified deposit to exit.
+     */
+    function _exit(uint256 depositId) internal {
+        UserStake[] storage userStakes = stakes[msg.sender];
+        UserStake storage userStake = userStakes[depositId];
+
+        withdraw(userStake.amount, depositId);
+    }
+
+    /**
      * @notice Updates the reward calculation for a user before executing any transaction such as
      *         staking, withdrawing, or reward claiming, to ensure the correct calculation of
      *         rewards for the user.
@@ -606,6 +653,11 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
 
     /**
      * @dev Maps Lock enum values to corresponding lengths of time and reward bonuses.
+     *
+     * @param _lock                            The lock value.
+     *
+     * @return bonus                           The bonus amount associated with the lock.
+     * @return lockDuration                    The amount of time that the stake will be locked.
      */
     function _getBonus(Lock _lock) internal view returns (uint256 bonus, uint256 lockDuration) {
         if (_lock == Lock.Short) {
