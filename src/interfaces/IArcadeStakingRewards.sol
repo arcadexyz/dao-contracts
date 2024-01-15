@@ -65,8 +65,6 @@ interface IArcadeStakingRewards {
 
     function withdraw(uint256 amount, uint256 depositId) external;
 
-    function withdrawAll() external;
-
     function setRewardsDuration(uint256 _rewardsDuration) external;
 
     function recoverERC20(address tokenAddress, uint256 tokenAmount) external;

@@ -182,7 +182,7 @@ contract ArcadeStakingRewardsTest is Test {
         assertEq(poolTotalSupplyAfterWithdraw, 0);
     }
 
-    function testWithdrawAll() public {
+    function testExitAll() public {
         setUp();
 
         uint256 userStake = 20e18;
@@ -212,7 +212,7 @@ contract ArcadeStakingRewardsTest is Test {
         // increase blockchain time by the medium lock duration
         vm.warp(block.timestamp + THREE_WEEKS);
 
-        stakingRewards.withdrawAll();
+        stakingRewards.exitAll();
         uint256 balanceAfterWithdraw = stakingToken.balanceOf(userA);
         uint256 poolTotalSupplyAfterWithdraw = stakingRewards.totalSupply();
 
@@ -373,49 +373,6 @@ contract ArcadeStakingRewardsTest is Test {
 
         // check that user has received rewardsTokens
         assertEq(rewardsToken.balanceOf(userA), reward + reward1);
-    }
-
-    function testExitAll() public {
-        setUp();
-
-        uint256 userStake = 20e18;
-
-        // mint rewardsTokens to stakingRewards contract
-        rewardsToken.mint(address(stakingRewards), 100e18);
-        // mint staking tokens to user
-        stakingToken.mint(userA, userStake * 2);
-
-        // Admin calls notifyRewardAmount to set the reward rate
-        vm.prank(admin);
-        stakingRewards.notifyRewardAmount(100e18);
-
-        // user approves stakingRewards contract to spend staking tokens
-        vm.startPrank(userA);
-        stakingToken.approve(address(stakingRewards), userStake * 2);
-        stakingRewards.stake(userStake, IArcadeStakingRewards.Lock.Medium);
-        stakingRewards.stake(userStake, IArcadeStakingRewards.Lock.Long);
-
-        uint256 poolTotalSupplyBeforeWithdraw = stakingRewards.totalSupply();
-        uint256 balanceBeforeWithdraw = stakingToken.balanceOf(userA);
-
-        assertEq(rewardsToken.balanceOf(userA), 0);
-
-        // increase blockhain to end lock period
-        vm.warp(block.timestamp + THREE_WEEKS);
-
-        uint256 reward = stakingRewards.earned(userA, 0);
-        uint256 reward2 = stakingRewards.earned(userA, 1);
-
-        vm.startPrank(userA);
-        stakingRewards.exitAll();
-
-        uint256 balanceAfterWithdraw = stakingToken.balanceOf(userA);
-        uint256 poolTotalSupplyAfterWithdraw = stakingRewards.totalSupply();
-
-        assertEq(balanceAfterWithdraw, balanceBeforeWithdraw + userStake * 2);
-        assertEq(poolTotalSupplyBeforeWithdraw, userStake * 2);
-        assertEq(poolTotalSupplyAfterWithdraw, 0);
-        assertEq(rewardsToken.balanceOf(userA), reward + reward2);
     }
 
     function testExit() public {
