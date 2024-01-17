@@ -7,7 +7,7 @@ import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 interface IArcadeStakingRewards {
     // ================================================= EVENTS ==================================================
     event RewardAdded(uint256 reward);
-    event Staked(address indexed user, uint256 amount);
+    event Staked(address indexed user, uint256 depositId, uint256 amount);
     event Withdrawn(address indexed user, uint256 amount);
     event RewardPaid(address indexed user, uint256 reward);
     event RewardsDurationUpdated(uint256 newDuration);
@@ -32,7 +32,7 @@ interface IArcadeStakingRewards {
     // ============================================= VIEW FUNCTIONS ==============================================
     function balanceOf(address account) external view returns (uint256);
 
-    function earned(address account) external view returns (uint256);
+    function earned(address account, uint256 depositId) external view returns (uint256);
 
     function getRewardForDuration() external view returns (uint256);
 
@@ -44,12 +44,28 @@ interface IArcadeStakingRewards {
 
     function totalSupply() external view returns (uint256);
 
-    // =========================================== MUTATIVE FUNCTIONS ============================================
-    function exit() external;
+    function getAmountWithBonus(address account, uint256 depositId) external view returns (uint256);
 
-    function getReward() external;
+    function getActiveStakes(address account) external view returns (uint256[] memory);
+
+    function getUserStakes(address account) external view returns (UserStake[] memory);
+
+    function getDepositIndicesWithRewards() external view returns (uint256[] memory, uint256[] memory);
+
+    // =========================================== MUTATIVE FUNCTIONS ============================================
+    function exitAll() external;
+
+    function exit(uint256 depositId) external;
+
+    function claimReward(uint256 depositId) external;
+
+    function claimRewardAll() external;
 
     function stake(uint256 amount, Lock lock) external;
 
-    function withdraw(uint256 amount) external;
+    function withdraw(uint256 amount, uint256 depositId) external;
+
+    function setRewardsDuration(uint256 _rewardsDuration) external;
+
+    function recoverERC20(address tokenAddress, uint256 tokenAmount) external;
 }
