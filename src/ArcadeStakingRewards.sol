@@ -40,7 +40,7 @@ import {
  * https://github.com/Synthetixio/synthetix/blob/develop/contracts/StakingRewards.sol
  *
  * The contract manages a staking mechanism where users can stake the ERC20 stakingToken
- * and earn rewards over time, paid in the ERC20 rewardsToken.  Rewards are getpendingrewards based
+ * and earn rewards over time, paid in the ERC20 rewardsToken.  Rewards are earned based
  * on the amount of stakingToken staked and the length of time staked.
  *
  * Users have the flexibility to make multiple deposits, each accruing
@@ -217,7 +217,7 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
     }
 
     /**
-     * @notice Returns the amount of reward token getpendingrewards per staked token.
+     * @notice Returns the amount of reward token earned per staked token.
      *
      * @return uint256                        The reward token amount per staked token.
      */
@@ -239,7 +239,7 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
      * @param account                         The address of the user that is staking.
      * @param depositId                       The specified deposit to get the reward for.
      *
-     * @return rewards                        Array of rewards amounts getpendingrewards for each deposit.
+     * @return rewards                        Rewards amounts earned for each deposit.
      */
     function getPendingRewards(address account, uint256 depositId) public view returns (uint256) {
         UserStake[] storage userStakes = stakes[account];
@@ -611,7 +611,7 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
 
         // Ensure the provided reward amount is not more than the balance in the contract.
         // This keeps the reward rate in the right range, preventing overflows due to
-        // very high values of rewardRate in the getpendingrewards and rewardsPerToken functions;
+        // very high values of rewardRate in the earned and rewardsPerToken functions;
         // Reward + leftover must be less than 2^256 / 10^18 to avoid overflow.
         uint balance = rewardsToken.balanceOf(address(this));
 
@@ -748,8 +748,8 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
         UserStake storage userStake = stakes[account][depositId];
         if (userStake.amount == 0) return;
 
-        uint256 getpendingrewardsReward = getPendingRewards(account, depositId);
-        userStake.rewards += getpendingrewardsReward;
+        uint256 earnedReward = getPendingRewards(account, depositId);
+        userStake.rewards += earnedReward;
         userStake.rewardPerTokenPaid = rewardPerTokenStored;
     }
 
