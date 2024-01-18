@@ -40,7 +40,7 @@ import {
  * https://github.com/Synthetixio/synthetix/blob/develop/contracts/StakingRewards.sol
  *
  * The contract manages a staking mechanism where users can stake the ERC20 stakingToken
- * and earn rewards over time, paid in the ERC20 rewardsToken.  Rewards are earned based
+ * and earn rewards over time, paid in the ERC20 rewardsToken.  Rewards are getpendingrewards based
  * on the amount of stakingToken staked and the length of time staked.
  *
  * Users have the flexibility to make multiple deposits, each accruing
@@ -196,11 +196,13 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
      *
      * @return depositBalance               The total amount staked in the deposit.
      */
-    function balanceOfDeposit(address account, uint256 depositId) external view returns (uint256 depositBalance) {
+    function balanceOfDeposit(address account, uint256 depositId) external view returns (uint256) {
         UserStake[] storage userStakes = stakes[account];
         UserStake storage userStake = userStakes[depositId];
 
-        depositBalance = userStake.amount;
+        uint256 depositBalance = userStake.amount;
+
+        return depositBalance;
     }
 
     /**
@@ -215,7 +217,7 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
     }
 
     /**
-     * @notice Returns the amount of reward token earned per staked token.
+     * @notice Returns the amount of reward token getpendingrewards per staked token.
      *
      * @return uint256                        The reward token amount per staked token.
      */
@@ -232,15 +234,14 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
     }
 
     /**
-     * @notice Returns the amount of reward that an account has earned to date based on their
-     *         staking.
+     * @notice Returns the reward amount for a deposit.
      *
      * @param account                         The address of the user that is staking.
      * @param depositId                       The specified deposit to get the reward for.
      *
-     * @return rewards                        Array of rewards amounts earned for each deposit.
+     * @return rewards                        Array of rewards amounts getpendingrewards for each deposit.
      */
-    function earned(address account, uint256 depositId) public view returns (uint256) {
+    function getPendingRewards(address account, uint256 depositId) public view returns (uint256) {
         UserStake[] storage userStakes = stakes[account];
         UserStake storage userStake = userStakes[depositId];
 
@@ -264,16 +265,26 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
     }
 
     /**
-     * @notice Gets all of a user's stakes.
-     * @dev This is provided because Solidity converts public arrays into index getters,
-     *      but we need a way to allow external contracts and users to access the whole array.
+     * @notice Returns information about a deposit.
 
      * @param account                           The user whose stakes to get.
+     * @param depositId                         The specified deposit to get.
      *
-     * @return UserStake                        Array of user's stake structs.
+     * @return lock                             Lock period committed.
+     * @return unlockTimestamp                  Timestamp marking the end of the lock period.
+     * @return amount                           Amount staked.
+     * @return rewardPerTokenPaid               Reward per token accounted for.
+     * @return rewards                          Amount of rewards accrued.
      */
-    function getUserStakes(address account) public view returns (UserStake[] memory) {
-        return stakes[account];
+    function getUserStake(address account, uint256 depositId) external view returns (uint8 lock, uint32 unlockTimestamp, uint256 amount, uint256 rewardPerTokenPaid, uint256 rewards) {
+        UserStake[] storage userStakes = stakes[account];
+        UserStake storage userStake = userStakes[depositId];
+
+        lock = uint8(userStake.lock);
+        unlockTimestamp = userStake.unlockTimestamp;
+        amount = userStake.amount;
+        rewardPerTokenPaid = userStake.rewardPerTokenPaid;
+        rewards = userStake.rewards;
     }
 
     /**
@@ -395,16 +406,35 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
      *
      * @return totalRewards                     Value of a user's rewards across all deposits.
      */
-    function getTotalUserPendingRewards(address account) public view returns (uint256) {
+    function getTotalUserPendingRewards(address account) external view returns (uint256) {
         UserStake[] storage userStakes = stakes[account];
         uint256 totalRewards = 0;
 
         for (uint256 i = 0; i < userStakes.length; ++i) {
             UserStake storage userStake = userStakes[i];
-            totalRewards += earned(account, i);
+            totalRewards += getPendingRewards(account, i);
         }
 
         return totalRewards;
+    }
+
+    /**
+     * @notice Get all user's deposits with their bonuses.
+     *
+     * @param account                           The user's account.
+     *
+     * @return totalRewards                     Value of a user's rewards across all deposits.
+     */
+    function getTotalUserDepositsWithBonus(address account) external view returns (uint256) {
+        UserStake[] storage userStakes = stakes[account];
+        uint256 totalDepositsWithBonuses = 0;
+
+        for (uint256 i = 0; i < userStakes.length; ++i) {
+            UserStake storage userStake = userStakes[i];
+            totalDepositsWithBonuses += getAmountWithBonus(account, i);
+        }
+
+        return totalDepositsWithBonuses;
     }
 
 
@@ -581,7 +611,7 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
 
         // Ensure the provided reward amount is not more than the balance in the contract.
         // This keeps the reward rate in the right range, preventing overflows due to
-        // very high values of rewardRate in the earned and rewardsPerToken functions;
+        // very high values of rewardRate in the getpendingrewards and rewardsPerToken functions;
         // Reward + leftover must be less than 2^256 / 10^18 to avoid overflow.
         uint balance = rewardsToken.balanceOf(address(this));
 
@@ -718,8 +748,8 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
         UserStake storage userStake = stakes[account][depositId];
         if (userStake.amount == 0) return;
 
-        uint256 earnedReward = earned(account, depositId);
-        userStake.rewards += earnedReward;
+        uint256 getpendingrewardsReward = getPendingRewards(account, depositId);
+        userStake.rewards += getpendingrewardsReward;
         userStake.rewardPerTokenPaid = rewardPerTokenStored;
     }
 
