@@ -21,7 +21,8 @@ import {
     ASR_NoStake,
     ASR_Locked,
     ASR_RewardsToken,
-    ASR_InvalidDepositId
+    ASR_InvalidDepositId,
+    ASR_NoIterations
 } from "../src/errors/Staking.sol";
 
 /**
@@ -66,6 +67,18 @@ import {
  * staked amount.
  * This boosts the user's rewards in proportion to both the amount staked and
  * the duration of the stake.
+ *
+ * In the exitAll() and claimRewardAll() external functions, it's necessary to
+ * limit the number of iterations processed within their loops to prevent exceeding
+ * the block gas limit. Because of this, the contract enforces a hard limit on the
+ * number of iterations that can be processed in a single transaction. This limit
+ * is defined by the maxIterations state variable.
+ * Should a user's transaction necessitate processing a quantity of items that
+ * surpasses the maxIterations threshold, they will be required to execute
+ * additional transactions.
+ * The maxIterations value is adjustable and can be modified by the contract
+ * administrator to accommodate varying operational requirements or to respond
+ * to changes in network conditions.
  */
 
 contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, ReentrancyGuard, Pausable {
@@ -92,6 +105,7 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
     uint256 public rewardsDuration = 7 days;
     uint256 public lastUpdateTime;
     uint256 public rewardPerTokenStored;
+    uint256 public maxIterations;
 
     mapping(address => UserStake[]) public stakes;
 
@@ -114,6 +128,7 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
      * @param shortBonus                   The bonus multiplier for the short lock time.
      * @param mediumBonus                  The bonus multiplier for the medium lock time.
      * @param longBonus                    The bonus multiplier for the long lock time.
+     * @param _maxIterations               The max number of iterations a for loop can process.
      */
     constructor(
         address _owner,
@@ -125,14 +140,17 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
         uint256 longLockTime,
         uint256 shortBonus,
         uint256 mediumBonus,
-        uint256 longBonus
+        uint256 longBonus,
+        uint256 _maxIterations
     ) Ownable(_owner) {
         if (address(_rewardsDistribution) == address(0)) revert ASR_ZeroAddress();
         if (address(_rewardsToken) == address(0)) revert ASR_ZeroAddress();
         if (address(_stakingToken) == address(0)) revert ASR_ZeroAddress();
+        if (_maxIterations == 0) revert ASR_NoIterations();
         rewardsToken = IERC20(_rewardsToken);
         stakingToken = IERC20(_stakingToken);
         rewardsDistribution = _rewardsDistribution;
+        maxIterations = _maxIterations;
 
         SHORT_BONUS = shortBonus;
         MEDIUM_BONUS = mediumBonus;
@@ -405,8 +423,11 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
         UserStake[] storage userStakes = stakes[msg.sender];
         uint256 totalWithdrawAmount = 0;
         uint256 totalRewardAmount = 0;
+        uint256 iterations = 0;
 
-        for (uint256 i = 0; i < userStakes.length; ++i) {
+        uint256 loopIterations = userStakes.length < maxIterations ? userStakes.length : maxIterations;
+
+        for (uint256 i = 0; i < loopIterations; ++i) {
             UserStake storage userStake = userStakes[i];
             uint256 depositAmount = userStake.amount;
 
@@ -419,6 +440,8 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
             if (reward > 0) {
                 emit RewardPaid(msg.sender, reward);
             }
+
+            iterations++;
         }
 
         if (totalWithdrawAmount > 0) {
@@ -428,6 +451,8 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
         if (totalRewardAmount > 0) {
             rewardsToken.safeTransfer(msg.sender, totalRewardAmount);
         }
+
+        emit IterationsProcessed(iterations);
     }
 
     /**
@@ -448,17 +473,23 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
     /**
      * @notice Enables the claim of all accumulated rewards in one transaction.
      */
-    function claimRewardAll() public nonReentrant updateReward {
+    function claimRewardAll() external nonReentrant updateReward {
         UserStake[] storage userStakes = stakes[msg.sender];
         uint256 totalReward = 0;
+        uint256 iterations = 0;
 
-        for (uint256 i = 0; i < userStakes.length; ++i) {
+        uint256 loopIterations = userStakes.length < maxIterations ? userStakes.length : maxIterations;
+
+        for (uint256 i = 0; i < loopIterations; ++i) {
             totalReward += _claimReward(i);
+            iterations++;
         }
 
         if (totalReward > 0) {
             rewardsToken.safeTransfer(msg.sender, totalReward);
         }
+
+        emit IterationsProcessed(iterations);
     }
 
     /**
@@ -540,6 +571,20 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
         rewardsDuration = _rewardsDuration;
 
         emit RewardsDurationUpdated(rewardsDuration);
+    }
+
+    /**
+     * @notice An only owner function to establish the max amount of iterations a loop is set
+     *         to process in order to prevent block gas limit errors.
+     *
+     * @param newMaxIterations                   The max amount of iterations.
+     */
+    function updateMaxIterations(uint256 newMaxIterations) external onlyRewardsDistribution {
+        if (newMaxIterations == 0) revert ASR_NoIterations();
+
+        maxIterations = newMaxIterations;
+
+        emit MaxIterationsUpdated(newMaxIterations);
     }
 
     // ============================================== HELPERS ===============================================

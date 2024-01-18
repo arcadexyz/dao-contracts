@@ -75,3 +75,8 @@ error ASR_RewardsToken();
  *
  */
 error ASR_InvalidDepositId();
+
+/**
+ * @notice Zero passed in where not allowed.
+ */
+error ASR_NoIterations();

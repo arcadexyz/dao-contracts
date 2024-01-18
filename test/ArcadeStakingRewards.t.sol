@@ -36,7 +36,8 @@ contract ArcadeStakingRewardsTest is Test {
             THREE_WEEKS,
             1.1e18,
             1.3e18,
-            1.5e18
+            1.5e18,
+            4
         );
 
         // set rewards to duration to an even number of days for easier testing
@@ -58,7 +59,8 @@ contract ArcadeStakingRewardsTest is Test {
             THREE_WEEKS,
             1.1e18,
             1.3e18,
-            1.5e18
+            1.5e18,
+            4
         );
 
         vm.expectRevert(abi.encodeWithSelector(selector));
@@ -72,7 +74,8 @@ contract ArcadeStakingRewardsTest is Test {
             THREE_WEEKS,
             1.1e18,
             1.3e18,
-            1.5e18
+            1.5e18,
+            4
         );
 
         vm.expectRevert(abi.encodeWithSelector(selector));
@@ -86,7 +89,27 @@ contract ArcadeStakingRewardsTest is Test {
             THREE_WEEKS,
             1.1e18,
             1.3e18,
-            1.5e18
+            1.5e18,
+            4
+        );
+    }
+
+    function testConstructorNoIterations() public {
+        bytes4 selector = bytes4(keccak256("ASR_NoIterations()"));
+
+        vm.expectRevert(abi.encodeWithSelector(selector));
+        stakingRewards = new ArcadeStakingRewards(
+            owner,
+            admin,
+            address(rewardsToken),
+            address(stakingToken),
+            ONE_WEEK,
+            TWO_WEEKS,
+            THREE_WEEKS,
+            1.1e18,
+            1.3e18,
+            1.5e18,
+            0
         );
     }
 
@@ -1259,6 +1282,102 @@ contract ArcadeStakingRewardsTest is Test {
         uint256 tolerance2 = 1e7;
         assertApproxEqAbs(0, rewardsToken.balanceOf(address(stakingRewards)), tolerance2);
         assertEq(0, stakingToken.balanceOf(address(stakingRewards)));
+    }
+
+    function testUpdateMaxIterations() public {
+        setUp();
+
+        uint256 maxIt = stakingRewards.maxIterations();
+        assertEq(maxIt, 4);
+
+        // admin updates max iterations
+        vm.prank(admin);
+        stakingRewards.updateMaxIterations(9);
+
+        uint256 maxItNew = stakingRewards.maxIterations();
+        assertEq(maxItNew, 9);
+    }
+
+    function testLoopIterationsExitAll() public {
+        setUp();
+
+        uint256 userStakeAmount = 20e18;
+
+        // mint rewardsTokens to stakingRewards contract
+        rewardsToken.mint(address(stakingRewards), 200e18);
+        // mint staking tokens to userA
+        stakingToken.mint(userA, userStakeAmount * 5);
+
+        // Admin calls notifyRewardAmount to set the reward rate
+        vm.prank(admin);
+        stakingRewards.notifyRewardAmount(100e18);
+
+        uint256 currentTime = block.timestamp;
+
+        // userA approves stakingRewards contract to spend staking tokens
+        vm.startPrank(userA);
+        stakingToken.approve(address(stakingRewards), userStakeAmount * 5);
+        // userA stakes 5 deposits
+        stakingRewards.stake(userStakeAmount, IArcadeStakingRewards.Lock.Medium);
+        stakingRewards.stake(userStakeAmount, IArcadeStakingRewards.Lock.Short);
+        stakingRewards.stake(userStakeAmount, IArcadeStakingRewards.Lock.Long);
+        stakingRewards.stake(userStakeAmount, IArcadeStakingRewards.Lock.Short);
+        stakingRewards.stake(userStakeAmount, IArcadeStakingRewards.Lock.Medium);
+
+        // increase blockchain to end long lock period
+        vm.warp(currentTime + THREE_WEEKS);
+
+        // confirm iterations processed event is emitted
+        vm.expectEmit(true, false, false, true);
+
+        stakingRewards.exitAll();
+
+        (uint256[] memory rewardedDeposits, uint256[] memory rewardAmounts) = stakingRewards.getDepositIndicesWithRewards();
+        vm.stopPrank();
+
+        assertEq(rewardedDeposits.length, 1);
+        assertEq(rewardAmounts.length, 1);
+    }
+
+    function testLoopIterationsClaimRewardAll() public {
+        setUp();
+
+        uint256 userStakeAmount = 20e18;
+
+        // mint rewardsTokens to stakingRewards contract
+        rewardsToken.mint(address(stakingRewards), 200e18);
+        // mint staking tokens to userA
+        stakingToken.mint(userA, userStakeAmount * 5);
+
+        // Admin calls notifyRewardAmount to set the reward rate
+        vm.prank(admin);
+        stakingRewards.notifyRewardAmount(100e18);
+
+        uint256 currentTime = block.timestamp;
+
+        // userA approves stakingRewards contract to spend staking tokens
+        vm.startPrank(userA);
+        stakingToken.approve(address(stakingRewards), userStakeAmount * 5);
+        // userA stakes 5 deposits
+        stakingRewards.stake(userStakeAmount, IArcadeStakingRewards.Lock.Medium);
+        stakingRewards.stake(userStakeAmount, IArcadeStakingRewards.Lock.Short);
+        stakingRewards.stake(userStakeAmount, IArcadeStakingRewards.Lock.Long);
+        stakingRewards.stake(userStakeAmount, IArcadeStakingRewards.Lock.Short);
+        stakingRewards.stake(userStakeAmount, IArcadeStakingRewards.Lock.Medium);
+
+        // increase blockchain to end long lock period
+        vm.warp(currentTime + THREE_WEEKS);
+
+        // confirm iterations processed event is emitted
+        vm.expectEmit(true, false, true, false);
+
+        stakingRewards.claimRewardAll();
+
+        uint256 reward = stakingRewards.earned(userA, 4);
+
+        // confirm that the user now only has earned 1 reward
+        // because the other 4 have been claimed
+        assertTrue(reward > 0, "Value is not greater than zero");
     }
 }
 
