@@ -651,11 +651,47 @@ contract ArcadeStakingRewardsTest is Test {
         vm.warp(block.timestamp + 8 days);
 
         IArcadeStakingRewards.UserStake [] memory userStake = stakingRewards.getUserStakes(userA);
-        uint256 userStakedAmount = stakingRewards.balanceOf(userA);
+        uint256 userStakedAmount = stakingRewards.getTotalUserDeposits(userA);
 
         assertEq(userStake[0].amount, userStakedAmount);
         assertEq(uint256(userStake[0].lock), uint256(IArcadeStakingRewards.Lock.Medium));
         assertEq(userStake[0].unlockTimestamp, (block.timestamp + TWO_WEEKS) - 8 days);
+    }
+
+    function testGetTotalUserPendingRewards() public {
+        setUp();
+
+        uint256 userStakeAmount = 20e18;
+
+        // mint rewardsTokens to stakingRewards contract
+        rewardsToken.mint(address(stakingRewards), 100e18);
+        // mint staking tokens to userA
+        stakingToken.mint(userA, userStakeAmount * 3);
+
+        // Admin calls notifyRewardAmount to set the reward rate
+        vm.prank(admin);
+        stakingRewards.notifyRewardAmount(100e18);
+
+        // userA approves stakingRewards contract to spend staking tokens
+        vm.startPrank(userA);
+        stakingToken.approve(address(stakingRewards), userStakeAmount * 3);
+        // userA stakes once
+        stakingRewards.stake(userStakeAmount, IArcadeStakingRewards.Lock.Short);
+
+        // userA makes a second deposit
+        stakingRewards.stake(userStakeAmount, IArcadeStakingRewards.Lock.Medium);
+
+        // userA makes a third deposit
+        stakingRewards.stake(userStakeAmount, IArcadeStakingRewards.Lock.Long);
+        vm.stopPrank();
+
+        // increase blockchain time to end of rewards period
+        vm.warp(block.timestamp + 8 days);
+
+        uint256 userPendingRewards = stakingRewards.getTotalUserPendingRewards(userA);
+
+        uint256 tolerance = 1e6;
+        assertApproxEqAbs(userPendingRewards, 100e18, tolerance);
     }
 
     function testGetActiveStakes() public {
@@ -780,6 +816,33 @@ contract ArcadeStakingRewardsTest is Test {
         assertEq(userAmountWithBonus, (userStakeAmount + ((userStakeAmount / 1e18) * 1.3e18)));
     }
 
+    function testGetLastDepositId() public {
+        setUp();
+
+        uint256 userStakeAmount = 20e18;
+
+        // mint rewardsTokens to stakingRewards contract
+        rewardsToken.mint(address(stakingRewards), 100e18);
+        // mint staking tokens
+        stakingToken.mint(userA, userStakeAmount * 3);
+
+        // Admin calls notifyRewardAmount to set the reward rate
+        vm.prank(admin);
+        stakingRewards.notifyRewardAmount(100e18);
+
+        // userA approves stakingRewards contract to spend staking tokens
+        vm.startPrank(userA);
+        stakingToken.approve(address(stakingRewards), userStakeAmount * 3);
+        // userA stakes staking tokens
+        stakingRewards.stake(userStakeAmount, IArcadeStakingRewards.Lock.Medium);
+        stakingRewards.stake(userStakeAmount, IArcadeStakingRewards.Lock.Long);
+        stakingRewards.stake(userStakeAmount, IArcadeStakingRewards.Lock.Short);
+        vm.stopPrank();
+
+        uint256 lastDepositId = stakingRewards.getLastDepositId(userA);
+        assertEq(lastDepositId, 2);
+    }
+
     function testRewardPerToken() public {
         setUp();
 
@@ -824,6 +887,31 @@ contract ArcadeStakingRewardsTest is Test {
         uint256 amountStakedWithBonus = stakingRewards.getAmountWithBonus(userA, 0);
 
         assertEq(rewardPerTokenAmount2, (8 days * rewardRate * 1e18) / amountStakedWithBonus);
+    }
+
+    function testBalanceOfDeposit() public {
+        setUp();
+
+        uint256 userStakeAmount = 20e18;
+
+        // mint rewardsTokens to stakingRewards contract
+        rewardsToken.mint(address(stakingRewards), 100e18);
+        // mint staking tokens to userA
+        stakingToken.mint(userA, userStakeAmount);
+
+        // Admin calls notifyRewardAmount to set the reward rate
+        vm.prank(admin);
+        stakingRewards.notifyRewardAmount(100e18);
+
+        // userA approves stakingRewards contract to spend staking tokens
+        vm.startPrank(userA);
+        stakingToken.approve(address(stakingRewards), userStakeAmount);
+        // userA stakes staking tokens
+        stakingRewards.stake(userStakeAmount, IArcadeStakingRewards.Lock.Medium);
+        vm.stopPrank();
+
+        uint256 depositBalance = stakingRewards.balanceOfDeposit(userA, 0);
+        assertEq(depositBalance, userStakeAmount);
     }
 
     /**
@@ -1147,20 +1235,20 @@ contract ArcadeStakingRewardsTest is Test {
 
         uint256 rewardPerTokenAmount = stakingRewards.rewardPerToken();
 
-        uint256 balanceOfA = stakingRewards.balanceOf(userA);
+        uint256 balanceOfA = stakingRewards.getTotalUserDeposits(userA);
         assertEq(balanceOfA, userStakeAmount + userStakeAmount2);
 
-        IArcadeStakingRewards.UserStake[] memory allUserStakes = stakingRewards.getUserStakes(userA);
-        assertEq(allUserStakes.length, 2);
+        uint256 lastStakeId = stakingRewards.getLastDepositId(userA);
+        assertEq(lastStakeId, 1);
 
         uint256 stakedAmountWithBonus = (userStakeAmount + ((userStakeAmount / 1e18) * 1.3e18));
         uint256 stakedAmountWithBonus2 = (userStakeAmount2 + ((userStakeAmount2 / 1e18) * 1.5e18));
 
         // rewards earned by userA
-        uint256 rewards = stakingRewards.earned(userA, 0);
-        uint256 rewards1 = stakingRewards.earned(userA, 1);
-        assertEq(stakingRewards.getAmountWithBonus(userA, 0), stakedAmountWithBonus);
-        assertEq(stakingRewards.getAmountWithBonus(userA, 1), stakedAmountWithBonus2);
+        uint256 rewards = stakingRewards.earned(userA, lastStakeId - 1);
+        uint256 rewards1 = stakingRewards.earned(userA, lastStakeId);
+        assertEq(stakingRewards.getAmountWithBonus(userA, lastStakeId - 1), stakedAmountWithBonus);
+        assertEq(stakingRewards.getAmountWithBonus(userA, lastStakeId), stakedAmountWithBonus2);
 
         uint256 tolerance = 1e10;
         assertApproxEqAbs(rewards, ((((stakedAmountWithBonus) * rewardPerTokenAmount)) / ONE), tolerance);

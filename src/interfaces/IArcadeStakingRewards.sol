@@ -32,7 +32,7 @@ interface IArcadeStakingRewards {
     }
 
     // ============================================= VIEW FUNCTIONS ==============================================
-    function balanceOf(address account) external view returns (uint256);
+    function getTotalUserDeposits(address account) external view returns (uint256);
 
     function earned(address account, uint256 depositId) external view returns (uint256);
 
@@ -50,7 +50,7 @@ interface IArcadeStakingRewards {
 
     function getActiveStakes(address account) external view returns (uint256[] memory);
 
-    function getUserStakes(address account) external view returns (UserStake[] memory);
+    function getLastDepositId(address account) external view returns (uint256);
 
     function getDepositIndicesWithRewards() external view returns (uint256[] memory, uint256[] memory);
 

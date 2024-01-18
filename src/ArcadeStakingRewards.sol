@@ -178,7 +178,7 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
      *
      * @return userBalance                  The total amount that the user is staking.
      */
-    function balanceOf(address account) external view returns (uint256 userBalance) {
+    function getTotalUserDeposits(address account) external view returns (uint256 userBalance) {
         UserStake[] storage userStakes = stakes[account];
         userBalance = 0;
 
@@ -186,6 +186,21 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
             UserStake storage userStake = userStakes[i];
             userBalance += userStake.amount;
         }
+    }
+
+    /**
+     * @notice Returns the amount of staking tokens staked in a specific deposit.
+     *
+     * @param account                       The address of the account.
+     * @param depositId                     The specified deposit to get the balance of.
+     *
+     * @return depositBalance               The total amount staked in the deposit.
+     */
+    function balanceOfDeposit(address account, uint256 depositId) external view returns (uint256 depositBalance) {
+        UserStake[] storage userStakes = stakes[account];
+        UserStake storage userStake = userStakes[depositId];
+
+        depositBalance = userStake.amount;
     }
 
     /**
@@ -225,7 +240,7 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
      *
      * @return rewards                        Array of rewards amounts earned for each deposit.
      */
-    function earned(address account, uint256 depositId) public view returns (uint256 rewards) {
+    function earned(address account, uint256 depositId) public view returns (uint256) {
         UserStake[] storage userStakes = stakes[account];
         UserStake storage userStake = userStakes[depositId];
 
@@ -234,7 +249,9 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
         uint256 userRewardPerTokenPaid = userStake.rewardPerTokenPaid;
         uint256 userRewards = userStake.rewards;
 
-        rewards = ((stakeAmountWithBonus * (rewardPerToken() - userRewardPerTokenPaid)) / ONE + userRewards);
+        uint256 rewards = ((stakeAmountWithBonus * (rewardPerToken() - userRewardPerTokenPaid)) / ONE + userRewards);
+
+        return rewards;
     }
 
     /**
@@ -257,6 +274,19 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
      */
     function getUserStakes(address account) public view returns (UserStake[] memory) {
         return stakes[account];
+    }
+
+    /**
+     * @notice Gives the current depositId, equivalent to userStakes.length.
+     *
+     * @param account                           The user whose stakes to get.
+     *
+     * @return lastDepositId                    Id of the last stake.
+     */
+    function getLastDepositId(address account) public view returns (uint256) {
+        uint256 lastDepositId = stakes[account].length - 1;
+
+        return lastDepositId;
     }
 
     /**
@@ -335,7 +365,8 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
     }
 
     /**
-     * @notice Gets a user's staked amount reflecting their locking bonus multiplier.
+     * @notice Returns just the "amount with bonus" for a deposit, which is not stored
+     *         in the struct
      *
      * @param account                           The user's account.
      * @param depositId                         The specified deposit to get the amount
@@ -343,7 +374,7 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
      *
      * @return amountWithBonus                  Value of user stake with bonus.
      */
-    function getAmountWithBonus(address account, uint256 depositId) public view returns (uint256 amountWithBonus) {
+    function getAmountWithBonus(address account, uint256 depositId) public view returns (uint256) {
         UserStake[] storage userStakes = stakes[account];
 
         UserStake storage userStake = userStakes[depositId];
@@ -352,8 +383,30 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
 
         // Accounting with bonus
         (uint256 bonus,) = _getBonus(lock);
-        amountWithBonus = (amount + ((amount * bonus) / ONE));
+        uint256 amountWithBonus = (amount + ((amount * bonus) / ONE));
+
+        return amountWithBonus;
     }
+
+    /**
+     * @notice Get pending reward for user deposits, not stored in struct.
+     *
+     * @param account                           The user's account.
+     *
+     * @return totalRewards                     Value of a user's rewards across all deposits.
+     */
+    function getTotalUserPendingRewards(address account) public view returns (uint256) {
+        UserStake[] storage userStakes = stakes[account];
+        uint256 totalRewards = 0;
+
+        for (uint256 i = 0; i < userStakes.length; ++i) {
+            UserStake storage userStake = userStakes[i];
+            totalRewards += earned(account, i);
+        }
+
+        return totalRewards;
+    }
+
 
     // ========================================= MUTATIVE FUNCTIONS ========================================
     /**
