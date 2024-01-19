@@ -1413,7 +1413,7 @@ contract ArcadeStakingRewardsTest is Test {
         vm.startPrank(userA);
         stakingToken.approve(address(stakingRewards), userStakeAmount * 20);
 
-        // tries to stake more then MAX_DEPOSITS
+        // tries to stake more than MAX_DEPOSITS
         for (uint256 i = 0; i < 20; i++) {
             //vm.expectRevert(abi.encodeWithSelector(selector));
             stakingRewards.stake(userStakeAmount, IArcadeStakingRewards.Lock.Short);
