@@ -491,7 +491,7 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
 
         if (reward > 0) {
             rewardsToken.safeTransfer(msg.sender, reward);
-            emit RewardPaid(msg.sender, reward);
+            emit RewardPaid(msg.sender, reward, depositId);
         }
     }
 
@@ -567,11 +567,11 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
             totalRewardAmount += reward;
 
             if (userDepositCount[msg.sender] > 0) {
-                userDepositCount[msg.sender]--;
+                userDepositCount[msg.sender] = 0;
             }
 
             if (reward > 0) {
-                emit RewardPaid(msg.sender, reward);
+                emit RewardPaid(msg.sender, reward, i);
             }
         }
 
@@ -708,7 +708,7 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
 
         if (reward > 0) {
             userStake.rewards = 0;
-            emit RewardPaid(msg.sender, reward);
+            emit RewardPaid(msg.sender, reward, depositId);
         }
 
         return reward;

@@ -9,7 +9,7 @@ interface IArcadeStakingRewards {
     event RewardAdded(uint256 reward);
     event Staked(address indexed user, uint256 depositId, uint256 amount);
     event Withdrawn(address indexed user, uint256 amount);
-    event RewardPaid(address indexed user, uint256 reward);
+    event RewardPaid(address indexed user, uint256 reward, uint256 depositId);
     event RewardsDurationUpdated(uint256 newDuration);
     event Recovered(address token, uint256 amount);
 
