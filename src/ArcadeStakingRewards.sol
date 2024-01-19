@@ -540,10 +540,6 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
         uint256 amount = userStake.amount;
 
         withdraw(amount, depositId);
-
-        if (userDepositCount[msg.sender] > 0) {
-            userDepositCount[msg.sender]--;
-        }
     }
 
     /**
@@ -554,7 +550,6 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
         UserStake[] storage userStakes = stakes[msg.sender];
         uint256 totalWithdrawAmount = 0;
         uint256 totalRewardAmount = 0;
-        uint256 iterations = 0;
 
         for (uint256 i = 0; i < userStakes.length; ++i) {
             UserStake storage userStake = userStakes[i];
@@ -565,10 +560,6 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
             (uint256 withdrawAmount, uint256 reward) = _withdraw(msg.sender, depositAmount, i);
             totalWithdrawAmount += withdrawAmount;
             totalRewardAmount += reward;
-
-            if (userDepositCount[msg.sender] > 0) {
-                userDepositCount[msg.sender] = 0;
-            }
 
             if (reward > 0) {
                 emit RewardPaid(msg.sender, reward, i);
