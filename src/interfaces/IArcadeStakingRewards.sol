@@ -12,8 +12,6 @@ interface IArcadeStakingRewards {
     event RewardPaid(address indexed user, uint256 reward);
     event RewardsDurationUpdated(uint256 newDuration);
     event Recovered(address token, uint256 amount);
-    event IterationsProcessed(uint256 count);
-    event MaxIterationsUpdated(uint256 newMaxIterations);
 
     // ================================================= STRUCTS =================================================
     enum Lock {
@@ -78,6 +76,4 @@ interface IArcadeStakingRewards {
     function setRewardsDuration(uint256 _rewardsDuration) external;
 
     function recoverERC20(address tokenAddress, uint256 tokenAmount) external;
-
-    function updateMaxIterations(uint256 newMaxIterations) external;
 }

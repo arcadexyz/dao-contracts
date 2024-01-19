@@ -22,7 +22,7 @@ import {
     ASR_Locked,
     ASR_RewardsToken,
     ASR_InvalidDepositId,
-    ASR_NoIterations
+    ASR_DepositCountExceeded
 } from "../src/errors/Staking.sol";
 
 /**
@@ -69,16 +69,13 @@ import {
  * the duration of the stake.
  *
  * In the exitAll() and claimRewardAll() external functions, it's necessary to
- * limit the number of iterations processed within their loops to prevent exceeding
- * the block gas limit. Because of this, the contract enforces a hard limit on the
- * number of iterations that can be processed in a single transaction. This limit
- * is defined by the maxIterations state variable.
- * Should a user's transaction necessitate processing a quantity of items that
- * surpasses the maxIterations threshold, they will be required to execute
- * additional transactions.
- * The maxIterations value is adjustable and can be modified by the contract
- * administrator to accommodate varying operational requirements or to respond
- * to changes in network conditions.
+ * limit the number of iterations processed within these functions' loops to
+ * prevent exceeding the block gas limit. Because of this, the contract enforces
+ * a hard limit on the number deposits a user can have per wallet address and
+ * consequently on the number of iterations that can be processed in a single
+ * transaction. This limit is defined by the MAX_IDEPOSITS state variable.
+ * Should a user necessitate making more than the MAX_DEPOSITS  number
+ * of stakes, they will be required to use a different wallet address.
  */
 
 contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, ReentrancyGuard, Pausable {
@@ -88,6 +85,7 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
     // ============================================ STATE ==============================================
     // ============== Constants ==============
     uint256 public constant ONE = 1e18;
+    uint256 public constant MAX_DEPOSITS = 20;
 
     uint256 public immutable SHORT_BONUS;
     uint256 public immutable MEDIUM_BONUS;
@@ -105,9 +103,9 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
     uint256 public rewardsDuration = 7 days;
     uint256 public lastUpdateTime;
     uint256 public rewardPerTokenStored;
-    uint256 public maxIterations;
 
     mapping(address => UserStake[]) public stakes;
+    mapping(address => uint256) public userDepositCount;
 
     uint256 public totalDeposits;
     uint256 public totalDepositsWithBonus;
@@ -128,7 +126,6 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
      * @param shortBonus                   The bonus multiplier for the short lock time.
      * @param mediumBonus                  The bonus multiplier for the medium lock time.
      * @param longBonus                    The bonus multiplier for the long lock time.
-     * @param _maxIterations               The max number of iterations a for loop can process.
      */
     constructor(
         address _owner,
@@ -140,17 +137,14 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
         uint256 longLockTime,
         uint256 shortBonus,
         uint256 mediumBonus,
-        uint256 longBonus,
-        uint256 _maxIterations
+        uint256 longBonus
     ) Ownable(_owner) {
         if (address(_rewardsDistribution) == address(0)) revert ASR_ZeroAddress();
         if (address(_rewardsToken) == address(0)) revert ASR_ZeroAddress();
         if (address(_stakingToken) == address(0)) revert ASR_ZeroAddress();
-        if (_maxIterations == 0) revert ASR_NoIterations();
         rewardsToken = IERC20(_rewardsToken);
         stakingToken = IERC20(_stakingToken);
         rewardsDistribution = _rewardsDistribution;
-        maxIterations = _maxIterations;
 
         SHORT_BONUS = shortBonus;
         MEDIUM_BONUS = mediumBonus;
@@ -450,6 +444,9 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
     function stake(uint256 amount, Lock lock) external nonReentrant whenNotPaused updateReward {
         if (amount == 0) revert ASR_ZeroAmount();
 
+        userDepositCount[msg.sender]++;
+        if (userDepositCount[msg.sender] > MAX_DEPOSITS) revert ASR_DepositCountExceeded();
+
         // Accounting with bonus
         (uint256 bonus, uint256 lockDuration) = _getBonus(lock);
         uint256 amountWithBonus = amount + ((amount * bonus) / ONE);
@@ -499,46 +496,6 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
     }
 
     /**
-     * @notice Allows users to withdraw all their staked tokens and claim their reward tokens
-     *         all in one transaction. Lock period needs to have ended.
-     */
-    function exitAll() public nonReentrant updateReward {
-        UserStake[] storage userStakes = stakes[msg.sender];
-        uint256 totalWithdrawAmount = 0;
-        uint256 totalRewardAmount = 0;
-        uint256 iterations = 0;
-
-        uint256 loopIterations = userStakes.length < maxIterations ? userStakes.length : maxIterations;
-
-        for (uint256 i = 0; i < loopIterations; ++i) {
-            UserStake storage userStake = userStakes[i];
-            uint256 depositAmount = userStake.amount;
-
-            if (depositAmount == 0 || block.timestamp < userStake.unlockTimestamp) continue;
-
-            (uint256 withdrawAmount, uint256 reward) = _withdraw(msg.sender, depositAmount, i);
-            totalWithdrawAmount += withdrawAmount;
-            totalRewardAmount += reward;
-
-            if (reward > 0) {
-                emit RewardPaid(msg.sender, reward);
-            }
-
-            iterations++;
-        }
-
-        if (totalWithdrawAmount > 0) {
-            stakingToken.safeTransfer(msg.sender, totalWithdrawAmount);
-        }
-
-        if (totalRewardAmount > 0) {
-            rewardsToken.safeTransfer(msg.sender, totalRewardAmount);
-        }
-
-        emit IterationsProcessed(iterations);
-    }
-
-    /**
      * @notice Enables the claim of accumulated rewards.
      *
      * @param depositId                        The specified deposit to get the reward for.
@@ -559,20 +516,14 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
     function claimRewardAll() external nonReentrant updateReward {
         UserStake[] storage userStakes = stakes[msg.sender];
         uint256 totalReward = 0;
-        uint256 iterations = 0;
 
-        uint256 loopIterations = userStakes.length < maxIterations ? userStakes.length : maxIterations;
-
-        for (uint256 i = 0; i < loopIterations; ++i) {
+        for (uint256 i = 0; i < userStakes.length; ++i) {
             totalReward += _claimReward(i);
-            iterations++;
         }
 
         if (totalReward > 0) {
             rewardsToken.safeTransfer(msg.sender, totalReward);
         }
-
-        emit IterationsProcessed(iterations);
     }
 
     /**
@@ -589,6 +540,48 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
         uint256 amount = userStake.amount;
 
         withdraw(amount, depositId);
+
+        if (userDepositCount[msg.sender] > 0) {
+            userDepositCount[msg.sender]--;
+        }
+    }
+
+    /**
+     * @notice Allows users to withdraw all their staked tokens and claim their reward tokens
+     *         all in one transaction. Lock period needs to have ended.
+     */
+    function exitAll() public nonReentrant updateReward {
+        UserStake[] storage userStakes = stakes[msg.sender];
+        uint256 totalWithdrawAmount = 0;
+        uint256 totalRewardAmount = 0;
+        uint256 iterations = 0;
+
+        for (uint256 i = 0; i < userStakes.length; ++i) {
+            UserStake storage userStake = userStakes[i];
+            uint256 depositAmount = userStake.amount;
+
+            if (depositAmount == 0 || block.timestamp < userStake.unlockTimestamp) continue;
+
+            (uint256 withdrawAmount, uint256 reward) = _withdraw(msg.sender, depositAmount, i);
+            totalWithdrawAmount += withdrawAmount;
+            totalRewardAmount += reward;
+
+            if (userDepositCount[msg.sender] > 0) {
+                userDepositCount[msg.sender]--;
+            }
+
+            if (reward > 0) {
+                emit RewardPaid(msg.sender, reward);
+            }
+        }
+
+        if (totalWithdrawAmount > 0) {
+            stakingToken.safeTransfer(msg.sender, totalWithdrawAmount);
+        }
+
+        if (totalRewardAmount > 0) {
+            rewardsToken.safeTransfer(msg.sender, totalRewardAmount);
+        }
     }
 
     // ======================================== RESTRICTED FUNCTIONS =========================================
@@ -654,20 +647,6 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
         rewardsDuration = _rewardsDuration;
 
         emit RewardsDurationUpdated(rewardsDuration);
-    }
-
-    /**
-     * @notice An only owner function to establish the max amount of iterations a loop is set
-     *         to process in order to prevent block gas limit errors.
-     *
-     * @param newMaxIterations                   The max amount of iterations.
-     */
-    function updateMaxIterations(uint256 newMaxIterations) external onlyRewardsDistribution {
-        if (newMaxIterations == 0) revert ASR_NoIterations();
-
-        maxIterations = newMaxIterations;
-
-        emit MaxIterationsUpdated(newMaxIterations);
     }
 
     // ============================================== HELPERS ===============================================
