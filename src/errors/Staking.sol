@@ -75,3 +75,9 @@ error ASR_RewardsToken();
  *
  */
 error ASR_InvalidDepositId();
+
+/**
+ * @notice Deposits number is larger than MAX_ITERATIONS.
+ *
+ */
+error ASR_DepositCountExceeded();

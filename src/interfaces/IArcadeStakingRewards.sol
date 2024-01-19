@@ -9,7 +9,7 @@ interface IArcadeStakingRewards {
     event RewardAdded(uint256 reward);
     event Staked(address indexed user, uint256 depositId, uint256 amount);
     event Withdrawn(address indexed user, uint256 amount);
-    event RewardPaid(address indexed user, uint256 reward);
+    event RewardPaid(address indexed user, uint256 reward, uint256 depositId);
     event RewardsDurationUpdated(uint256 newDuration);
     event Recovered(address token, uint256 amount);
 
@@ -30,9 +30,9 @@ interface IArcadeStakingRewards {
     }
 
     // ============================================= VIEW FUNCTIONS ==============================================
-    function balanceOf(address account) external view returns (uint256);
+    function getTotalUserDeposits(address account) external view returns (uint256);
 
-    function earned(address account, uint256 depositId) external view returns (uint256);
+    function getPendingRewards(address account, uint256 depositId) external view returns (uint256);
 
     function getRewardForDuration() external view returns (uint256);
 
@@ -48,9 +48,17 @@ interface IArcadeStakingRewards {
 
     function getActiveStakes(address account) external view returns (uint256[] memory);
 
-    function getUserStakes(address account) external view returns (UserStake[] memory);
+    function getLastDepositId(address account) external view returns (uint256);
 
     function getDepositIndicesWithRewards() external view returns (uint256[] memory, uint256[] memory);
+
+    function getUserStake(address account, uint256 depositId) external view returns (uint8 lock, uint32 unlockTimestamp, uint256 amount, uint256 rewardPerTokenPaid, uint256 rewards);
+
+    function getTotalUserDepositsWithBonus(address account) external view returns (uint256);
+
+    function balanceOfDeposit(address account, uint256 depositId) external view returns (uint256);
+
+    function getTotalUserPendingRewards(address account) external view returns (uint256);
 
     // =========================================== MUTATIVE FUNCTIONS ============================================
     function exitAll() external;
