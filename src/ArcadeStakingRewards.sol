@@ -105,7 +105,6 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
     uint256 public rewardPerTokenStored;
 
     mapping(address => UserStake[]) public stakes;
-    mapping(address => uint256) public userDepositCount;
 
     uint256 public totalDeposits;
     uint256 public totalDepositsWithBonus;
@@ -444,8 +443,7 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
     function stake(uint256 amount, Lock lock) external nonReentrant whenNotPaused updateReward {
         if (amount == 0) revert ASR_ZeroAmount();
 
-        userDepositCount[msg.sender]++;
-        if (userDepositCount[msg.sender] > MAX_DEPOSITS) revert ASR_DepositCountExceeded();
+        if ((stakes[msg.sender].length + 1) > MAX_DEPOSITS) revert ASR_DepositCountExceeded();
 
         // Accounting with bonus
         (uint256 bonus, uint256 lockDuration) = _getBonus(lock);
