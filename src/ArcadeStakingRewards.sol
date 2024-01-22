@@ -7,6 +7,8 @@ import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/utils/Pausable.sol";
 
+import "./external/LockingVault.sol";
+
 import "./interfaces/IArcadeStakingRewards.sol";
 import "./ArcadeRewardsRecipient.sol";
 
@@ -27,7 +29,6 @@ import {
 
 /**
  * TODO next:
- * turn pool into voting vault
  * Add README
  */
 
@@ -78,7 +79,7 @@ import {
  * of stakes, they will be required to use a different wallet address.
  */
 
-contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, ReentrancyGuard, Pausable {
+contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, LockingVault, ReentrancyGuard, Pausable {
     using SafeERC20 for IERC20;
     using Math for uint256;
 
@@ -98,6 +99,7 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
     // ============ Global State =============
     IERC20 public immutable rewardsToken;
     IERC20 public immutable stakingToken;
+    IERC20 public immutable trackingToken;
     uint256 public periodFinish = 0;
     uint256 public rewardRate = 0;
     uint256 public rewardsDuration = 7 days;
@@ -131,18 +133,21 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
         address _rewardsDistribution,
         address _rewardsToken,
         address _stakingToken,
+        address _trackingToken,
         uint256 shortLockTime,
         uint256 mediumLockTime,
         uint256 longLockTime,
         uint256 shortBonus,
         uint256 mediumBonus,
         uint256 longBonus
-    ) Ownable(_owner) {
+    ) Ownable(_owner) LockingVault(IERC20(_trackingToken), staleBlockLag) {
         if (address(_rewardsDistribution) == address(0)) revert ASR_ZeroAddress();
         if (address(_rewardsToken) == address(0)) revert ASR_ZeroAddress();
         if (address(_stakingToken) == address(0)) revert ASR_ZeroAddress();
+        if (address(_trackingToken) == address(0)) revert ASR_ZeroAddress();
         rewardsToken = IERC20(_rewardsToken);
         stakingToken = IERC20(_stakingToken);
+        trackingToken = IERC20(_trackingToken);
         rewardsDistribution = _rewardsDistribution;
 
         SHORT_BONUS = shortBonus;
@@ -404,7 +409,6 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
         uint256 totalRewards = 0;
 
         for (uint256 i = 0; i < userStakes.length; ++i) {
-            UserStake storage userStake = userStakes[i];
             totalRewards += getPendingRewards(account, i);
         }
 
@@ -418,12 +422,11 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
      *
      * @return totalRewards                     Value of a user's rewards across all deposits.
      */
-    function getTotalUserDepositsWithBonus(address account) external view returns (uint256) {
+    function getTotalUserDepositsWithBonus(address account) public view returns (uint256) {
         UserStake[] storage userStakes = stakes[account];
         uint256 totalDepositsWithBonuses = 0;
 
         for (uint256 i = 0; i < userStakes.length; ++i) {
-            UserStake storage userStake = userStakes[i];
             totalDepositsWithBonuses += getAmountWithBonus(account, i);
         }
 
@@ -439,8 +442,9 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
      *
      * @param amount                            The amount of tokens the user stakes.
      * @param lock                              The amount of time to lock the stake for.
+     * @param firstDelegation                   The address to delegate voting power to.
      */
-    function stake(uint256 amount, Lock lock) external nonReentrant whenNotPaused updateReward {
+    function stake(uint256 amount, Lock lock, address firstDelegation) external nonReentrant whenNotPaused updateReward {
         if (amount == 0) revert ASR_ZeroAmount();
 
         if ((stakes[msg.sender].length + 1) > MAX_DEPOSITS) revert ASR_DepositCountExceeded();
@@ -448,6 +452,9 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
         // Accounting with bonus
         (uint256 bonus, uint256 lockDuration) = _getBonus(lock);
         uint256 amountWithBonus = amount + ((amount * bonus) / ONE);
+
+        trackingToken.approve(address(this), amountWithBonus);
+        this.deposit(msg.sender, amountWithBonus, firstDelegation);
 
         // populate user stake information
         stakes[msg.sender].push(
@@ -476,12 +483,18 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
      * @param amount                           The amount of tokens the user withdraws.
      * @param depositId                        The specified deposit to withdraw.
      */
-    function withdraw(uint256 amount, uint256 depositId) public nonReentrant updateReward {
+    function withdrawFromStake(uint256 amount, uint256 depositId) public nonReentrant updateReward {
         if (amount == 0) revert ASR_ZeroAmount();
         if (depositId >= stakes[msg.sender].length) revert ASR_InvalidDepositId();
 
-
         (uint256 withdrawAmount, uint256 reward) = _calculateWithdrawalAndReward(msg.sender, amount, depositId);
+
+        UserStake storage userStake = stakes[msg.sender][depositId];
+        Lock lock = userStake.lock;
+        // Accounting with bonus
+        (uint256 bonus,) = _getBonus(lock);
+        uint256 trackingWithdrawAmount = (amount + ((amount * bonus) / ONE));
+        this.withdraw(trackingWithdrawAmount, msg.sender);
 
         if (withdrawAmount > 0) {
             stakingToken.safeTransfer(msg.sender, withdrawAmount);
@@ -537,7 +550,7 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
         UserStake storage userStake = stakes[msg.sender][depositId];
         uint256 amount = userStake.amount;
 
-        withdraw(amount, depositId);
+        withdrawFromStake(amount, depositId);
     }
 
     /**
@@ -548,6 +561,9 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
         UserStake[] storage userStakes = stakes[msg.sender];
         uint256 totalWithdrawAmount = 0;
         uint256 totalRewardAmount = 0;
+
+        uint256 votePower = getTotalUserDepositsWithBonus(msg.sender);
+        this.withdraw(votePower, msg.sender);
 
         for (uint256 i = 0; i < userStakes.length; ++i) {
             UserStake storage userStake = userStakes[i];

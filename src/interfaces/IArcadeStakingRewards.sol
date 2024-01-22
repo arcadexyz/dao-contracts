@@ -69,9 +69,9 @@ interface IArcadeStakingRewards {
 
     function claimRewardAll() external;
 
-    function stake(uint256 amount, Lock lock) external;
+    function stake(uint256 amount, Lock lock, address firstDelegation) external;
 
-    function withdraw(uint256 amount, uint256 depositId) external;
+    function withdrawFromStake(uint256 amount, uint256 depositId) external;
 
     function setRewardsDuration(uint256 _rewardsDuration) external;
 
