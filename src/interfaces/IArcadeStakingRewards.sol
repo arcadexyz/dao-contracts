@@ -2,9 +2,9 @@
 
 pragma solidity 0.8.20;
 
-import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 
-interface IArcadeStakingRewards is IERC20 {
+interface IArcadeStakingRewards {
     // ================================================= EVENTS ==================================================
     event RewardAdded(uint256 reward);
     event Staked(address indexed user, uint256 depositId, uint256 amount);

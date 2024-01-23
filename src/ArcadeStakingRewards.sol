@@ -6,8 +6,6 @@ import "@openzeppelin/contracts/utils/math/Math.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/utils/Pausable.sol";
-import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
-import "@openzeppelin/contracts/token/ERC20/extensions/ERC20Burnable.sol";
 
 import "./external/LockingVault.sol";
 
@@ -79,9 +77,14 @@ import {
  * transaction. This limit is defined by the MAX_IDEPOSITS state variable.
  * Should a user necessitate making more than the MAX_DEPOSITS  number
  * of stakes, they will be required to use a different wallet address.
+ *
+ * The locking pool also serves as a voting vault, where users gain voting power
+ * equivalent to their staked amount plus any applicable bonus that they can use
+ * for ArcadeDAO governance. This voting power is automatically accrued to their
+ * account and is delegated to their chosen delegatee's address on their behalf.
  */
 
-contract ArcadeStakingRewards is ERC20, ERC20Burnable, IArcadeStakingRewards, ArcadeRewardsRecipient, LockingVault, ReentrancyGuard, Pausable {
+contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, LockingVault, ReentrancyGuard, Pausable {
     using SafeERC20 for IERC20;
     using Math for uint256;
 
@@ -101,7 +104,7 @@ contract ArcadeStakingRewards is ERC20, ERC20Burnable, IArcadeStakingRewards, Ar
     // ============ Global State =============
     IERC20 public immutable rewardsToken;
     IERC20 public immutable stakingToken;
-    ERC20 public immutable trackingToken;
+
     uint256 public periodFinish = 0;
     uint256 public rewardRate = 0;
     uint256 public rewardsDuration = 7 days;
@@ -129,31 +132,24 @@ contract ArcadeStakingRewards is ERC20, ERC20Burnable, IArcadeStakingRewards, Ar
      * @param shortBonus                   The bonus multiplier for the short lock time.
      * @param mediumBonus                  The bonus multiplier for the medium lock time.
      * @param longBonus                    The bonus multiplier for the long lock time.
-     * @param tokenName                    The full name of the ERC20 token.
-     * @param tokenSymbol                  The symbol abbreviation of the ERC20 token.
      */
     constructor(
         address _owner,
         address _rewardsDistribution,
         address _rewardsToken,
         address _stakingToken,
-        address _trackingToken,
         uint256 shortLockTime,
         uint256 mediumLockTime,
         uint256 longLockTime,
         uint256 shortBonus,
         uint256 mediumBonus,
-        uint256 longBonus,
-        string memory tokenName,
-        string memory tokenSymbol
-    ) ERC20(tokenName, tokenSymbol) Ownable(_owner) LockingVault(ERC20(_trackingToken), staleBlockLag) {
+        uint256 longBonus
+    ) Ownable(_owner) LockingVault(IERC20(_stakingToken), staleBlockLag) {
         if (address(_rewardsDistribution) == address(0)) revert ASR_ZeroAddress();
         if (address(_rewardsToken) == address(0)) revert ASR_ZeroAddress();
         if (address(_stakingToken) == address(0)) revert ASR_ZeroAddress();
-        if (address(_trackingToken) == address(0)) revert ASR_ZeroAddress();
         rewardsToken = IERC20(_rewardsToken);
         stakingToken = IERC20(_stakingToken);
-        trackingToken = ERC20(_trackingToken);
         rewardsDistribution = _rewardsDistribution;
 
         SHORT_BONUS = shortBonus;
@@ -455,13 +451,10 @@ contract ArcadeStakingRewards is ERC20, ERC20Burnable, IArcadeStakingRewards, Ar
 
         if ((stakes[msg.sender].length + 1) > MAX_DEPOSITS) revert ASR_DepositCountExceeded();
 
-        // Accounting with bonus
+        // Accounting with bonus for updating vote power
         (uint256 bonus, uint256 lockDuration) = _getBonus(lock);
         uint256 amountWithBonus = amount + ((amount * bonus) / ONE);
-
-        // mint tracking tokens equal to amountWithBonus on user behalf
-        _mint(address(this), amountWithBonus);
-        // lock the tracking tokens into the governance vault for vote power delegation
+        // update the vote power to equal the amount staked with bonus
         this.deposit(msg.sender, amountWithBonus, firstDelegation);
 
         // populate user stake information

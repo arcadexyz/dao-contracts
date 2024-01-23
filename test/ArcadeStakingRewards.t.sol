@@ -29,22 +29,18 @@ contract ArcadeStakingRewardsTest is Test {
     function setUp() public {
         rewardsToken = new MockERC20("Rewards Token", "RWD");
         stakingToken = new MockERC20("Staking Token", "STK");
-        trackingToken = new MockERC20("Tracking Token", "TRK");
 
         stakingRewards = new ArcadeStakingRewards(
             owner,
             admin,
             address(rewardsToken),
             address(stakingToken),
-            address(trackingToken),
             ONE_WEEK,
             TWO_WEEKS,
             THREE_WEEKS,
             1.1e18,
             1.3e18,
-            1.5e18,
-            "Tracking Token",
-            "TRK"
+            1.5e18
         );
 
         // set rewards to duration to an even number of days for easier testing
@@ -61,15 +57,12 @@ contract ArcadeStakingRewardsTest is Test {
             address(0),
             address(rewardsToken),
             address(stakingToken),
-            address(trackingToken),
             ONE_WEEK,
             TWO_WEEKS,
             THREE_WEEKS,
             1.1e18,
             1.3e18,
-            1.5e18,
-            "Tracking Token",
-            "TRK"
+            1.5e18
         );
 
         vm.expectRevert(abi.encodeWithSelector(selector));
@@ -78,15 +71,12 @@ contract ArcadeStakingRewardsTest is Test {
             admin,
             address(0),
             address(stakingToken),
-            address(trackingToken),
             ONE_WEEK,
             TWO_WEEKS,
             THREE_WEEKS,
             1.1e18,
             1.3e18,
-            1.5e18,
-            "Tracking Token",
-            "TRK"
+            1.5e18
         );
 
         vm.expectRevert(abi.encodeWithSelector(selector));
@@ -95,32 +85,12 @@ contract ArcadeStakingRewardsTest is Test {
             admin,
             address(rewardsToken),
             address(0),
-            address(trackingToken),
             ONE_WEEK,
             TWO_WEEKS,
             THREE_WEEKS,
             1.1e18,
             1.3e18,
-            1.5e18,
-            "Tracking Token",
-            "TRK"
-        );
-
-        vm.expectRevert(abi.encodeWithSelector(selector));
-        stakingRewards = new ArcadeStakingRewards(
-            owner,
-            admin,
-            address(rewardsToken),
-            address(stakingToken),
-            address(0),
-            ONE_WEEK,
-            TWO_WEEKS,
-            THREE_WEEKS,
-            1.1e18,
-            1.3e18,
-            1.5e18,
-            "Tracking Token",
-            "TRK"
+            1.5e18
         );
     }
 
