@@ -24,10 +24,10 @@ ArcadeStakingRewards is inspired by the [Synthetix StakingRewards](https://githu
 
 ### Governance and Voting
 
-ArcadeStakingRewards uses a modified version of the [Locking Vault](https://etherscan.io/address/0x7a58784063D41cb78FBd30d271F047F0b9156d6e#code) for governance.
+ArcadeStakingRewards uses a modified version of the [Locking Vault](https://etherscan.io/address/0x7a58784063D41cb78FBd30d271F047F0b9156d6e#code) to handle governance.
 
 - **Voting Power:** Staking tokens in the locking pool grants users voting power in ArcadeDAO governance, proportional to their staked amount plus any bonuses.
-- **Automatic Delegation:** Voting power is automatically accrued and delegated without additional transactions.
+- **Automatic Delegation:** Voting power is automatically accrued and delegated without additional transactions by the user.
 
 ## Development and Testing
 
