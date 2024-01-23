@@ -28,11 +28,6 @@ import {
 } from "../src/errors/Staking.sol";
 
 /**
- * TODO next:
- * Add README
- */
-
-/**
  * @title ArcadeStakingRewards
  * @author Non-Fungible Technologies, Inc.
  *
