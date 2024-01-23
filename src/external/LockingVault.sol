@@ -119,7 +119,7 @@ abstract contract LockingVault is IVotingVault, ILockingVault {
         // No delegating to zero
         require(firstDelegation != address(0), "Zero addr delegation");
         // Move the tokens into this contract
-        token.transferFrom(msg.sender, address(this), amount);
+        //TODO: token.transferFrom(msg.sender, address(this), amount);
         // Load our deposits storage
         Storage.AddressUint storage userData = _deposits()[fundedAccount];
         // Load who has the user's votes
@@ -170,7 +170,7 @@ abstract contract LockingVault is IVotingVault, ILockingVault {
         // Emit an event to track votes
         emit VoteChange(account, delegate, -1 * int256(amount));
         // Transfers the result to the sender
-        token.transfer(msg.sender, amount);
+        // TODO: token.transfer(msg.sender, amount);
     }
 
     /// @notice Changes a user's voting power

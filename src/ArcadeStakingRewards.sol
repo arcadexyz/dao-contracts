@@ -6,6 +6,8 @@ import "@openzeppelin/contracts/utils/math/Math.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/utils/Pausable.sol";
+import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+import "@openzeppelin/contracts/token/ERC20/extensions/ERC20Burnable.sol";
 
 import "./external/LockingVault.sol";
 
@@ -79,7 +81,7 @@ import {
  * of stakes, they will be required to use a different wallet address.
  */
 
-contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, LockingVault, ReentrancyGuard, Pausable {
+contract ArcadeStakingRewards is ERC20, ERC20Burnable, IArcadeStakingRewards, ArcadeRewardsRecipient, LockingVault, ReentrancyGuard, Pausable {
     using SafeERC20 for IERC20;
     using Math for uint256;
 
@@ -99,7 +101,7 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
     // ============ Global State =============
     IERC20 public immutable rewardsToken;
     IERC20 public immutable stakingToken;
-    IERC20 public immutable trackingToken;
+    ERC20 public immutable trackingToken;
     uint256 public periodFinish = 0;
     uint256 public rewardRate = 0;
     uint256 public rewardsDuration = 7 days;
@@ -127,6 +129,8 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
      * @param shortBonus                   The bonus multiplier for the short lock time.
      * @param mediumBonus                  The bonus multiplier for the medium lock time.
      * @param longBonus                    The bonus multiplier for the long lock time.
+     * @param tokenName                    The full name of the ERC20 token.
+     * @param tokenSymbol                  The symbol abbreviation of the ERC20 token.
      */
     constructor(
         address _owner,
@@ -139,15 +143,17 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
         uint256 longLockTime,
         uint256 shortBonus,
         uint256 mediumBonus,
-        uint256 longBonus
-    ) Ownable(_owner) LockingVault(IERC20(_trackingToken), staleBlockLag) {
+        uint256 longBonus,
+        string memory tokenName,
+        string memory tokenSymbol
+    ) ERC20(tokenName, tokenSymbol) Ownable(_owner) LockingVault(ERC20(_trackingToken), staleBlockLag) {
         if (address(_rewardsDistribution) == address(0)) revert ASR_ZeroAddress();
         if (address(_rewardsToken) == address(0)) revert ASR_ZeroAddress();
         if (address(_stakingToken) == address(0)) revert ASR_ZeroAddress();
         if (address(_trackingToken) == address(0)) revert ASR_ZeroAddress();
         rewardsToken = IERC20(_rewardsToken);
         stakingToken = IERC20(_stakingToken);
-        trackingToken = IERC20(_trackingToken);
+        trackingToken = ERC20(_trackingToken);
         rewardsDistribution = _rewardsDistribution;
 
         SHORT_BONUS = shortBonus;
@@ -165,7 +171,7 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
      *
      * @return uint256                     The amount of staked tokens.
      */
-    function totalSupply() external view returns (uint256) {
+    function totalPoolDeposits() external view returns (uint256) {
         return totalDeposits;
     }
 
@@ -453,7 +459,9 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
         (uint256 bonus, uint256 lockDuration) = _getBonus(lock);
         uint256 amountWithBonus = amount + ((amount * bonus) / ONE);
 
-        trackingToken.approve(address(this), amountWithBonus);
+        // mint tracking tokens equal to amountWithBonus on user behalf
+        _mint(address(this), amountWithBonus);
+        // lock the tracking tokens into the governance vault for vote power delegation
         this.deposit(msg.sender, amountWithBonus, firstDelegation);
 
         // populate user stake information

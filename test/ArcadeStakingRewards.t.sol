@@ -42,7 +42,9 @@ contract ArcadeStakingRewardsTest is Test {
             THREE_WEEKS,
             1.1e18,
             1.3e18,
-            1.5e18
+            1.5e18,
+            "Tracking Token",
+            "TRK"
         );
 
         // set rewards to duration to an even number of days for easier testing
@@ -65,7 +67,9 @@ contract ArcadeStakingRewardsTest is Test {
             THREE_WEEKS,
             1.1e18,
             1.3e18,
-            1.5e18
+            1.5e18,
+            "Tracking Token",
+            "TRK"
         );
 
         vm.expectRevert(abi.encodeWithSelector(selector));
@@ -80,7 +84,9 @@ contract ArcadeStakingRewardsTest is Test {
             THREE_WEEKS,
             1.1e18,
             1.3e18,
-            1.5e18
+            1.5e18,
+            "Tracking Token",
+            "TRK"
         );
 
         vm.expectRevert(abi.encodeWithSelector(selector));
@@ -95,7 +101,9 @@ contract ArcadeStakingRewardsTest is Test {
             THREE_WEEKS,
             1.1e18,
             1.3e18,
-            1.5e18
+            1.5e18,
+            "Tracking Token",
+            "TRK"
         );
 
         vm.expectRevert(abi.encodeWithSelector(selector));
@@ -110,7 +118,9 @@ contract ArcadeStakingRewardsTest is Test {
             THREE_WEEKS,
             1.1e18,
             1.3e18,
-            1.5e18
+            1.5e18,
+            "Tracking Token",
+            "TRK"
         );
     }
 
@@ -121,8 +131,6 @@ contract ArcadeStakingRewardsTest is Test {
 
         // mint rewardsTokens to stakingRewards contract
         rewardsToken.mint(address(stakingRewards), 100e18);
-        // mint trackingTokens to stakingRewards contract
-        trackingToken.mint(address(stakingRewards), 100e18);
         // mint staking tokens to user
         stakingToken.mint(userA, userStake);
 
@@ -147,8 +155,8 @@ contract ArcadeStakingRewardsTest is Test {
         uint256 stakeWithBonus = stakingRewards.getAmountWithBonus(userA, 0);
         assertEq(userVotingPower, stakeWithBonus);
 
-        uint256 poolTotalSupply = stakingRewards.totalSupply();
-        assertEq(poolTotalSupply, userStake);
+        uint256 poolTotalDeposits = stakingRewards.totalPoolDeposits();
+        assertEq(poolTotalDeposits, userStake);
     }
 
     function testStakeZeroToken() public {
@@ -178,15 +186,13 @@ contract ArcadeStakingRewardsTest is Test {
         stakingRewards.stake(0, IArcadeStakingRewards.Lock.Short, userB);
     }
 
-    function testWithdraw() public {
+    function testWithdrawFromStake() public {
         setUp();
 
         uint256 userStake = 20e18;
 
         // mint rewardsTokens to stakingRewards contract
         rewardsToken.mint(address(stakingRewards), 100e18);
-        // mint trackingTokens to stakingRewards contract
-        trackingToken.mint(address(stakingRewards), 100e18);
         // mint staking tokens to user
         stakingToken.mint(userA, userStake);
 
@@ -209,7 +215,7 @@ contract ArcadeStakingRewardsTest is Test {
         uint256 stakeWithBonus = stakingRewards.getAmountWithBonus(userA, 0);
         assertEq(userVotingPower, stakeWithBonus);
 
-        uint256 poolTotalSupplyBeforeWithdraw = stakingRewards.totalSupply();
+        uint256 poolTotalDepositsBeforeWithdraw = stakingRewards.totalPoolDeposits();
         uint256 balanceBeforeWithdraw = stakingToken.balanceOf(userA);
 
         // increase blockchain time by the medium lock duration
@@ -225,11 +231,11 @@ contract ArcadeStakingRewardsTest is Test {
         assertEq(userVotingPowerAfter, 0);
 
         uint256 balanceAfterWithdraw = stakingToken.balanceOf(userA);
-        uint256 poolTotalSupplyAfterWithdraw = stakingRewards.totalSupply();
+        uint256 poolTotalDepositsAfterWithdraw = stakingRewards.totalPoolDeposits();
 
         assertEq(balanceAfterWithdraw, balanceBeforeWithdraw + userStake);
-        assertEq(poolTotalSupplyBeforeWithdraw, userStake);
-        assertEq(poolTotalSupplyAfterWithdraw, 0);
+        assertEq(poolTotalDepositsBeforeWithdraw, userStake);
+        assertEq(poolTotalDepositsAfterWithdraw, 0);
     }
 
     function testExitAll() public {
@@ -239,8 +245,6 @@ contract ArcadeStakingRewardsTest is Test {
 
         // mint rewardsTokens to stakingRewards contract
         rewardsToken.mint(address(stakingRewards), 100e18);
-        // mint trackingTokens to stakingRewards contract
-        trackingToken.mint(address(stakingRewards), 150e18);
         // mint staking tokens to user
         stakingToken.mint(userA, userStake * 3);
 
@@ -265,7 +269,7 @@ contract ArcadeStakingRewardsTest is Test {
         uint256 stakeWithBonusAll = stakingRewards.getTotalUserDepositsWithBonus(userA);
         assertEq(userVotingPower, stakeWithBonusAll);
 
-        uint256 poolTotalSupplyBeforeWithdraw = stakingRewards.totalSupply();
+        uint256 poolTotalDepositsBeforeWithdraw = stakingRewards.totalPoolDeposits();
         uint256 balanceBeforeWithdraw = stakingToken.balanceOf(userA);
 
         // increase blockchain time by the medium lock duration
@@ -274,14 +278,14 @@ contract ArcadeStakingRewardsTest is Test {
         vm.prank(userA);
         stakingRewards.exitAll();
         uint256 balanceAfterWithdraw = stakingToken.balanceOf(userA);
-        uint256 poolTotalSupplyAfterWithdraw = stakingRewards.totalSupply();
+        uint256 poolTotalDepositsAfterWithdraw = stakingRewards.totalPoolDeposits();
 
         uint256 userVotingPowerAfter = stakingRewards.queryVotePowerView(userB, block.timestamp);
         assertEq(userVotingPowerAfter, 0);
 
         assertEq(balanceAfterWithdraw, balanceBeforeWithdraw + (userStake * 3));
-        assertEq(poolTotalSupplyBeforeWithdraw, userStake * 3);
-        assertEq(poolTotalSupplyAfterWithdraw, 0);
+        assertEq(poolTotalDepositsBeforeWithdraw, userStake * 3);
+        assertEq(poolTotalDepositsAfterWithdraw, 0);
     }
 
     function testWithdrawZeroToken() public {
@@ -291,8 +295,6 @@ contract ArcadeStakingRewardsTest is Test {
 
         // mint rewardsTokens to stakingRewards contract
         rewardsToken.mint(address(stakingRewards), 100e18);
-        // mint trackingTokens to stakingRewards contract
-        trackingToken.mint(address(stakingRewards), 100e18);
         // mint staking tokens to user
         stakingToken.mint(userA, userStake);
 
@@ -321,8 +323,6 @@ contract ArcadeStakingRewardsTest is Test {
 
         // mint rewardsTokens to stakingRewards contract
         rewardsToken.mint(address(stakingRewards), 100e18);
-        // mint trackingTokens to stakingRewards contract
-        trackingToken.mint(address(stakingRewards), 100e18);
         // mint staking tokens to user
         stakingToken.mint(userA, userStake);
 
@@ -355,8 +355,6 @@ contract ArcadeStakingRewardsTest is Test {
 
         // mint rewardsTokens to stakingRewards contract
         rewardsToken.mint(address(stakingRewards), 100e18);
-        // mint trackingTokens to stakingRewards contract
-        trackingToken.mint(address(stakingRewards), 100e18);
         // mint staking tokens to user
         stakingToken.mint(userA, userStake);
 
@@ -379,7 +377,7 @@ contract ArcadeStakingRewardsTest is Test {
         uint256 stakeWithBonus = stakingRewards.getAmountWithBonus(userA, 0);
         assertEq(userVotingPower, stakeWithBonus);
 
-        uint256 poolTotalSupplyBeforeWithdraw = stakingRewards.totalSupply();
+        uint256 poolTotalDepositsBeforeWithdraw = stakingRewards.totalPoolDeposits();
 
         // increase blocckhain to end lock period
         vm.warp(block.timestamp + TWO_WEEKS);
@@ -392,18 +390,16 @@ contract ArcadeStakingRewardsTest is Test {
         assertEq(userVotingPowerAfter, stakeWithBonus / 2);
 
         uint256 balanceAfterWithdraw = stakingToken.balanceOf(userA);
-        uint256 poolTotalSupplyAfterWithdraw = stakingRewards.totalSupply();
+        uint256 poolTotalDepositsAfterWithdraw = stakingRewards.totalPoolDeposits();
 
         assertEq(balanceAfterWithdraw, userStake / 2);
-        assertEq(poolTotalSupplyBeforeWithdraw, userStake);
-        assertEq(poolTotalSupplyAfterWithdraw, userStake / 2);
+        assertEq(poolTotalDepositsBeforeWithdraw, userStake);
+        assertEq(poolTotalDepositsAfterWithdraw, userStake / 2);
     }
 
     function testClaimReward() public {
         // mint rewardsTokens to stakingRewards contract
         rewardsToken.mint(address(stakingRewards), 100e18);
-        // mint trackingTokens to stakingRewards contract
-        trackingToken.mint(address(stakingRewards), 100e18);
         // mint staking tokens to user
         stakingToken.mint(userA, 20e18);
 
@@ -433,8 +429,6 @@ contract ArcadeStakingRewardsTest is Test {
     function testClaimRewardAll() public {
         // mint rewardsTokens to stakingRewards contract
         rewardsToken.mint(address(stakingRewards), 100e18);
-        // mint trackingTokens to stakingRewards contract
-        trackingToken.mint(address(stakingRewards), 100e18);
         // mint staking tokens to user
         stakingToken.mint(userA, 20e18 * 2);
 
@@ -471,8 +465,6 @@ contract ArcadeStakingRewardsTest is Test {
 
         // mint rewardsTokens to stakingRewards contract
         rewardsToken.mint(address(stakingRewards), 100e18);
-        // mint trackingTokens to stakingRewards contract
-        trackingToken.mint(address(stakingRewards), 100e18);
         // mint staking tokens to user
         stakingToken.mint(userA, userStake);
 
@@ -492,7 +484,7 @@ contract ArcadeStakingRewardsTest is Test {
         uint256 stakeWithBonus = stakingRewards.getAmountWithBonus(userA, 0);
         assertEq(userVotingPower, stakeWithBonus);
 
-        uint256 poolTotalSupplyBeforeWithdraw = stakingRewards.totalSupply();
+        uint256 poolTotalDepositsBeforeWithdraw = stakingRewards.totalPoolDeposits();
         uint256 balanceBeforeWithdraw = stakingToken.balanceOf(userA);
 
         assertEq(rewardsToken.balanceOf(userA), 0);
@@ -511,11 +503,11 @@ contract ArcadeStakingRewardsTest is Test {
         assertEq(userVotingPowerAfter, 0);
 
         uint256 balanceAfterWithdraw = stakingToken.balanceOf(userA);
-        uint256 poolTotalSupplyAfterWithdraw = stakingRewards.totalSupply();
+        uint256 poolTotalDepositsAfterWithdraw = stakingRewards.totalPoolDeposits();
 
         assertEq(balanceAfterWithdraw, balanceBeforeWithdraw + userStake);
-        assertEq(poolTotalSupplyBeforeWithdraw, userStake);
-        assertEq(poolTotalSupplyAfterWithdraw, 0);
+        assertEq(poolTotalDepositsBeforeWithdraw, userStake);
+        assertEq(poolTotalDepositsAfterWithdraw, 0);
         assertEq(rewardsToken.balanceOf(userA), reward);
     }
 
@@ -524,8 +516,6 @@ contract ArcadeStakingRewardsTest is Test {
 
         // mint rewardsTokens to stakingRewards contract
         rewardsToken.mint(address(stakingRewards), 100e18);
-        // mint trackingTokens to stakingRewards contract
-        trackingToken.mint(address(stakingRewards), 100e18);
 
         uint256 balanceBefore = rewardsToken.balanceOf(owner);
 
@@ -574,8 +564,6 @@ contract ArcadeStakingRewardsTest is Test {
 
         // mint rewardsTokens to stakingRewards contract
         rewardsToken.mint(address(stakingRewards), 100e18);
-        // mint trackingTokens to stakingRewards contract
-        trackingToken.mint(address(stakingRewards), 100e18);
         // mint staking tokens to userA
         stakingToken.mint(userA, 20e18);
 
@@ -644,8 +632,6 @@ contract ArcadeStakingRewardsTest is Test {
 
         // mint rewardsTokens to stakingRewards contract
         rewardsToken.mint(address(stakingRewards), 100e18);
-        // mint trackingTokens to stakingRewards contract
-        trackingToken.mint(address(stakingRewards), 100e18);
         // mint staking tokens to userA
         stakingToken.mint(userA, userStakeAmount);
 
@@ -719,8 +705,6 @@ contract ArcadeStakingRewardsTest is Test {
 
         // mint rewardsTokens to stakingRewards contract
         rewardsToken.mint(address(stakingRewards), 100e18);
-        // mint trackingTokens to stakingRewards contract
-        trackingToken.mint(address(stakingRewards), 100e18);
         // mint staking tokens to userA
         stakingToken.mint(userA, userStakeAmount * 3);
 
@@ -757,8 +741,6 @@ contract ArcadeStakingRewardsTest is Test {
 
         // mint rewardsTokens to stakingRewards contract
         rewardsToken.mint(address(stakingRewards), 100e18);
-        // mint trackingTokens to stakingRewards contract
-        trackingToken.mint(address(stakingRewards), 100e18);
         // mint staking tokens to userA
         stakingToken.mint(userA, userStakeAmount * 3);
 
@@ -797,8 +779,6 @@ contract ArcadeStakingRewardsTest is Test {
 
         // mint rewardsTokens to stakingRewards contract
         rewardsToken.mint(address(stakingRewards), 100e18);
-        // mint trackingTokens to stakingRewards contract
-        trackingToken.mint(address(stakingRewards), 100e18);
         // mint staking tokens to userA
         stakingToken.mint(userA, userStakeAmount * 3);
 
@@ -844,8 +824,6 @@ contract ArcadeStakingRewardsTest is Test {
 
         // mint rewardsTokens to stakingRewards contract
         rewardsToken.mint(address(stakingRewards), 100e18);
-        // mint trackingTokens to stakingRewards contract
-        trackingToken.mint(address(stakingRewards), 100e18);
         // mint staking tokens to userA
         stakingToken.mint(userA, userStakeAmount * 3);
 
@@ -898,8 +876,6 @@ contract ArcadeStakingRewardsTest is Test {
 
         // mint rewardsTokens to stakingRewards contract
         rewardsToken.mint(address(stakingRewards), 100e18);
-        // mint trackingTokens to stakingRewards contract
-        trackingToken.mint(address(stakingRewards), 100e18);
         // mint staking tokens to userA
         stakingToken.mint(userA, userStakeAmount);
 
@@ -925,8 +901,6 @@ contract ArcadeStakingRewardsTest is Test {
 
         // mint rewardsTokens to stakingRewards contract
         rewardsToken.mint(address(stakingRewards), 100e18);
-        // mint trackingTokens to stakingRewards contract
-        trackingToken.mint(address(stakingRewards), 100e18);
         // mint staking tokens
         stakingToken.mint(userA, userStakeAmount * 3);
 
@@ -958,8 +932,6 @@ contract ArcadeStakingRewardsTest is Test {
 
         // mint rewardsTokens to stakingRewards contract
         rewardsToken.mint(address(stakingRewards), 100e18);
-        // mint trackingTokens to stakingRewards contract
-        trackingToken.mint(address(stakingRewards), 100e18);
         // mint staking tokens
         stakingToken.mint(userA, userStakeAmount * 3);
 
@@ -988,8 +960,6 @@ contract ArcadeStakingRewardsTest is Test {
 
         // mint rewardsTokens to stakingRewards contract
         rewardsToken.mint(address(stakingRewards), rewardAmount);
-        // mint trackingTokens to stakingRewards contract
-        trackingToken.mint(address(stakingRewards), 100e18);
         // mint staking tokens to userA
         stakingToken.mint(userA, userStakeAmount);
 
@@ -1035,8 +1005,6 @@ contract ArcadeStakingRewardsTest is Test {
 
         // mint rewardsTokens to stakingRewards contract
         rewardsToken.mint(address(stakingRewards), 100e18);
-        // mint trackingTokens to stakingRewards contract
-        trackingToken.mint(address(stakingRewards), 100e18);
         // mint staking tokens to userA
         stakingToken.mint(userA, userStakeAmount);
 
@@ -1064,8 +1032,6 @@ contract ArcadeStakingRewardsTest is Test {
 
         // mint rewardsTokens to stakingRewards contract
         rewardsToken.mint(address(stakingRewards), 100e18);
-        // mint trackingTokens to stakingRewards contract
-        trackingToken.mint(address(stakingRewards), 100e18);
         // mint staking tokens to userA
         stakingToken.mint(userA, 20e18);
         // mint staking tokens to userB
@@ -1120,8 +1086,6 @@ contract ArcadeStakingRewardsTest is Test {
 
         // mint rewardsTokens to stakingRewards contract
         rewardsToken.mint(address(stakingRewards), 100e18);
-        // mint trackingTokens to stakingRewards contract
-        trackingToken.mint(address(stakingRewards), 100e18);
         // mint staking tokens to userA
         stakingToken.mint(userA, 20e18);
         // mint staking tokens to userB
@@ -1172,8 +1136,6 @@ contract ArcadeStakingRewardsTest is Test {
 
         // mint rewardsTokens to stakingRewards contract
         rewardsToken.mint(address(stakingRewards), 100e18);
-        // mint trackingTokens to stakingRewards contract
-        trackingToken.mint(address(stakingRewards), 100e18);
         // mint staking tokens to userA
         stakingToken.mint(userA, 20e18);
         // mint staking tokens to userB
@@ -1236,8 +1198,6 @@ contract ArcadeStakingRewardsTest is Test {
 
         // mint rewardsTokens to stakingRewards contract
         rewardsToken.mint(address(stakingRewards), 100e18);
-        // mint trackingTokens to stakingRewards contract
-        trackingToken.mint(address(stakingRewards), 100e18);
         // mint staking tokens to userA
         stakingToken.mint(userA, 20e18);
 
@@ -1302,8 +1262,6 @@ contract ArcadeStakingRewardsTest is Test {
 
         // mint rewardsTokens to stakingRewards contract
         rewardsToken.mint(address(stakingRewards), 100e18);
-        // mint trackingTokens to stakingRewards contract
-        trackingToken.mint(address(stakingRewards), 100e18);
         // mint staking tokens to userA
         stakingToken.mint(userA, 20e18);
 
@@ -1360,8 +1318,6 @@ contract ArcadeStakingRewardsTest is Test {
 
         // mint rewardsTokens to stakingRewards contract
         rewardsToken.mint(address(stakingRewards), 100e18);
-        // mint trackingTokens to stakingRewards contract
-        trackingToken.mint(address(stakingRewards), 100e18);
         // mint staking tokens to userA
         stakingToken.mint(userA, userStakeAmount + userStakeAmount2);
 
@@ -1432,8 +1388,6 @@ contract ArcadeStakingRewardsTest is Test {
 
         // mint rewardsTokens to stakingRewards contract
         rewardsToken.mint(address(stakingRewards), 200e18);
-        // mint trackingTokens to stakingRewards contract
-        trackingToken.mint(address(stakingRewards), 100e18);
         // mint staking tokens to userA
         stakingToken.mint(userA, userStakeAmount + userStakeAmount2);
         // mint staking tokens to userB
@@ -1534,8 +1488,6 @@ contract ArcadeStakingRewardsTest is Test {
 
         // mint rewardsTokens to stakingRewards contract
         rewardsToken.mint(address(stakingRewards), 200e18);
-        // mint trackingTokens to stakingRewards contract
-        trackingToken.mint(address(stakingRewards), 100e18);
         // mint staking tokens to userA
         stakingToken.mint(userA, userStakeAmount * 20);
 
@@ -1567,8 +1519,6 @@ contract ArcadeStakingRewardsTest is Test {
 
         // mint rewardsTokens to stakingRewards contract
         rewardsToken.mint(address(stakingRewards), 100e18);
-        // mint trackingTokens to stakingRewards contract
-        trackingToken.mint(address(stakingRewards), 100e18);
         // mint staking tokens to user
         stakingToken.mint(userA, userStake);
 
@@ -1602,8 +1552,8 @@ contract ArcadeStakingRewardsTest is Test {
         assertEq(userVotingPowerB, 0);
         assertEq(userVotingPowerC, stakeWithBonus);
 
-        uint256 poolTotalSupply = stakingRewards.totalSupply();
-        assertEq(poolTotalSupply, userStake);
+        uint256 poolTotalDeposits = stakingRewards.totalPoolDeposits();
+        assertEq(poolTotalDeposits, userStake);
     }
 }
 
