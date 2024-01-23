@@ -78,10 +78,12 @@ import {
  * Should a user necessitate making more than the MAX_DEPOSITS  number
  * of stakes, they will be required to use a different wallet address.
  *
- * The locking pool also serves as a voting vault, where users gain voting power
- * equivalent to their staked amount plus any applicable bonus that they can use
- * for ArcadeDAO governance. This voting power is automatically accrued to their
- * account and is delegated to their chosen delegatee's address on their behalf.
+ * The locking pool gives users governance capabilities by also serving as a
+ * voting vault. When users stake, they gain voting power equivalent to their staked
+ * amount plus any applicable bonus.  They can use this voting power to vote in
+ * ArcadeDAO governance. The voting power is automatically accrued to their
+ * account and is delegated to their chosen delegatee's address on their behalf
+ * without the need for them to call any additional transaction.
  */
 
 contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, LockingVault, ReentrancyGuard, Pausable {
