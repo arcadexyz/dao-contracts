@@ -79,16 +79,28 @@ import {
  * ArcadeDAO governance. The voting power is automatically accrued to their
  * account and is delegated to their chosen delegatee's address on their behalf
  * without the need for them to call any additional transaction.
+ *
+ * The ArcadeStakingRewards contract utilizes the LockingVault deployment at
+ * https://etherscan.io/address/0x7a58784063D41cb78FBd30d271F047F0b9156d6e#code
+ * as its governance operations foundation. This deployment has been adapted and
+ * modified to integrate with ArcadeStakingRewards.
  */
 
 contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, LockingVault, ReentrancyGuard, Pausable {
     using SafeERC20 for IERC20;
     using Math for uint256;
 
+    // Bring library into scope
+    using History for History.HistoricalBalances;
+
     // ============================================ STATE ==============================================
     // ============== Constants ==============
     uint256 public constant ONE = 1e18;
     uint256 public constant MAX_DEPOSITS = 20;
+    uint constant SECONDS_PER_DAY = 24 * 60 * 60;
+    uint constant DAYS_PER_MONTH = 30;
+    uint constant MONTHS = 6;
+    uint constant SIX_MONTHS_IN_SECONDS = MONTHS * DAYS_PER_MONTH * SECONDS_PER_DAY;
 
     uint256 public immutable SHORT_BONUS;
     uint256 public immutable MEDIUM_BONUS;
@@ -104,7 +116,7 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
 
     uint256 public periodFinish = 0;
     uint256 public rewardRate = 0;
-    uint256 public rewardsDuration = 7 days;
+    uint256 public rewardsDuration = SIX_MONTHS_IN_SECONDS;
     uint256 public lastUpdateTime;
     uint256 public rewardPerTokenStored;
 
@@ -452,7 +464,7 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
         (uint256 bonus, uint256 lockDuration) = _getBonus(lock);
         uint256 amountWithBonus = amount + ((amount * bonus) / ONE);
         // update the vote power to equal the amount staked with bonus
-        this.deposit(msg.sender, amountWithBonus, firstDelegation);
+        _depositNoTransfer(msg.sender, amountWithBonus, firstDelegation);
 
         // populate user stake information
         stakes[msg.sender].push(
@@ -492,7 +504,7 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
         // Accounting with bonus
         (uint256 bonus,) = _getBonus(lock);
         uint256 trackingWithdrawAmount = (amount + ((amount * bonus) / ONE));
-        this.withdraw(trackingWithdrawAmount, msg.sender);
+        _withdrawNoTransfer(trackingWithdrawAmount, msg.sender);
 
         if (withdrawAmount > 0) {
             stakingToken.safeTransfer(msg.sender, withdrawAmount);
@@ -561,7 +573,7 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
         uint256 totalRewardAmount = 0;
 
         uint256 votePower = getTotalUserDepositsWithBonus(msg.sender);
-        this.withdraw(votePower, msg.sender);
+        _withdrawNoTransfer(votePower, msg.sender);
 
         for (uint256 i = 0; i < userStakes.length; ++i) {
             UserStake storage userStake = userStakes[i];
@@ -776,5 +788,81 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
         } else {
             revert ASR_InvalidLockValue(uint256(_lock));
         }
+    }
+
+    /**
+    * @notice This internal function mirrors the external withdraw function from the Locking Vault
+    *         contract, with a key modification: it omits the token transfer transaction. This
+    *         is because the tokens are already present within the vault. Additionally, the function
+    *         adds an address account parameter to specify the user whose voting power needs updating.
+    *         In the Locking Vault  msg.sender directly indicated the user, wheras in this
+    *         context msg.sender refers to the contract itself. Therefore, we explicitly pass the
+    *         user's address.
+    *
+    * @param amount                            The amount of token to withdraw.
+    * @param account                           The funded account for the withdrawal.
+    */
+    function _withdrawNoTransfer(uint256 amount, address account) internal {
+        // Load our deposits storage
+        Storage.AddressUint storage userData = _deposits()[account];
+
+        // Reduce the user's stored balance
+        // If properly optimized this block should result in 1 sload 1 store
+        userData.amount -= uint96(amount);
+        address delegate = userData.who;
+
+        // Reduce the delegate voting power
+        // Get the storage pointer
+        History.HistoricalBalances memory votingPower = _votingPower();
+        // Load the most recent voter power stamp
+        uint256 delegateeVotes = votingPower.loadTop(delegate);
+        // remove the votes from the delegate
+        votingPower.push(delegate, delegateeVotes - amount);
+        // Emit an event to track votes
+        emit VoteChange(account, delegate, -1 * int256(amount));
+    }
+
+    /**
+    * @notice This internal function mirrors the external withdraw function from the Locking Vault
+    *         contract, with a key modification: it omits the token transfer transaction.
+    *
+    * @param fundedAccount                     The address to credit this deposit to.
+    * @param amount                            The amount of token which is deposited.
+    * @param firstDelegation                   First delegation address.
+    */
+    function _depositNoTransfer(
+        address fundedAccount,
+        uint256 amount,
+        address firstDelegation
+    ) internal {
+        // No delegating to zero
+        require(firstDelegation != address(0), "Zero addr delegation");
+
+        // Load our deposits storage
+        Storage.AddressUint storage userData = _deposits()[fundedAccount];
+        // Load who has the user's votes
+        address delegate = userData.who;
+
+        if (delegate == address(0)) {
+            // If the user is un-delegated we delegate to their indicated address
+            delegate = firstDelegation;
+            // Set the delegation
+            userData.who = delegate;
+            // Now we increase the user's balance
+            userData.amount += uint96(amount);
+        } else {
+            // In this case we make no change to the user's delegation
+            // Now we increase the user's balance
+            userData.amount += uint96(amount);
+        }
+        // Next we increase the delegation to their delegate
+        // Get the storage pointer
+        History.HistoricalBalances memory votingPower = _votingPower();
+        // Load the most recent voter power stamp
+        uint256 delegateeVotes = votingPower.loadTop(delegate);
+        // Emit an event to track votes
+        emit VoteChange(fundedAccount, delegate, int256(amount));
+        // Add the newly deposited votes to the delegate
+        votingPower.push(delegate, delegateeVotes + amount);
     }
 }

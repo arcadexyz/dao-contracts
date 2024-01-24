@@ -17,8 +17,7 @@ interface ILockingVault {
 
     /// @notice Removes tokens from this contract and the voting power they represent
     /// @param amount The amount of token to withdraw
-    /// @param account The funded account for the withdrawal
-    function withdraw(uint256 amount, address account) external;
+    function withdraw(uint256 amount) external;
 
     /// @notice The token for this locking vault
     function token() external returns (IERC20);

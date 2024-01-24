@@ -9,6 +9,8 @@ import "./libraries/Storage.sol";
 import "./interfaces/IVotingVault.sol";
 import "./interfaces/ILockingVault.sol";
 
+import { LV_FunctionDisabled } from "../errors/Staking.sol";
+
 abstract contract LockingVault is IVotingVault, ILockingVault {
     // Bring our libraries into scope
     using History for *;
@@ -116,9 +118,11 @@ abstract contract LockingVault is IVotingVault, ILockingVault {
         uint256 amount,
         address firstDelegation
     ) external override {
+        revert LV_FunctionDisabled();
         // No delegating to zero
         require(firstDelegation != address(0), "Zero addr delegation");
-
+        // Move the tokens into this contract
+        token.transferFrom(msg.sender, address(this), amount);
         // Load our deposits storage
         Storage.AddressUint storage userData = _deposits()[fundedAccount];
         // Load who has the user's votes
@@ -149,16 +153,14 @@ abstract contract LockingVault is IVotingVault, ILockingVault {
 
     /// @notice Removes tokens from this contract and the voting power they represent
     /// @param amount The amount of token to withdraw
-    /// @param account The funded account for the withdrawal
-    function withdraw(uint256 amount, address account) external virtual override {
+    function withdraw(uint256 amount) external virtual override {
+        revert LV_FunctionDisabled();
         // Load our deposits storage
-        Storage.AddressUint storage userData = _deposits()[account];
-
+        Storage.AddressUint storage userData = _deposits()[msg.sender];
         // Reduce the user's stored balance
         // If properly optimized this block should result in 1 sload 1 store
         userData.amount -= uint96(amount);
         address delegate = userData.who;
-
         // Reduce the delegate voting power
         // Get the storage pointer
         History.HistoricalBalances memory votingPower = _votingPower();
@@ -167,7 +169,9 @@ abstract contract LockingVault is IVotingVault, ILockingVault {
         // remove the votes from the delegate
         votingPower.push(delegate, delegateeVotes - amount);
         // Emit an event to track votes
-        emit VoteChange(account, delegate, -1 * int256(amount));
+        emit VoteChange(msg.sender, delegate, -1 * int256(amount));
+        // Transfers the result to the sender
+        token.transfer(msg.sender, amount);
     }
 
     /// @notice Changes a user's voting power
