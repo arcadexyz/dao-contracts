@@ -1592,5 +1592,49 @@ contract ArcadeStakingRewardsTest is Test {
         stakingRewards.withdraw(userStake);
         vm.stopPrank();
     }
+
+    function testPauseUnpause() public {
+        setUp();
+
+        uint256 userStake = 20e18;
+
+        // mint rewardsTokens to stakingRewards contract
+        rewardsToken.mint(address(stakingRewards), 100e18);
+        // mint staking tokens to user
+        stakingToken.mint(userA, userStake * 2);
+
+        // Admin calls notifyRewardAmount to set the reward rate
+        vm.prank(admin);
+        stakingRewards.notifyRewardAmount(100e18);
+
+        // increase blockchain time by 2 days
+        vm.warp(block.timestamp + 2 days);
+
+        // user approves stakingRewards contract to spend staking tokens
+        vm.startPrank(userA);
+        stakingToken.approve(address(stakingRewards), userStake * 2);
+        stakingRewards.stake(userStake, IArcadeStakingRewards.Lock.Medium, userB);
+        vm.stopPrank();
+
+        vm.prank(admin);
+        stakingRewards.pause();
+
+        bytes4 selector = bytes4(keccak256("EnforcedPause()"));
+
+        vm.startPrank(userA);
+        vm.expectRevert(abi.encodeWithSelector(selector));
+        stakingRewards.stake(userStake, IArcadeStakingRewards.Lock.Medium, userB);
+        vm.stopPrank();
+
+        vm.prank(admin);
+        stakingRewards.unpause();
+
+        vm.startPrank(userA);
+        stakingRewards.stake(userStake, IArcadeStakingRewards.Lock.Medium, userB);
+        vm.stopPrank();
+
+        uint256 poolTotalDeposits = stakingRewards.totalPoolDeposits();
+        assertEq(poolTotalDeposits, userStake * 2);
+    }
 }
 

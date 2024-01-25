@@ -455,7 +455,7 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
      * @param lock                              The amount of time to lock the stake for.
      * @param firstDelegation                   The address to delegate voting power to.
      */
-    function stake(uint256 amount, Lock lock, address firstDelegation) external nonReentrant whenNotPaused updateReward {
+    function stake(uint256 amount, Lock lock, address firstDelegation) external whenNotPaused nonReentrant whenNotPaused updateReward {
         if (amount == 0) revert ASR_ZeroAmount();
 
         if ((stakes[msg.sender].length + 1) > MAX_DEPOSITS) revert ASR_DepositCountExceeded();
@@ -608,7 +608,7 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
      *
      * @param reward                            The amount of new reward tokens.
      */
-    function notifyRewardAmount(uint256 reward) external override onlyRewardsDistribution updateReward {
+    function notifyRewardAmount(uint256 reward) external override whenNotPaused onlyRewardsDistribution updateReward {
         if (block.timestamp >= periodFinish) {
             rewardRate = reward / rewardsDuration;
         } else {
@@ -656,12 +656,26 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
      *
      * @param _rewardsDuration                    The amount of time the rewards period will be.
      */
-    function setRewardsDuration(uint256 _rewardsDuration) external onlyOwner {
+    function setRewardsDuration(uint256 _rewardsDuration) external whenNotPaused onlyOwner {
         if (block.timestamp <= periodFinish) revert ASR_RewardsPeriod();
 
         rewardsDuration = _rewardsDuration;
 
         emit RewardsDurationUpdated(rewardsDuration);
+    }
+
+    /**
+     * @notice Pauses the contract, callable by onlyRewardsDistribution. Reversible.
+     */
+    function pause() external onlyRewardsDistribution {
+        _pause();
+    }
+
+    /**
+     * @notice Unpauses the contract, callable by onlyRewardsDistribution. Reversible.
+     */
+    function unpause() external onlyRewardsDistribution {
+        _unpause();
     }
 
     // ============================================== HELPERS ===============================================

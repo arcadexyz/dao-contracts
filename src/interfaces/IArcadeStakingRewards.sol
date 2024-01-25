@@ -76,4 +76,8 @@ interface IArcadeStakingRewards {
     function setRewardsDuration(uint256 _rewardsDuration) external;
 
     function recoverERC20(address tokenAddress, uint256 tokenAmount) external;
+
+    function pause() external;
+
+    function unpause() external;
 }
