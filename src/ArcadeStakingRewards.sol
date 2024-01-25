@@ -449,7 +449,6 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
     /**
      * @notice Allows users to stake their tokens, which are then tracked in the contract. The total
      *         supply of staked tokens and individual user balances are updated accordingly.
-     * @dev    Valid lock values are 0 (one 28 day cycle), 1 (two 28 day cycle), and 2 (three 28 day cycle).
      *
      * @param amount                            The amount of tokens the user stakes.
      * @param lock                              The amount of time to lock the stake for.
