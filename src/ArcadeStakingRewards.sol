@@ -503,8 +503,8 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
         Lock lock = userStake.lock;
         // Accounting with bonus
         (uint256 bonus,) = _getBonus(lock);
-        uint256 trackingWithdrawAmount = (amount + ((amount * bonus) / ONE));
-        _withdrawNoTransfer(trackingWithdrawAmount, msg.sender);
+        uint256 amountWithBonus = (amount + ((amount * bonus) / ONE));
+        _withdrawNoTransfer(amountWithBonus, msg.sender);
 
         if (withdrawAmount > 0) {
             stakingToken.safeTransfer(msg.sender, withdrawAmount);
