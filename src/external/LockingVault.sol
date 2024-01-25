@@ -2,14 +2,10 @@
 
 pragma solidity 0.8.20;
 
-import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
-
 import "./libraries/History.sol";
 import "./libraries/Storage.sol";
 import "./interfaces/IVotingVault.sol";
 import "./interfaces/ILockingVault.sol";
-
-import { LV_FunctionDisabled } from "../errors/Staking.sol";
 
 abstract contract LockingVault is IVotingVault, ILockingVault {
     // Bring our libraries into scope
@@ -118,7 +114,6 @@ abstract contract LockingVault is IVotingVault, ILockingVault {
         uint256 amount,
         address firstDelegation
     ) external override {
-        revert LV_FunctionDisabled();
         // No delegating to zero
         require(firstDelegation != address(0), "Zero addr delegation");
         // Move the tokens into this contract
@@ -154,7 +149,6 @@ abstract contract LockingVault is IVotingVault, ILockingVault {
     /// @notice Removes tokens from this contract and the voting power they represent
     /// @param amount The amount of token to withdraw
     function withdraw(uint256 amount) external virtual override {
-        revert LV_FunctionDisabled();
         // Load our deposits storage
         Storage.AddressUint storage userData = _deposits()[msg.sender];
         // Reduce the user's stored balance

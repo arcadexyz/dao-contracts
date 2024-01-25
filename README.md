@@ -8,7 +8,7 @@ ArcadeStakingRewards is inspired by the [Synthetix StakingRewards](https://githu
 
 ### Flexible Staking and Lock Periods
 
-- **Multiple Deposits:** Users can make multiple deposits, with each one accruing rewards independently until the staking period ends.
+- **Multiple Deposits:** Users can make multiple deposits, with each deposit accruing rewards independently until the staking period ends.
 - **Lock Period:** Upon staking, users must commit to a fixed lock period, during which funds are immovable. Early withdrawal before this period ends is not permitted.
 - **Automatic Re-staking:** Post-lock period, funds automatically enter the next staking cycle without a lock period, allowing for withdrawal at any time.
 

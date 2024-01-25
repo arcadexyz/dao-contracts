@@ -97,10 +97,6 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
     // ============== Constants ==============
     uint256 public constant ONE = 1e18;
     uint256 public constant MAX_DEPOSITS = 20;
-    uint constant SECONDS_PER_DAY = 24 * 60 * 60;
-    uint constant DAYS_PER_MONTH = 30;
-    uint constant MONTHS = 6;
-    uint constant SIX_MONTHS_IN_SECONDS = MONTHS * DAYS_PER_MONTH * SECONDS_PER_DAY;
 
     uint256 public immutable SHORT_BONUS;
     uint256 public immutable MEDIUM_BONUS;
@@ -116,7 +112,7 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
 
     uint256 public periodFinish = 0;
     uint256 public rewardRate = 0;
-    uint256 public rewardsDuration = SIX_MONTHS_IN_SECONDS;
+    uint256 public rewardsDuration = 15780000; // six months
     uint256 public lastUpdateTime;
     uint256 public rewardPerTokenStored;
 
@@ -176,7 +172,7 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
      *
      * @return uint256                     The amount of staked tokens.
      */
-    function totalPoolDeposits() external view returns (uint256) {
+    function totalSupply() external view returns (uint256) {
         return totalDeposits;
     }
 
@@ -446,6 +442,16 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
 
 
     // ========================================= MUTATIVE FUNCTIONS ========================================
+    function deposit(
+        address fundedAccount,
+        uint256 amount,
+        address firstDelegation,
+        Lock lock
+    ) external nonReentrant whenNotPaused {
+        fundedAccount = msg.sender;
+        stake(amount, lock, firstDelegation);
+    }
+
     /**
      * @notice Allows users to stake their tokens, which are then tracked in the contract. The total
      *         supply of staked tokens and individual user balances are updated accordingly.
@@ -454,7 +460,7 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
      * @param lock                              The amount of time to lock the stake for.
      * @param firstDelegation                   The address to delegate voting power to.
      */
-    function stake(uint256 amount, Lock lock, address firstDelegation) external whenNotPaused nonReentrant whenNotPaused updateReward {
+    function stake(uint256 amount, Lock lock, address firstDelegation) internal updateReward {
         if (amount == 0) revert ASR_ZeroAmount();
 
         if ((stakes[msg.sender].length + 1) > MAX_DEPOSITS) revert ASR_DepositCountExceeded();
@@ -484,6 +490,11 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
         emit Staked(msg.sender, stakes[msg.sender].length - 1, amount);
     }
 
+    function withdraw(uint256 amount, address account, uint256 depositId) external whenNotPaused nonReentrant {
+        account = msg.sender;
+        withdrawFromStake(amount, depositId);
+    }
+
     /**
      * @notice Allows users to do partial token withdraws for specific deposits.
      *         The total supply of staked tokens and individual user balances
@@ -492,7 +503,7 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
      * @param amount                           The amount of tokens the user withdraws.
      * @param depositId                        The specified deposit to withdraw.
      */
-    function withdrawFromStake(uint256 amount, uint256 depositId) public nonReentrant updateReward {
+    function withdrawFromStake(uint256 amount, uint256 depositId) internal updateReward {
         if (amount == 0) revert ASR_ZeroAmount();
         if (depositId >= stakes[msg.sender].length) revert ASR_InvalidDepositId();
 
