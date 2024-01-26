@@ -443,13 +443,11 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
 
     // ========================================= MUTATIVE FUNCTIONS ========================================
     function deposit(
-        address fundedAccount,
         uint256 amount,
         address firstDelegation,
         Lock lock
     ) external nonReentrant whenNotPaused {
-        fundedAccount = msg.sender;
-        stake(amount, lock, firstDelegation);
+        _stake(amount, lock, firstDelegation);
     }
 
     /**
@@ -460,7 +458,7 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
      * @param lock                              The amount of time to lock the stake for.
      * @param firstDelegation                   The address to delegate voting power to.
      */
-    function stake(uint256 amount, Lock lock, address firstDelegation) internal updateReward {
+    function _stake(uint256 amount, Lock lock, address firstDelegation) internal updateReward {
         if (amount == 0) revert ASR_ZeroAmount();
 
         if ((stakes[msg.sender].length + 1) > MAX_DEPOSITS) revert ASR_DepositCountExceeded();
@@ -469,7 +467,7 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
         (uint256 bonus, uint256 lockDuration) = _getBonus(lock);
         uint256 amountWithBonus = amount + ((amount * bonus) / ONE);
         // update the vote power to equal the amount staked with bonus
-        _depositNoTransfer(msg.sender, amountWithBonus, firstDelegation);
+        _addVotingPower(msg.sender, amountWithBonus, firstDelegation);
 
         // populate user stake information
         stakes[msg.sender].push(
@@ -490,9 +488,8 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
         emit Staked(msg.sender, stakes[msg.sender].length - 1, amount);
     }
 
-    function withdraw(uint256 amount, address account, uint256 depositId) external whenNotPaused nonReentrant {
-        account = msg.sender;
-        withdrawFromStake(amount, depositId);
+    function withdraw(uint256 amount, uint256 depositId) external whenNotPaused nonReentrant {
+        _withdrawFromStake(amount, depositId);
     }
 
     /**
@@ -503,7 +500,7 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
      * @param amount                           The amount of tokens the user withdraws.
      * @param depositId                        The specified deposit to withdraw.
      */
-    function withdrawFromStake(uint256 amount, uint256 depositId) internal updateReward {
+    function _withdrawFromStake(uint256 amount, uint256 depositId) internal updateReward {
         if (amount == 0) revert ASR_ZeroAmount();
         if (depositId >= stakes[msg.sender].length) revert ASR_InvalidDepositId();
 
@@ -514,7 +511,7 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
         // Accounting with bonus
         (uint256 bonus,) = _getBonus(lock);
         uint256 amountWithBonus = (amount + ((amount * bonus) / ONE));
-        _withdrawNoTransfer(amountWithBonus, msg.sender);
+        _withdrawVotingPower(amountWithBonus, msg.sender);
 
         if (withdrawAmount > 0) {
             stakingToken.safeTransfer(msg.sender, withdrawAmount);
@@ -570,7 +567,7 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
         UserStake storage userStake = stakes[msg.sender][depositId];
         uint256 amount = userStake.amount;
 
-        withdrawFromStake(amount, depositId);
+        _withdrawFromStake(amount, depositId);
     }
 
     /**
@@ -583,7 +580,7 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
         uint256 totalRewardAmount = 0;
 
         uint256 votePower = getTotalUserDepositsWithBonus(msg.sender);
-        _withdrawNoTransfer(votePower, msg.sender);
+        _withdrawVotingPower(votePower, msg.sender);
 
         for (uint256 i = 0; i < userStakes.length; ++i) {
             UserStake storage userStake = userStakes[i];
@@ -826,7 +823,7 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
     * @param amount                            The amount of token to withdraw.
     * @param account                           The funded account for the withdrawal.
     */
-    function _withdrawNoTransfer(uint256 amount, address account) internal {
+    function _subtractVotingPower(uint256 amount, address account) internal {
         // Load our deposits storage
         Storage.AddressUint storage userData = _deposits()[account];
 
@@ -847,14 +844,14 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
     }
 
     /**
-    * @notice This internal function mirrors the external withdraw function from the Locking Vault
+    * @notice This internal function mirrors the external deposit function from the Locking Vault
     *         contract, with a key modification: it omits the token transfer transaction.
     *
     * @param fundedAccount                     The address to credit this deposit to.
     * @param amount                            The amount of token which is deposited.
     * @param firstDelegation                   First delegation address.
     */
-    function _depositNoTransfer(
+    function _addVotingPower(
         address fundedAccount,
         uint256 amount,
         address firstDelegation
