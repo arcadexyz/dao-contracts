@@ -42,7 +42,7 @@ interface IArcadeStakingRewards {
 
     function rewardsToken() external view returns (IERC20);
 
-    function totalSupply() external view returns (uint256);
+    function totalDeposits() external view returns (uint256);
 
     function getAmountWithBonus(address account, uint256 depositId) external view returns (uint256);
 
@@ -69,11 +69,15 @@ interface IArcadeStakingRewards {
 
     function claimRewardAll() external;
 
-    function stake(uint256 amount, Lock lock) external;
+    function deposit(uint256 amount, address firstDelegation, Lock lock) external;
 
     function withdraw(uint256 amount, uint256 depositId) external;
 
     function setRewardsDuration(uint256 _rewardsDuration) external;
 
     function recoverERC20(address tokenAddress, uint256 tokenAmount) external;
+
+    function pause() external;
+
+    function unpause() external;
 }
