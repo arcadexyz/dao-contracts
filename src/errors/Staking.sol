@@ -82,8 +82,8 @@ error ASR_InvalidDepositId();
  */
 error ASR_DepositCountExceeded();
 
-// /**
-//  * @notice Function cannot be called, disabled.
-//  *
-//  */
-// error LV_FunctionDisabled();
+/**
+ * @notice Function cannot be called, disabled.
+ *
+ */
+error LV_FunctionDisabled();

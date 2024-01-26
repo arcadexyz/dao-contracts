@@ -24,7 +24,8 @@ import {
     ASR_Locked,
     ASR_RewardsToken,
     ASR_InvalidDepositId,
-    ASR_DepositCountExceeded
+    ASR_DepositCountExceeded,
+    LV_FunctionDisabled
 } from "../src/errors/Staking.sol";
 
 /**
@@ -511,7 +512,7 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
         // Accounting with bonus
         (uint256 bonus,) = _getBonus(lock);
         uint256 amountWithBonus = (amount + ((amount * bonus) / ONE));
-        _withdrawVotingPower(amountWithBonus, msg.sender);
+        _subtractVotingPower(amountWithBonus, msg.sender);
 
         if (withdrawAmount > 0) {
             stakingToken.safeTransfer(msg.sender, withdrawAmount);
@@ -580,7 +581,7 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
         uint256 totalRewardAmount = 0;
 
         uint256 votePower = getTotalUserDepositsWithBonus(msg.sender);
-        _withdrawVotingPower(votePower, msg.sender);
+        _subtractVotingPower(votePower, msg.sender);
 
         for (uint256 i = 0; i < userStakes.length; ++i) {
             UserStake storage userStake = userStakes[i];
@@ -812,17 +813,17 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
     }
 
     /**
-    * @notice This internal function mirrors the external withdraw function from the Locking Vault
-    *         contract, with a key modification: it omits the token transfer transaction. This
-    *         is because the tokens are already present within the vault. Additionally, the function
-    *         adds an address account parameter to specify the user whose voting power needs updating.
-    *         In the Locking Vault  msg.sender directly indicated the user, wheras in this
-    *         context msg.sender refers to the contract itself. Therefore, we explicitly pass the
-    *         user's address.
-    *
-    * @param amount                            The amount of token to withdraw.
-    * @param account                           The funded account for the withdrawal.
-    */
+     * @notice This internal function mirrors the external withdraw function from the Locking Vault
+     *         contract, with a key modification: it omits the token transfer transaction. This
+     *         is because the tokens are already present within the vault. Additionally, the function
+     *         adds an address account parameter to specify the user whose voting power needs updating.
+     *         In the Locking Vault  msg.sender directly indicated the user, wheras in this
+     *         context msg.sender refers to the contract itself. Therefore, we explicitly pass the
+     *         user's address.
+     *
+     * @param amount                           The amount of token to withdraw.
+     * @param account                          The funded account for the withdrawal.
+     */
     function _subtractVotingPower(uint256 amount, address account) internal {
         // Load our deposits storage
         Storage.AddressUint storage userData = _deposits()[account];
@@ -844,13 +845,13 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
     }
 
     /**
-    * @notice This internal function mirrors the external deposit function from the Locking Vault
-    *         contract, with a key modification: it omits the token transfer transaction.
-    *
-    * @param fundedAccount                     The address to credit this deposit to.
-    * @param amount                            The amount of token which is deposited.
-    * @param firstDelegation                   First delegation address.
-    */
+     * @notice This internal function mirrors the external deposit function from the Locking Vault
+     *         contract, with a key modification: it omits the token transfer transaction.
+     *
+     * @param fundedAccount                    The address to credit this deposit to.
+     * @param amount                           The amount of token which is deposited.
+     * @param firstDelegation                  First delegation address.
+     */
     function _addVotingPower(
         address fundedAccount,
         uint256 amount,
@@ -885,5 +886,29 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
         emit VoteChange(fundedAccount, delegate, int256(amount));
         // Add the newly deposited votes to the delegate
         votingPower.push(delegate, delegateeVotes + amount);
+    }
+
+    /**
+     * @notice The purpose of this function is to prevent function deposit in inherited Locking Vault
+     * from being callable.
+     *
+     */
+    function deposit(
+        address fundedAccount,
+        uint256 amount,
+        address firstDelegation
+    ) external override {
+        revert LV_FunctionDisabled();
+    }
+
+    /**
+     * @notice The purpose of this function is to prevent function withdraw in inherited Locking Vault
+     * from being callable.
+     *
+     */
+    function withdraw(
+        uint256 amount
+    ) external override {
+        revert LV_FunctionDisabled();
     }
 }

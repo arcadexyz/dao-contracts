@@ -93,7 +93,7 @@ contract ArcadeStakingRewardsTest is Test {
         );
     }
 
-    function testStake() public {
+    function testDeposit() public {
         setUp();
 
         uint256 userStake = 20e18;
@@ -155,7 +155,7 @@ contract ArcadeStakingRewardsTest is Test {
         stakingRewards.deposit(0, userB, IArcadeStakingRewards.Lock.Short);
     }
 
-    function testWithdrawFromStake() public {
+    function testWithdraw() public {
         setUp();
 
         uint256 userStake = 20e18;
@@ -1565,6 +1565,79 @@ contract ArcadeStakingRewardsTest is Test {
 
         uint256 poolTotalDeposits = stakingRewards.totalSupply();
         assertEq(poolTotalDeposits, userStake * 2);
+    }
+
+    function testRevertOnLVDeposit() public {
+        setUp();
+
+        uint256 userStake = 20e18;
+
+        // mint rewardsTokens to stakingRewards contract
+        rewardsToken.mint(address(stakingRewards), 100e18);
+        // mint staking tokens to user
+        stakingToken.mint(userA, userStake);
+
+        // Admin calls notifyRewardAmount to set the reward rate
+        vm.prank(admin);
+        stakingRewards.notifyRewardAmount(100e18);
+
+        // increase blockchain time by 2 days
+        vm.warp(block.timestamp + 2 days);
+
+        // user approves stakingRewards contract to spend staking tokens
+        vm.startPrank(userA);
+        stakingToken.approve(address(stakingRewards), userStake);
+
+        bytes4 selector = bytes4(keccak256("LV_FunctionDisabled()"));
+
+        // user calls deposit using the Locking Vault deposit function signature
+        vm.expectRevert(abi.encodeWithSelector(selector));
+        stakingRewards.deposit(userA, userStake, userB);
+        vm.stopPrank();
+    }
+
+    function testRevertOnLVWithdraw() public {
+        setUp();
+
+        uint256 userStake = 20e18;
+
+        // mint rewardsTokens to stakingRewards contract
+        rewardsToken.mint(address(stakingRewards), 100e18);
+        // mint staking tokens to user
+        stakingToken.mint(userA, userStake);
+
+        // Admin calls notifyRewardAmount to set the reward rate
+        vm.prank(admin);
+        stakingRewards.notifyRewardAmount(100e18);
+
+        // increase blockchain time by 2 days
+        vm.warp(block.timestamp + 2 days);
+
+        // user approves stakingRewards contract to spend staking tokens
+        vm.startPrank(userA);
+        stakingToken.approve(address(stakingRewards), userStake);
+        stakingRewards.deposit(userStake, userB, IArcadeStakingRewards.Lock.Medium);
+        vm.stopPrank();
+
+        //confirm that delegatee user got voting power eq. to
+        // amount staked with bonus
+        uint256 userVotingPower = stakingRewards.queryVotePowerView(userB, block.timestamp);
+        uint256 stakeWithBonus = stakingRewards.getAmountWithBonus(userA, 0);
+        assertEq(userVotingPower, stakeWithBonus);
+
+        uint256 poolTotalDepositsBeforeWithdraw = stakingRewards.totalSupply();
+        uint256 balanceBeforeWithdraw = stakingToken.balanceOf(userA);
+
+        // increase blockchain time by the medium lock duration
+        vm.warp(block.timestamp + TWO_MONTHS);
+
+        bytes4 selector = bytes4(keccak256("LV_FunctionDisabled()"));
+
+        vm.startPrank(userA);
+        // user calls withdraw using the Locking Vault deposit function signature
+        vm.expectRevert(abi.encodeWithSelector(selector));
+        stakingRewards.withdraw(userStake);
+        vm.stopPrank();
     }
 }
 

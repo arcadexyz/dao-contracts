@@ -113,7 +113,7 @@ abstract contract LockingVault is IVotingVault, ILockingVault {
         address fundedAccount,
         uint256 amount,
         address firstDelegation
-    ) external override {
+    ) external virtual override {
         // No delegating to zero
         require(firstDelegation != address(0), "Zero addr delegation");
         // Move the tokens into this contract
