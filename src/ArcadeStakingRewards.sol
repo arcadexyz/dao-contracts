@@ -8,6 +8,7 @@ import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/utils/Pausable.sol";
 
 import "./external/LockingVault.sol";
+import "./external/interfaces/IUniswapV2Pair.sol";
 
 import "./interfaces/IArcadeStakingRewards.sol";
 import "./ArcadeRewardsRecipient.sol";
@@ -25,6 +26,7 @@ import {
     ASR_RewardsToken,
     ASR_InvalidDepositId,
     ASR_DepositCountExceeded,
+    ASR_InvalidAmount,
     LV_FunctionDisabled
 } from "../src/errors/Staking.sol";
 
@@ -110,6 +112,7 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
     // ============ Global State =============
     IERC20 public immutable rewardsToken;
     IERC20 public immutable stakingToken;
+    IUniswapV2Pair private arcdWethPair;
 
     uint256 public periodFinish = 0;
     uint256 public rewardRate = 0;
@@ -138,6 +141,7 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
      * @param shortBonus                   The bonus multiplier for the short lock time.
      * @param mediumBonus                  The bonus multiplier for the medium lock time.
      * @param longBonus                    The bonus multiplier for the long lock time.
+     * @param _arcdWethPairAddress         The address of the UniswapV2 ARCD/WETH pair contract.
      */
     constructor(
         address _owner,
@@ -149,14 +153,17 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
         uint256 longLockTime,
         uint256 shortBonus,
         uint256 mediumBonus,
-        uint256 longBonus
+        uint256 longBonus,
+        address _arcdWethPairAddress
     ) Ownable(_owner) LockingVault(IERC20(_stakingToken), staleBlockLag) {
         if (address(_rewardsDistribution) == address(0)) revert ASR_ZeroAddress();
         if (address(_rewardsToken) == address(0)) revert ASR_ZeroAddress();
         if (address(_stakingToken) == address(0)) revert ASR_ZeroAddress();
+        if (address(_arcdWethPairAddress) == address(0)) revert ASR_ZeroAddress();
         rewardsToken = IERC20(_rewardsToken);
         stakingToken = IERC20(_stakingToken);
         rewardsDistribution = _rewardsDistribution;
+        arcdWethPair = IUniswapV2Pair(_arcdWethPairAddress);
 
         SHORT_BONUS = shortBonus;
         MEDIUM_BONUS = mediumBonus;
@@ -441,6 +448,27 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
         return totalDepositsWithBonuses;
     }
 
+    /**
+     * @notice Calculates the amount of ARCD tokens equivalent to a given amount of ARCD/WETH
+     *         liquidity pool tokens.
+     *
+     * @param amountLPTokens                    The user's LP token amount to use for the conversion.
+     *
+     * @return uint256                          Value of ARCD.
+     */
+    function getARCDAmountFromLP(uint256 amountLPTokens) public view returns (uint256) {
+        (uint112 reserveARCD, uint112 reserveWETH,) = arcdWethPair.getReserves();
+        uint256 totalSupplyLPTokens = arcdWethPair.totalSupply();
+
+        // Ensure that the reserves and total supply are not zero
+        if (reserveARCD == 0) revert ASR_InvalidAmount("reserveARCD");
+        if (reserveWETH == 0) revert ASR_InvalidAmount("reserveWETH");
+        if (totalSupplyLPTokens == 0) revert ASR_InvalidAmount("LPTokenTotalSupply");
+
+        // Calculate the amount of ARCD tokens that the LP tokens represent
+        uint256 arcdValue = (amountLPTokens * reserveARCD) / totalSupplyLPTokens;
+        return arcdValue;
+    }
 
     // ========================================= MUTATIVE FUNCTIONS ========================================
     function deposit(
@@ -897,7 +925,7 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
         address fundedAccount,
         uint256 amount,
         address firstDelegation
-    ) external override {
+    ) external pure override {
         revert LV_FunctionDisabled();
     }
 
@@ -908,7 +936,7 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
      */
     function withdraw(
         uint256 amount
-    ) external override {
+    ) external pure override {
         revert LV_FunctionDisabled();
     }
 }

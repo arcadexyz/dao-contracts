@@ -24,6 +24,8 @@ contract ArcadeStakingRewardsTest is Test {
     address userA = address(0x3);
     address userB = address(0x4);
     address userC = address(0x5);
+    // TODO: Replace with real address
+    address arcdWethPair = address(0x6);
 
     function setUp() public {
         rewardsToken = new MockERC20("Rewards Token", "RWD");
@@ -39,7 +41,8 @@ contract ArcadeStakingRewardsTest is Test {
             THREE_MONTHS,
             1.1e18,
             1.3e18,
-            1.5e18
+            1.5e18,
+            address(arcdWethPair)
         );
 
         // set rewards to duration to an even number of days for easier testing
@@ -61,7 +64,8 @@ contract ArcadeStakingRewardsTest is Test {
             THREE_MONTHS,
             1.1e18,
             1.3e18,
-            1.5e18
+            1.5e18,
+            address(arcdWethPair)
         );
 
         vm.expectRevert(abi.encodeWithSelector(selector));
@@ -75,7 +79,8 @@ contract ArcadeStakingRewardsTest is Test {
             THREE_MONTHS,
             1.1e18,
             1.3e18,
-            1.5e18
+            1.5e18,
+            address(arcdWethPair)
         );
 
         vm.expectRevert(abi.encodeWithSelector(selector));
@@ -89,7 +94,23 @@ contract ArcadeStakingRewardsTest is Test {
             THREE_MONTHS,
             1.1e18,
             1.3e18,
-            1.5e18
+            1.5e18,
+            address(arcdWethPair)
+        );
+
+        vm.expectRevert(abi.encodeWithSelector(selector));
+        stakingRewards = new ArcadeStakingRewards(
+            owner,
+            admin,
+            address(rewardsToken),
+            address(stakingToken),
+            ONE_MONTH,
+            TWO_MONTHS,
+            THREE_MONTHS,
+            1.1e18,
+            1.3e18,
+            1.5e18,
+            address(0)
         );
     }
 
@@ -1624,9 +1645,6 @@ contract ArcadeStakingRewardsTest is Test {
         uint256 userVotingPower = stakingRewards.queryVotePowerView(userB, block.timestamp);
         uint256 stakeWithBonus = stakingRewards.getAmountWithBonus(userA, 0);
         assertEq(userVotingPower, stakeWithBonus);
-
-        uint256 poolTotalDepositsBeforeWithdraw = stakingRewards.totalSupply();
-        uint256 balanceBeforeWithdraw = stakingToken.balanceOf(userA);
 
         // increase blockchain time by the medium lock duration
         vm.warp(block.timestamp + TWO_MONTHS);
