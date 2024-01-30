@@ -7,12 +7,12 @@ import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/utils/Pausable.sol";
 
-import "./external/LockingVault.sol";
-import "./external/interfaces/IUniswapV2Pair.sol";
+import "./external/council/LockingVault.sol";
+import "./external/uniswap/IUniswapV2Pair.sol";
 
 import "./interfaces/IArcadeStakingRewards.sol";
 import "./ArcadeRewardsRecipient.sol";
-
+import { console } from "forge-std/Test.sol";
 import {
     ASR_ZeroAddress,
     ASR_ZeroAmount,
@@ -155,7 +155,7 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
         uint256 mediumBonus,
         uint256 longBonus,
         address _arcdWethPairAddress
-    ) Ownable(_owner) LockingVault(IERC20(_stakingToken), staleBlockLag) {
+    ) Ownable(_owner) LockingVault(IERC20(_arcdWethPairAddress), staleBlockLag) {
         if (address(_rewardsDistribution) == address(0)) revert ASR_ZeroAddress();
         if (address(_rewardsToken) == address(0)) revert ASR_ZeroAddress();
         if (address(_stakingToken) == address(0)) revert ASR_ZeroAddress();
@@ -492,11 +492,15 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
 
         if ((stakes[msg.sender].length + 1) > MAX_DEPOSITS) revert ASR_DepositCountExceeded();
 
-        // Accounting with bonus for updating vote power
+        // Accounting with bonus
         (uint256 bonus, uint256 lockDuration) = _getBonus(lock);
         uint256 amountWithBonus = amount + ((amount * bonus) / ONE);
+
+        // Calculate the amount of ARCD tokens that the LP tokens represent
+        // to get user's voting power
+        uint256 arcdAmount = getARCDAmountFromLP(amount);
         // update the vote power to equal the amount staked with bonus
-        _addVotingPower(msg.sender, amountWithBonus, firstDelegation);
+        _addVotingPower(msg.sender, arcdAmount, firstDelegation);
 
         // populate user stake information
         stakes[msg.sender].push(
@@ -512,7 +516,7 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
         totalDeposits += amount;
         totalDepositsWithBonus += amountWithBonus;
 
-        stakingToken.safeTransferFrom(msg.sender, address(this), amount);
+        arcdWethPair.transferFrom(msg.sender, address(this), amount);
 
         emit Staked(msg.sender, stakes[msg.sender].length - 1, amount);
     }
@@ -543,7 +547,7 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
         _subtractVotingPower(amountWithBonus, msg.sender);
 
         if (withdrawAmount > 0) {
-            stakingToken.safeTransfer(msg.sender, withdrawAmount);
+            arcdWethPair.transferFrom(address(this), msg.sender, withdrawAmount);
         }
 
         if (reward > 0) {
@@ -627,7 +631,7 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
         }
 
         if (totalWithdrawAmount > 0) {
-            stakingToken.safeTransfer(msg.sender, totalWithdrawAmount);
+            arcdWethPair.transferFrom(address(this), msg.sender, totalWithdrawAmount);
         }
 
         if (totalRewardAmount > 0) {
@@ -887,7 +891,9 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
     ) internal {
         // No delegating to zero
         require(firstDelegation != address(0), "Zero addr delegation");
-
+console.log("SOL addVotingPower -------- fundedAccount: ", fundedAccount);
+console.log("SOL addVotingPower --------- amount: ", amount);
+console.log("SOL addVotingPower ----- firstDelegation: ", firstDelegation);
         // Load our deposits storage
         Storage.AddressUint storage userData = _deposits()[fundedAccount];
         // Load who has the user's votes

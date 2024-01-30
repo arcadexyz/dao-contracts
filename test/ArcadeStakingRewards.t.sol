@@ -6,11 +6,18 @@ import { Test, console } from "forge-std/Test.sol";
 import { IArcadeStakingRewards } from "../src/interfaces/IArcadeStakingRewards.sol";
 import { ArcadeStakingRewards } from "../src/ArcadeStakingRewards.sol";
 import { MockERC20 } from "../src/test/MockERC20.sol";
+import { MockUniswapV2Pair } from "../src/test/uniswap/MockUniswapV2Pair.sol";
+import { UniswapV2Factory } from "../src/test/uniswap/UniswapV2Factory.sol";
 
 contract ArcadeStakingRewardsTest is Test {
     ArcadeStakingRewards stakingRewards;
+    MockUniswapV2Pair mockPair;
+    UniswapV2Factory factory;
+
     MockERC20 rewardsToken;
     MockERC20 stakingToken;
+    MockERC20 arcdWethPairToken;
+    MockERC20 mockWETH;
 
     uint256 public constant ONE = 1e18;
     uint256 public constant ONE_DAY = 60 * 60 * 24;
@@ -24,12 +31,15 @@ contract ArcadeStakingRewardsTest is Test {
     address userA = address(0x3);
     address userB = address(0x4);
     address userC = address(0x5);
-    // TODO: Replace with real address
-    address arcdWethPair = address(0x6);
 
     function setUp() public {
         rewardsToken = new MockERC20("Rewards Token", "RWD");
         stakingToken = new MockERC20("Staking Token", "STK");
+        mockWETH = new MockERC20("Mock Weth", "WETH");
+
+        factory = new UniswapV2Factory(address(this));
+        factory.createPair(address(rewardsToken), address(mockWETH));
+        mockPair = MockUniswapV2Pair(factory.getPair(address(rewardsToken), address(mockWETH)));
 
         stakingRewards = new ArcadeStakingRewards(
             owner,
@@ -42,12 +52,78 @@ contract ArcadeStakingRewardsTest is Test {
             1.1e18,
             1.3e18,
             1.5e18,
-            address(arcdWethPair)
+            address(mockPair)
         );
 
         // set rewards to duration to an even number of days for easier testing
         vm.prank(owner);
         stakingRewards.setRewardsDuration(8 days);
+    }
+
+    function testLPConversion() public {
+        setUp();
+
+        // mint tokens to userA
+        rewardsToken.mint(userA, 100e18);
+        mockWETH.mint(userA, 5e18);
+
+        // mint tokens to userB
+        rewardsToken.mint(userB, 100e18);
+        mockWETH.mint(userB, 5e18);
+
+        // userA transfers tokens to LP pool
+        vm.startPrank(userA);
+        rewardsToken.approve(address(mockPair), 100e18);
+        mockWETH.approve(address(mockPair), 5e18);
+        rewardsToken.transfer(address(mockPair), 100e18);
+        mockWETH.transfer(address(mockPair), 5e18);
+        vm.stopPrank();
+
+        // LP pool mints LP tokens to userA
+        mockPair.mint(userA);
+
+        // userB transfers tokens to LP pool
+        vm.startPrank(userB);
+        rewardsToken.approve(address(mockPair), 100e18);
+        mockWETH.approve(address(mockPair), 5e18);
+        rewardsToken.transfer(address(mockPair), 100e18);
+        mockWETH.transfer(address(mockPair), 5e18);
+        vm.stopPrank();
+
+        mockPair.mint(userB);
+
+        (uint arcdReserve, uint wethReserve,) = mockPair.getReserves();
+        console.log("Reserves before: ", arcdReserve, wethReserve);
+
+        // ==================================================
+        // userA deposits LP tokens to stakingRewards contract
+
+        // mint rewardsTokens to stakingRewards contract
+        rewardsToken.mint(address(stakingRewards), 100e18);
+        // Admin calls notifyRewardAmount to set the reward rate
+        vm.prank(admin);
+        stakingRewards.notifyRewardAmount(100e18);
+
+        uint256 userStake = mockPair.balanceOf(userA);
+        console.log("UserA stake: ", userStake);
+
+        // user approves stakingRewards contract to spend staking tokens
+        vm.startPrank(userA);
+        mockPair.approve(address(stakingRewards), userStake);
+        uint256 allowanceSet = mockPair.allowance(userA, address(stakingRewards));
+console.log("Allowance set for stakingRewards by userA: ", allowanceSet);
+console.log("Mockpair address: ", address(mockPair));
+console.log("Staerewards address: ", address(stakingRewards));
+        // user stakes LP tokens
+        stakingRewards.deposit(userStake, userC, IArcadeStakingRewards.Lock.Medium);
+        vm.stopPrank();
+
+        //confirm that delegatee user got voting power
+        uint256 userVotingPower = stakingRewards.queryVotePowerView(userC, block.timestamp);
+        assertEq(userVotingPower, stakingRewards.getARCDAmountFromLP(userStake));
+
+        uint256 poolTotalDeposits = stakingRewards.totalSupply();
+        assertEq(poolTotalDeposits, userStake);
     }
 
     function testConstructorZeroAddress() public {
@@ -65,7 +141,7 @@ contract ArcadeStakingRewardsTest is Test {
             1.1e18,
             1.3e18,
             1.5e18,
-            address(arcdWethPair)
+            address(mockPair)
         );
 
         vm.expectRevert(abi.encodeWithSelector(selector));
@@ -80,7 +156,7 @@ contract ArcadeStakingRewardsTest is Test {
             1.1e18,
             1.3e18,
             1.5e18,
-            address(arcdWethPair)
+            address(mockPair)
         );
 
         vm.expectRevert(abi.encodeWithSelector(selector));
@@ -95,7 +171,7 @@ contract ArcadeStakingRewardsTest is Test {
             1.1e18,
             1.3e18,
             1.5e18,
-            address(arcdWethPair)
+            address(mockPair)
         );
 
         vm.expectRevert(abi.encodeWithSelector(selector));
