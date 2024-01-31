@@ -2026,6 +2026,7 @@ contract ArcadeStakingRewardsTest is Test {
         vm.stopPrank();
 
         // Admin calls notifyRewardAmount again to set the reward rate
+        rewardsToken.mint(address(stakingRewards), 100e18);
         vm.prank(admin);
         stakingRewards.notifyRewardAmount(100e18);
 
@@ -2040,8 +2041,6 @@ contract ArcadeStakingRewardsTest is Test {
 
         uint256 tolerance2 = 1e4;
         assertApproxEqAbs(rewardsA_ - rewardsA , rewardsB_ - rewardsB, tolerance2);
-console.log("TEST 2024 VOTEPOWER C", stakingRewards.queryVotePowerView(userC, block.timestamp));
-console.log("TEST 2024 VOTEPOWERD", stakingRewards.queryVotePowerView(userD, block.timestamp));
 
         // userB withdraws
         vm.startPrank(userB);
@@ -2050,17 +2049,14 @@ console.log("TEST 2024 VOTEPOWERD", stakingRewards.queryVotePowerView(userD, blo
         assertEq(userStakeAmountB + userStakeAmountB2, mockPair.balanceOf(userB));
         assertEq(rewardsB_ + rewardsB1_ + rewardsB1, rewardsToken.balanceOf(userB));
 
-        // // userA withdraws
-        // vm.startPrank(userA);
-        // stakingRewards.exitAll();
-        // vm.stopPrank();
-        // assertEq(userStakeAmount + userStakeAmount2, mockPair.balanceOf(userA));
-        // assertEq(rewardsA_ + rewardsA1_, rewardsToken.balanceOf(userA));
+        // userA withdraws
+        vm.startPrank(userA);
+        stakingRewards.exitAll();
+        vm.stopPrank();
+        assertEq(userStakeAmount + userStakeAmount2, mockPair.balanceOf(userA));
+        assertEq(rewardsA_ + rewardsA1_, rewardsToken.balanceOf(userA));
 
-
-        // uint256 tolerance3 = 1e7;
-        // assertApproxEqAbs(0, rewardsToken.balanceOf(address(stakingRewards)), tolerance3);
-        // assertEq(0, mockPair.balanceOf(address(stakingRewards)));
+        assertEq(0, mockPair.balanceOf(address(stakingRewards)));
     }
 
     function testMaxDepositsRevert() public {
