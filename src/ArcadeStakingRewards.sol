@@ -12,7 +12,7 @@ import "./external/uniswap/IUniswapV2Pair.sol";
 
 import "./interfaces/IArcadeStakingRewards.sol";
 import "./ArcadeRewardsRecipient.sol";
-import { console } from "forge-std/Test.sol";
+
 import {
     ASR_ZeroAddress,
     ASR_ZeroAmount,
@@ -38,9 +38,9 @@ import {
  * contract.
  * https://github.com/Synthetixio/synthetix/blob/develop/contracts/StakingRewards.sol
  *
- * The contract manages a staking mechanism where users can stake the ERC20 stakingToken
- * and earn rewards over time, paid in the ERC20 rewardsToken.  Rewards are earned based
- * on the amount of stakingToken staked and the length of time staked.
+ * The contract manages a staking mechanism where users can stake the ERC20 ARCDWETH pair
+ * token and earn rewards over time, paid in the ERC20 rewardsToken.  Rewards are earned
+ * based on the amount of ARCDWETH staked and the length of time staked.
  *
  * Users have the flexibility to make multiple deposits, each accruing
  * rewards separately until the staking period concludes. Upon depositing
@@ -77,16 +77,23 @@ import {
  * of stakes, they will be required to use a different wallet address.
  *
  * The locking pool gives users governance capabilities by also serving as a
- * voting vault. When users stake, they gain voting power equivalent to their staked
- * amount plus any applicable bonus.  They can use this voting power to vote in
- * ArcadeDAO governance. The voting power is automatically accrued to their
- * account and is delegated to their chosen delegatee's address on their behalf
- * without the need for them to call any additional transaction.
- *
+ * voting vault. When users stake, they gain voting power They can use this voting
+ * power to vote in ArcadeDAO governance. The voting power is automatically accrued
+ * to their account and is delegated to their chosen delegatee's address on their
+ * behalf without the need for them to call any additional transaction.
  * The ArcadeStakingRewards contract utilizes the LockingVault deployment at
  * https://etherscan.io/address/0x7a58784063D41cb78FBd30d271F047F0b9156d6e#code
- * as its governance operations foundation. This deployment has been adapted and
- * modified to integrate with ArcadeStakingRewards.
+ * as its governance operations foundation.
+ *
+ * A user's voting power is determined by the quantity of ARCDWETH pair tokens
+ * they have staked. To calculate this voting power, the UniswapV2 LP pool is
+ * queried for the current reserves of ARCD and WETH, as well as the total supply
+ * of ARCDWETH pair tokens. With these values, a user's ARCDWETH pair token deposit
+ * is convert into an equivalent amount of ARCD.
+ * The resulting ARCD value is then enhanced by the lock bonus multiplier, the
+ * user has selected at the time of their token deposit. Thus, a user's voting power
+ * is essentially their share of ARCD in the LP pool, amplified by the lock
+ * multiplier they chose upon staking.
  */
 
 contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, LockingVault, ReentrancyGuard, Pausable {
@@ -111,7 +118,6 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
 
     // ============ Global State =============
     IERC20 public immutable rewardsToken;
-    IERC20 public immutable stakingToken;
     IUniswapV2Pair private arcdWethPair;
 
     uint256 public periodFinish = 0;
@@ -134,36 +140,32 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
      * @param _rewardsDistribution         The address of the entity setting the rules
      *                                     of how rewards are distributed.
      * @param _rewardsToken                The address of the rewards ERC20 token.
-     * @param _stakingToken                The address of the staking ERC20 token.
+     * @param _arcdWethPair                The address of the staking ERC20 token.
      * @param shortLockTime                The short lock time.
      * @param mediumLockTime               The medium lock time.
      * @param longLockTime                 The long lock time.
      * @param shortBonus                   The bonus multiplier for the short lock time.
      * @param mediumBonus                  The bonus multiplier for the medium lock time.
      * @param longBonus                    The bonus multiplier for the long lock time.
-     * @param _arcdWethPairAddress         The address of the UniswapV2 ARCD/WETH pair contract.
      */
     constructor(
         address _owner,
         address _rewardsDistribution,
         address _rewardsToken,
-        address _stakingToken,
+        address _arcdWethPair,
         uint256 shortLockTime,
         uint256 mediumLockTime,
         uint256 longLockTime,
         uint256 shortBonus,
         uint256 mediumBonus,
-        uint256 longBonus,
-        address _arcdWethPairAddress
-    ) Ownable(_owner) LockingVault(IERC20(_arcdWethPairAddress), staleBlockLag) {
+        uint256 longBonus
+    ) Ownable(_owner) LockingVault(IERC20(_arcdWethPair), staleBlockLag) {
         if (address(_rewardsDistribution) == address(0)) revert ASR_ZeroAddress();
         if (address(_rewardsToken) == address(0)) revert ASR_ZeroAddress();
-        if (address(_stakingToken) == address(0)) revert ASR_ZeroAddress();
-        if (address(_arcdWethPairAddress) == address(0)) revert ASR_ZeroAddress();
+        if (address(_arcdWethPair) == address(0)) revert ASR_ZeroAddress();
         rewardsToken = IERC20(_rewardsToken);
-        stakingToken = IERC20(_stakingToken);
+        arcdWethPair = IUniswapV2Pair(_arcdWethPair);
         rewardsDistribution = _rewardsDistribution;
-        arcdWethPair = IUniswapV2Pair(_arcdWethPairAddress);
 
         SHORT_BONUS = shortBonus;
         MEDIUM_BONUS = mediumBonus;
@@ -693,14 +695,13 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
 
     /**
      * @notice Allows the contract owner to recover ERC20 tokens locked in the contract.
-     *         Added to support recovering rewards from other systems such as BAL, to be
-     *         distributed to holders.
+     *         Reward tokens can be recovered only if the total staked amount is zero.
      *
      * @param tokenAddress                       The address of the token to recover.
      * @param tokenAmount                        The amount of token to recover.
      */
     function recoverERC20(address tokenAddress, uint256 tokenAmount) external onlyOwner {
-        if (tokenAddress == address(stakingToken)) revert ASR_StakingToken();
+        if (tokenAddress == address(arcdWethPair)) revert ASR_StakingToken();
         if (tokenAddress == address(rewardsToken) && totalDeposits != 0) revert ASR_RewardsToken();
         if (tokenAddress == address(0)) revert ASR_ZeroAddress();
         if (tokenAmount == 0) revert ASR_ZeroAmount();
@@ -725,16 +726,16 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
     }
 
     /**
-     * @notice Pauses the contract, callable by onlyRewardsDistribution. Reversible.
+     * @notice Pauses the contract, callable by only the owner. Reversible.
      */
-    function pause() external onlyRewardsDistribution {
+    function pause() external onlyOwner {
         _pause();
     }
 
     /**
-     * @notice Unpauses the contract, callable by onlyRewardsDistribution. Reversible.
+     * @notice Unpauses the contract, callable by only the owner. Reversible.
      */
-    function unpause() external onlyRewardsDistribution {
+    function unpause() external onlyOwner {
         _unpause();
     }
 

@@ -15,7 +15,7 @@ contract ArcadeStakingRewardsTest is Test {
     UniswapV2Factory factory;
 
     MockERC20 rewardsToken;
-    MockERC20 stakingToken;
+    MockERC20 otherToken;
     MockERC20 arcdWethPairToken;
     MockERC20 mockWETH;
 
@@ -35,7 +35,7 @@ contract ArcadeStakingRewardsTest is Test {
 
     function setUp() public {
         rewardsToken = new MockERC20("Rewards Token", "RWD");
-        stakingToken = new MockERC20("Staking Token", "STK");
+        otherToken = new MockERC20("Other Token", "OTHR");
         mockWETH = new MockERC20("Mock Weth", "WETH");
 
         factory = new UniswapV2Factory(address(this));
@@ -46,14 +46,14 @@ contract ArcadeStakingRewardsTest is Test {
             owner,
             admin,
             address(rewardsToken),
-            address(stakingToken),
+            address(mockPair),
             ONE_MONTH,
             TWO_MONTHS,
             THREE_MONTHS,
             1.1e18,
             1.3e18,
-            1.5e18,
-            address(mockPair)
+            1.5e18
+
         );
 
         // set rewards to duration to an even number of days for easier testing
@@ -128,14 +128,13 @@ contract ArcadeStakingRewardsTest is Test {
             owner,
             address(0),
             address(rewardsToken),
-            address(stakingToken),
+            address(mockPair),
             ONE_MONTH,
             TWO_MONTHS,
             THREE_MONTHS,
             1.1e18,
             1.3e18,
-            1.5e18,
-            address(mockPair)
+            1.5e18
         );
 
         vm.expectRevert(abi.encodeWithSelector(selector));
@@ -143,14 +142,13 @@ contract ArcadeStakingRewardsTest is Test {
             owner,
             admin,
             address(0),
-            address(stakingToken),
+            address(mockPair),
             ONE_MONTH,
             TWO_MONTHS,
             THREE_MONTHS,
             1.1e18,
             1.3e18,
-            1.5e18,
-            address(mockPair)
+            1.5e18
         );
 
         vm.expectRevert(abi.encodeWithSelector(selector));
@@ -164,23 +162,7 @@ contract ArcadeStakingRewardsTest is Test {
             THREE_MONTHS,
             1.1e18,
             1.3e18,
-            1.5e18,
-            address(mockPair)
-        );
-
-        vm.expectRevert(abi.encodeWithSelector(selector));
-        stakingRewards = new ArcadeStakingRewards(
-            owner,
-            admin,
-            address(rewardsToken),
-            address(stakingToken),
-            ONE_MONTH,
-            TWO_MONTHS,
-            THREE_MONTHS,
-            1.1e18,
-            1.3e18,
-            1.5e18,
-            address(0)
+            1.5e18
         );
     }
 
@@ -367,8 +349,6 @@ contract ArcadeStakingRewardsTest is Test {
 
         // mint rewardsTokens to stakingRewards contract
         rewardsToken.mint(address(stakingRewards), 100e18);
-        // mint staking tokens to user
-        stakingToken.mint(userA, userStake * 3);
 
         // Admin calls notifyRewardAmount to set the reward rate
         vm.prank(admin);
@@ -435,8 +415,6 @@ contract ArcadeStakingRewardsTest is Test {
 
         // mint rewardsTokens to stakingRewards contract
         rewardsToken.mint(address(stakingRewards), 100e18);
-        // mint staking tokens to user
-        stakingToken.mint(userA, userStake);
 
         // Admin calls notifyRewardAmount to set the reward rate
         vm.prank(admin);
@@ -764,7 +742,7 @@ contract ArcadeStakingRewardsTest is Test {
         vm.expectRevert(abi.encodeWithSelector(selector));
 
         vm.prank(owner);
-        stakingRewards.recoverERC20(address(stakingToken), 1e18);
+        stakingRewards.recoverERC20(address(mockPair), 1e18);
 
         bytes4 selector2 = bytes4(keccak256("ASR_ZeroAddress()"));
         vm.expectRevert(abi.encodeWithSelector(selector2));
@@ -2198,7 +2176,7 @@ contract ArcadeStakingRewardsTest is Test {
         stakingRewards.deposit(userStake, userB, IArcadeStakingRewards.Lock.Medium);
         vm.stopPrank();
 
-        vm.prank(admin);
+        vm.prank(owner);
         stakingRewards.pause();
 
         bytes4 selector = bytes4(keccak256("EnforcedPause()"));
@@ -2208,7 +2186,7 @@ contract ArcadeStakingRewardsTest is Test {
         stakingRewards.deposit(userStake, userB, IArcadeStakingRewards.Lock.Medium);
         vm.stopPrank();
 
-        vm.prank(admin);
+        vm.prank(owner);
         stakingRewards.unpause();
 
         vm.startPrank(userA);
