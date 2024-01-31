@@ -405,9 +405,12 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
         uint256 amount = userStake.amount;
         Lock lock = userStake.lock;
 
+        // Calculate the amount of ARCD tokens that the LP tokens represent
+        // to get user's voting power
+        uint256 arcdAmount = getARCDAmountFromLP(amount);
         // Accounting with bonus
         (uint256 bonus,) = _getBonus(lock);
-        uint256 amountWithBonus = (amount + ((amount * bonus) / ONE));
+        uint256 amountWithBonus = (arcdAmount + ((arcdAmount * bonus) / ONE));
 
         return amountWithBonus;
     }
@@ -419,7 +422,7 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
      *
      * @return totalRewards                     Value of a user's rewards across all deposits.
      */
-    function getTotalUserPendingRewards(address account) external view returns (uint256) {
+    function getTotalUserPendingRewards(address account) public view returns (uint256) {
         UserStake[] storage userStakes = stakes[account];
         uint256 totalRewards = 0;
 
@@ -492,15 +495,15 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
 
         if ((stakes[msg.sender].length + 1) > MAX_DEPOSITS) revert ASR_DepositCountExceeded();
 
-        // Accounting with bonus
-        (uint256 bonus, uint256 lockDuration) = _getBonus(lock);
-        uint256 amountWithBonus = amount + ((amount * bonus) / ONE);
-
         // Calculate the amount of ARCD tokens that the LP tokens represent
         // to get user's voting power
         uint256 arcdAmount = getARCDAmountFromLP(amount);
+        // Accounting with bonus
+        (uint256 bonus, uint256 lockDuration) = _getBonus(lock);
+        uint256 amountWithBonus = arcdAmount + ((arcdAmount * bonus) / ONE);
+
         // update the vote power to equal the amount staked with bonus
-        _addVotingPower(msg.sender, arcdAmount, firstDelegation);
+        _addVotingPower(msg.sender, amountWithBonus, firstDelegation);
 
         // populate user stake information
         stakes[msg.sender].push(
@@ -541,19 +544,30 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
 
         UserStake storage userStake = stakes[msg.sender][depositId];
         Lock lock = userStake.lock;
+
+        // Calculate the amount of ARCD tokens that the LP tokens represent
+        // to get user's voting power
+        uint256 arcdAmount = getARCDAmountFromLP(amount);
+console.log("SOL 551 arcdAmount", arcdAmount);
         // Accounting with bonus
         (uint256 bonus,) = _getBonus(lock);
-        uint256 amountWithBonus = (amount + ((amount * bonus) / ONE));
+        uint256 amountWithBonus = (arcdAmount + ((arcdAmount * bonus) / ONE));
         _subtractVotingPower(amountWithBonus, msg.sender);
+
+console.log("SOL 545 arcdWethPair.balanceOf(address(this));", arcdWethPair.balanceOf(address(this)));
+console.log("SOL 556 withdrawAmount", withdrawAmount);
+console.log("SOL 556 amountWithBonus", amountWithBonus);
+        arcdWethPair.approve(address(this), withdrawAmount);
 
         if (withdrawAmount > 0) {
             arcdWethPair.transferFrom(address(this), msg.sender, withdrawAmount);
         }
-
+console.log("SOL 560 AFTER WITHDRW AMOUNT transfer -------------");
         if (reward > 0) {
             rewardsToken.safeTransfer(msg.sender, reward);
             emit RewardPaid(msg.sender, reward, depositId);
         }
+console.log("SOL 565 AFTER rewardsToken transfer -------------");
     }
 
     /**
@@ -611,32 +625,48 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
         UserStake[] storage userStakes = stakes[msg.sender];
         uint256 totalWithdrawAmount = 0;
         uint256 totalRewardAmount = 0;
+       // uint256 votePower = getTotalUserPendingRewards(msg.sender);
 
-        uint256 votePower = getTotalUserDepositsWithBonus(msg.sender);
-        _subtractVotingPower(votePower, msg.sender);
-
+    uint256 votingPowerWithBonus = 0;
         for (uint256 i = 0; i < userStakes.length; ++i) {
             UserStake storage userStake = userStakes[i];
             uint256 depositAmount = userStake.amount;
+        Lock lock = userStake.lock;
+
+        // Calculate the amount of ARCD tokens that the LP tokens represent
+        // to get user's voting power
+        uint256 arcdAmount = getARCDAmountFromLP(depositAmount);
+console.log("SOL 551 arcdAmount", arcdAmount);
+        // Accounting with bonus
+        (uint256 bonus,) = _getBonus(lock);
+        uint256 amountWithBonus = (arcdAmount + ((arcdAmount * bonus) / ONE));
+        votingPowerWithBonus += amountWithBonus;
+
 
             if (depositAmount == 0 || block.timestamp < userStake.unlockTimestamp) continue;
 
             (uint256 withdrawAmount, uint256 reward) = _withdraw(msg.sender, depositAmount, i);
             totalWithdrawAmount += withdrawAmount;
+            console.log("SOL IN LOOP ----------- totalRewardAmount)", totalRewardAmount);
             totalRewardAmount += reward;
 
             if (reward > 0) {
                 emit RewardPaid(msg.sender, reward, i);
             }
         }
+        _subtractVotingPower(votingPowerWithBonus, msg.sender);
 
+console.log("SOL EXITALL 2 ----------- votingPowerWithBonus", votingPowerWithBonus);
+        arcdWethPair.approve(address(this), totalWithdrawAmount);
         if (totalWithdrawAmount > 0) {
             arcdWethPair.transferFrom(address(this), msg.sender, totalWithdrawAmount);
         }
-
+console.log("SOL AFTER 1 ----------- rewardsToken.balanceOf(address(this))", rewardsToken.balanceOf(address(this)));
+console.log("SOL AFTER 2 ----------- totalRewardAmount)", totalRewardAmount);
         if (totalRewardAmount > 0) {
             rewardsToken.safeTransfer(msg.sender, totalRewardAmount);
         }
+        console.log("SOL AFTER 3 -----------");
     }
 
     // ======================================== RESTRICTED FUNCTIONS =========================================
@@ -891,9 +921,7 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
     ) internal {
         // No delegating to zero
         require(firstDelegation != address(0), "Zero addr delegation");
-console.log("SOL addVotingPower -------- fundedAccount: ", fundedAccount);
-console.log("SOL addVotingPower --------- amount: ", amount);
-console.log("SOL addVotingPower ----- firstDelegation: ", firstDelegation);
+
         // Load our deposits storage
         Storage.AddressUint storage userData = _deposits()[fundedAccount];
         // Load who has the user's votes
