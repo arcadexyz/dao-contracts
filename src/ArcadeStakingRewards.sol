@@ -625,23 +625,22 @@ console.log("SOL 565 AFTER rewardsToken transfer -------------");
         UserStake[] storage userStakes = stakes[msg.sender];
         uint256 totalWithdrawAmount = 0;
         uint256 totalRewardAmount = 0;
-       // uint256 votePower = getTotalUserPendingRewards(msg.sender);
+        uint256 userReward = getTotalUserPendingRewards(msg.sender);
+        console.log("SOL 629 ----------- userReward)", userReward);
 
     uint256 votingPowerWithBonus = 0;
         for (uint256 i = 0; i < userStakes.length; ++i) {
             UserStake storage userStake = userStakes[i];
             uint256 depositAmount = userStake.amount;
-        Lock lock = userStake.lock;
+            Lock lock = userStake.lock;
 
-        // Calculate the amount of ARCD tokens that the LP tokens represent
-        // to get user's voting power
-        uint256 arcdAmount = getARCDAmountFromLP(depositAmount);
-console.log("SOL 551 arcdAmount", arcdAmount);
-        // Accounting with bonus
-        (uint256 bonus,) = _getBonus(lock);
-        uint256 amountWithBonus = (arcdAmount + ((arcdAmount * bonus) / ONE));
-        votingPowerWithBonus += amountWithBonus;
-
+            // Calculate the amount of ARCD tokens that the LP tokens represent
+            // to get user's voting power
+            uint256 arcdAmount = getARCDAmountFromLP(depositAmount);
+            // Accounting with bonus
+            (uint256 bonus,) = _getBonus(lock);
+            uint256 amountWithBonus = (arcdAmount  + ((arcdAmount * bonus) / ONE)) ;
+            votingPowerWithBonus += amountWithBonus;
 
             if (depositAmount == 0 || block.timestamp < userStake.unlockTimestamp) continue;
 
@@ -654,9 +653,10 @@ console.log("SOL 551 arcdAmount", arcdAmount);
                 emit RewardPaid(msg.sender, reward, i);
             }
         }
+
+        votingPowerWithBonus = (votingPowerWithBonus / 1e6) * 1e6;
         _subtractVotingPower(votingPowerWithBonus, msg.sender);
 
-console.log("SOL EXITALL 2 ----------- votingPowerWithBonus", votingPowerWithBonus);
         arcdWethPair.approve(address(this), totalWithdrawAmount);
         if (totalWithdrawAmount > 0) {
             arcdWethPair.transferFrom(address(this), msg.sender, totalWithdrawAmount);
