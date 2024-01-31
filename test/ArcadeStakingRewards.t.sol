@@ -279,7 +279,7 @@ contract ArcadeStakingRewardsTest is Test {
     function testWithdraw() public {
         setUp();
 
-        // DEPOSIT INTO ARCD/WETH POOL FLOW ////////////////////////
+        // DEPOSIT INTO ARCD/WETH POOL FLOW
         // mint tokens to userA
         rewardsToken.mint(userA, 100e18);
         mockWETH.mint(userA, 5e18);
@@ -295,7 +295,7 @@ contract ArcadeStakingRewardsTest is Test {
         // LP pool mints LP tokens to userA
         mockPair.mint(userA);
 
-        // LOCKING POOL LP TOKEN STAKING FLOW ///////////////////////////
+        // LOCKING POOL LP TOKEN STAKING FLOW
         uint256 userStake = mockPair.balanceOf(userA);
 
         // mint rewardsTokens to stakingRewards contract
@@ -683,7 +683,7 @@ contract ArcadeStakingRewardsTest is Test {
     function testClaimRewardAll() public {
         setUp();
 
-        // DEPOSIT INTO ARCD/WETH POOL FLOW ////////////////////////
+        // DEPOSIT INTO ARCD/WETH POOL FLOW
         // mint tokens to userA
         rewardsToken.mint(userA, 100e18);
         mockWETH.mint(userA, 5e18);
@@ -699,7 +699,7 @@ contract ArcadeStakingRewardsTest is Test {
         // LP pool mints LP tokens to userA
         mockPair.mint(userA);
 
-        // LOCKING POOL LP TOKEN STAKING FLOW ///////////////////////////
+        // LOCKING POOL LP TOKEN STAKING FLOW
         uint256 userStake = mockPair.balanceOf(userA) / 2;
 
         // mint rewardsTokens to stakingRewards contract
@@ -2039,25 +2039,24 @@ contract ArcadeStakingRewardsTest is Test {
         uint256 rewardsB1_ = stakingRewards.getPendingRewards(userB, 1);
 
         uint256 tolerance2 = 1e4;
-
         assertApproxEqAbs(rewardsA_ - rewardsA , rewardsB_ - rewardsB, tolerance2);
 console.log("TEST 2024 VOTEPOWER C", stakingRewards.queryVotePowerView(userC, block.timestamp));
 console.log("TEST 2024 VOTEPOWERD", stakingRewards.queryVotePowerView(userD, block.timestamp));
-        // userA withdraws
-        vm.startPrank(userA);
+
+        // userB withdraws
+        vm.startPrank(userB);
         stakingRewards.exitAll();
         vm.stopPrank();
+        assertEq(userStakeAmountB + userStakeAmountB2, mockPair.balanceOf(userB));
+        assertEq(rewardsB_ + rewardsB1_ + rewardsB1, rewardsToken.balanceOf(userB));
 
-        // // userB withdraws
-        // vm.startPrank(userB);
+        // // userA withdraws
+        // vm.startPrank(userA);
         // stakingRewards.exitAll();
         // vm.stopPrank();
-
         // assertEq(userStakeAmount + userStakeAmount2, mockPair.balanceOf(userA));
-        // assertEq(userStakeAmountB + userStakeAmountB2, mockPair.balanceOf(userB));
-
         // assertEq(rewardsA_ + rewardsA1_, rewardsToken.balanceOf(userA));
-        // assertEq(rewardsB_ + rewardsB1_ + rewardsB1, rewardsToken.balanceOf(userB));
+
 
         // uint256 tolerance3 = 1e7;
         // assertApproxEqAbs(0, rewardsToken.balanceOf(address(stakingRewards)), tolerance3);

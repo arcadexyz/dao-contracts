@@ -548,26 +548,21 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
         // Calculate the amount of ARCD tokens that the LP tokens represent
         // to get user's voting power
         uint256 arcdAmount = getARCDAmountFromLP(amount);
-console.log("SOL 551 arcdAmount", arcdAmount);
         // Accounting with bonus
         (uint256 bonus,) = _getBonus(lock);
         uint256 amountWithBonus = (arcdAmount + ((arcdAmount * bonus) / ONE));
         _subtractVotingPower(amountWithBonus, msg.sender);
 
-console.log("SOL 545 arcdWethPair.balanceOf(address(this));", arcdWethPair.balanceOf(address(this)));
-console.log("SOL 556 withdrawAmount", withdrawAmount);
-console.log("SOL 556 amountWithBonus", amountWithBonus);
         arcdWethPair.approve(address(this), withdrawAmount);
 
         if (withdrawAmount > 0) {
             arcdWethPair.transferFrom(address(this), msg.sender, withdrawAmount);
         }
-console.log("SOL 560 AFTER WITHDRW AMOUNT transfer -------------");
+
         if (reward > 0) {
             rewardsToken.safeTransfer(msg.sender, reward);
             emit RewardPaid(msg.sender, reward, depositId);
         }
-console.log("SOL 565 AFTER rewardsToken transfer -------------");
     }
 
     /**
@@ -625,10 +620,8 @@ console.log("SOL 565 AFTER rewardsToken transfer -------------");
         UserStake[] storage userStakes = stakes[msg.sender];
         uint256 totalWithdrawAmount = 0;
         uint256 totalRewardAmount = 0;
-        uint256 userReward = getTotalUserPendingRewards(msg.sender);
-        console.log("SOL 629 ----------- userReward)", userReward);
+        uint256 votingPowerWithBonus = 0;
 
-    uint256 votingPowerWithBonus = 0;
         for (uint256 i = 0; i < userStakes.length; ++i) {
             UserStake storage userStake = userStakes[i];
             uint256 depositAmount = userStake.amount;
@@ -646,7 +639,6 @@ console.log("SOL 565 AFTER rewardsToken transfer -------------");
 
             (uint256 withdrawAmount, uint256 reward) = _withdraw(msg.sender, depositAmount, i);
             totalWithdrawAmount += withdrawAmount;
-            console.log("SOL IN LOOP ----------- totalRewardAmount)", totalRewardAmount);
             totalRewardAmount += reward;
 
             if (reward > 0) {
@@ -654,19 +646,17 @@ console.log("SOL 565 AFTER rewardsToken transfer -------------");
             }
         }
 
-        votingPowerWithBonus = (votingPowerWithBonus / 1e6) * 1e6;
+        votingPowerWithBonus = (votingPowerWithBonus / 1e6) * 1e6; // round down to 6 decimal places
         _subtractVotingPower(votingPowerWithBonus, msg.sender);
 
         arcdWethPair.approve(address(this), totalWithdrawAmount);
         if (totalWithdrawAmount > 0) {
             arcdWethPair.transferFrom(address(this), msg.sender, totalWithdrawAmount);
         }
-console.log("SOL AFTER 1 ----------- rewardsToken.balanceOf(address(this))", rewardsToken.balanceOf(address(this)));
-console.log("SOL AFTER 2 ----------- totalRewardAmount)", totalRewardAmount);
+
         if (totalRewardAmount > 0) {
             rewardsToken.safeTransfer(msg.sender, totalRewardAmount);
         }
-        console.log("SOL AFTER 3 -----------");
     }
 
     // ======================================== RESTRICTED FUNCTIONS =========================================
