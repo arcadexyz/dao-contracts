@@ -27,9 +27,10 @@ import {
     ASR_InvalidDepositId,
     ASR_DepositCountExceeded,
     ASR_InvalidAmount,
+    ASR_ZeroConversionRate,
     LV_FunctionDisabled
 } from "../src/errors/Staking.sol";
-
+import { console } from "forge-std/Test.sol";
 /**
  * @title ArcadeStakingRewards
  * @author Non-Fungible Technologies, Inc.
@@ -115,6 +116,7 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
     uint256 public immutable SHORT_LOCK_TIME;
     uint256 public immutable MEDIUM_LOCK_TIME;
     uint256 public immutable LONG_LOCK_TIME;
+    uint256 public immutable ARCD_TO_WETH_RATE;
 
     // ============ Global State =============
     IERC20 public immutable rewardsToken;
@@ -147,6 +149,7 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
      * @param shortBonus                   The bonus multiplier for the short lock time.
      * @param mediumBonus                  The bonus multiplier for the medium lock time.
      * @param longBonus                    The bonus multiplier for the long lock time.
+     * @param _arcdWethToArcdRate          Immutable ARCD/WETH to ARCD conversion rate.
      */
     constructor(
         address _owner,
@@ -158,15 +161,18 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
         uint256 longLockTime,
         uint256 shortBonus,
         uint256 mediumBonus,
-        uint256 longBonus
+        uint256 longBonus,
+        uint256 _arcdWethToArcdRate
     ) Ownable(_owner) LockingVault(IERC20(_arcdWethPair), staleBlockLag) {
         if (address(_rewardsDistribution) == address(0)) revert ASR_ZeroAddress();
         if (address(_rewardsToken) == address(0)) revert ASR_ZeroAddress();
         if (address(_arcdWethPair) == address(0)) revert ASR_ZeroAddress();
+        if (_arcdWethToArcdRate == 0) revert ASR_ZeroConversionRate();
         rewardsToken = IERC20(_rewardsToken);
         arcdWethPair = IUniswapV2Pair(_arcdWethPair);
         rewardsDistribution = _rewardsDistribution;
 
+        ARCD_TO_WETH_RATE = _arcdWethToArcdRate;
         SHORT_BONUS = shortBonus;
         MEDIUM_BONUS = mediumBonus;
         LONG_BONUS = longBonus;
@@ -407,12 +413,9 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
         uint256 amount = userStake.amount;
         Lock lock = userStake.lock;
 
-        // Calculate the amount of ARCD tokens that the LP tokens represent
-        // to get user's voting power
-        uint256 arcdAmount = getARCDAmountFromLP(amount);
         // Accounting with bonus
         (uint256 bonus,) = _getBonus(lock);
-        uint256 amountWithBonus = (arcdAmount + ((arcdAmount * bonus) / ONE));
+        uint256 amountWithBonus = (amount + ((amount * bonus) / ONE));
 
         return amountWithBonus;
     }
@@ -454,25 +457,15 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
     }
 
     /**
-     * @notice Calculates the amount of ARCD tokens equivalent to a given amount of ARCD/WETH
-     *         liquidity pool tokens.
+     * @notice Converts the user's staked LP token value to an ARCD token amount based on the
+     *         immutable rate set in this contract.
      *
-     * @param amountLPTokens                    The user's LP token amount to use for the conversion.
+     * @param arcdWethPairAmount                The LP token amount to use for the conversion.
      *
      * @return uint256                          Value of ARCD.
      */
-    function getARCDAmountFromLP(uint256 amountLPTokens) public view returns (uint256) {
-        (uint112 reserveARCD, uint112 reserveWETH,) = arcdWethPair.getReserves();
-        uint256 totalSupplyLPTokens = arcdWethPair.totalSupply();
-
-        // Ensure that the reserves and total supply are not zero
-        if (reserveARCD == 0) revert ASR_InvalidAmount("reserveARCD");
-        if (reserveWETH == 0) revert ASR_InvalidAmount("reserveWETH");
-        if (totalSupplyLPTokens == 0) revert ASR_InvalidAmount("LPTokenTotalSupply");
-
-        // Calculate the amount of ARCD tokens that the LP tokens represent
-        uint256 arcdValue = (amountLPTokens * reserveARCD) / totalSupplyLPTokens;
-        return arcdValue;
+    function convertARCDWETHtoARCD(uint256 arcdWethPairAmount) public view returns (uint256) {
+        return arcdWethPairAmount * ARCD_TO_WETH_RATE;
     }
 
     // ========================================= MUTATIVE FUNCTIONS ========================================
@@ -497,15 +490,13 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
 
         if ((stakes[msg.sender].length + 1) > MAX_DEPOSITS) revert ASR_DepositCountExceeded();
 
-        // Calculate the amount of ARCD tokens that the LP tokens represent
-        // to get user's voting power
-        uint256 arcdAmount = getARCDAmountFromLP(amount);
         // Accounting with bonus
         (uint256 bonus, uint256 lockDuration) = _getBonus(lock);
-        uint256 amountWithBonus = arcdAmount + ((arcdAmount * bonus) / ONE);
+        uint256 amountWithBonus = amount + ((amount * bonus) / ONE);
 
+        uint256 votingPowerToAdd = convertARCDWETHtoARCD(amountWithBonus);
         // update the vote power to equal the amount staked with bonus
-        _addVotingPower(msg.sender, amountWithBonus, firstDelegation);
+        _addVotingPower(msg.sender, votingPowerToAdd, firstDelegation);
 
         // populate user stake information
         stakes[msg.sender].push(
@@ -547,13 +538,12 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
         UserStake storage userStake = stakes[msg.sender][depositId];
         Lock lock = userStake.lock;
 
-        // Calculate the amount of ARCD tokens that the LP tokens represent
-        // to get user's voting power
-        uint256 arcdAmount = getARCDAmountFromLP(amount);
         // Accounting with bonus
         (uint256 bonus,) = _getBonus(lock);
-        uint256 amountWithBonus = (arcdAmount + ((arcdAmount * bonus) / ONE));
-        _subtractVotingPower(amountWithBonus, msg.sender);
+        uint256 amountWithBonus = (amount + ((amount * bonus) / ONE));
+
+        uint256 votePowerToSubtract = convertARCDWETHtoARCD(amountWithBonus);
+        _subtractVotingPower(votePowerToSubtract, msg.sender);
 
         arcdWethPair.approve(address(this), withdrawAmount);
 
@@ -629,12 +619,9 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
             uint256 depositAmount = userStake.amount;
             Lock lock = userStake.lock;
 
-            // Calculate the amount of ARCD tokens that the LP tokens represent
-            // to get user's voting power
-            uint256 arcdAmount = getARCDAmountFromLP(depositAmount);
             // Accounting with bonus
             (uint256 bonus,) = _getBonus(lock);
-            uint256 amountWithBonus = (arcdAmount  + ((arcdAmount * bonus) / ONE)) ;
+            uint256 amountWithBonus = depositAmount  + ((depositAmount * bonus) / ONE);
             votingPowerWithBonus += amountWithBonus;
 
             if (depositAmount == 0 || block.timestamp < userStake.unlockTimestamp) continue;
@@ -648,8 +635,10 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
             }
         }
 
-        votingPowerWithBonus = (votingPowerWithBonus / 1e6) * 1e6; // round down to 6 decimal places
-        _subtractVotingPower(votingPowerWithBonus, msg.sender);
+        // TODO: REMOVE ?
+        //votingPowerWithBonus = (votingPowerWithBonus / 1e6) * 1e6; // round down to 6 decimal places
+        uint256 votePowerToSubtract = convertARCDWETHtoARCD(votingPowerWithBonus);
+        _subtractVotingPower(votePowerToSubtract, msg.sender);
 
         arcdWethPair.approve(address(this), totalWithdrawAmount);
         if (totalWithdrawAmount > 0) {
