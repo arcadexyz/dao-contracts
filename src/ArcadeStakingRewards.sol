@@ -8,7 +8,6 @@ import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/utils/Pausable.sol";
 
 import "./external/council/LockingVault.sol";
-import "./external/uniswap/IUniswapV2Pair.sol";
 
 import "./interfaces/IArcadeStakingRewards.sol";
 import "./ArcadeRewardsRecipient.sol";
@@ -114,11 +113,11 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
     uint256 public immutable SHORT_LOCK_TIME;
     uint256 public immutable MEDIUM_LOCK_TIME;
     uint256 public immutable LONG_LOCK_TIME;
-    uint256 public immutable ARCD_TO_WETH_RATE;
+    uint256 public immutable LP_TO_ARCD_RATE;
 
     // ============ Global State =============
     IERC20 public immutable rewardsToken;
-    IUniswapV2Pair private arcdWethPair;
+    IERC20 public immutable arcdWethLP;
 
     uint256 public periodFinish = 0;
     uint256 public rewardRate = 0;
@@ -140,37 +139,37 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
      * @param _rewardsDistribution         The address of the entity setting the rules
      *                                     of how rewards are distributed.
      * @param _rewardsToken                The address of the rewards ERC20 token.
-     * @param _arcdWethPair                The address of the staking ERC20 token.
+     * @param _arcdWethLP                  The address of the staking ERC20 token.
      * @param shortLockTime                The short lock time.
      * @param mediumLockTime               The medium lock time.
      * @param longLockTime                 The long lock time.
      * @param shortBonus                   The bonus multiplier for the short lock time.
      * @param mediumBonus                  The bonus multiplier for the medium lock time.
      * @param longBonus                    The bonus multiplier for the long lock time.
-     * @param _arcdWethToArcdRate          Immutable ARCD/WETH to ARCD conversion rate.
+     * @param _lpToArcdRate                Immutable ARCD/WETH to ARCD conversion rate.
      */
     constructor(
         address _owner,
         address _rewardsDistribution,
         address _rewardsToken,
-        address _arcdWethPair,
+        address _arcdWethLP,
         uint256 shortLockTime,
         uint256 mediumLockTime,
         uint256 longLockTime,
         uint256 shortBonus,
         uint256 mediumBonus,
         uint256 longBonus,
-        uint256 _arcdWethToArcdRate
-    ) Ownable(_owner) LockingVault(IERC20(_arcdWethPair), staleBlockLag) {
+        uint256 _lpToArcdRate
+    ) Ownable(_owner) LockingVault(IERC20(_arcdWethLP), staleBlockLag) {
         if (address(_rewardsDistribution) == address(0)) revert ASR_ZeroAddress();
         if (address(_rewardsToken) == address(0)) revert ASR_ZeroAddress();
-        if (address(_arcdWethPair) == address(0)) revert ASR_ZeroAddress();
-        if (_arcdWethToArcdRate == 0) revert ASR_ZeroConversionRate();
+        if (address(_arcdWethLP) == address(0)) revert ASR_ZeroAddress();
+        if (_lpToArcdRate == 0) revert ASR_ZeroConversionRate();
         rewardsToken = IERC20(_rewardsToken);
-        arcdWethPair = IUniswapV2Pair(_arcdWethPair);
+        arcdWethLP = IERC20(_arcdWethLP);
         rewardsDistribution = _rewardsDistribution;
 
-        ARCD_TO_WETH_RATE = _arcdWethToArcdRate;
+        LP_TO_ARCD_RATE = _lpToArcdRate;
         SHORT_BONUS = shortBonus;
         MEDIUM_BONUS = mediumBonus;
         LONG_BONUS = longBonus;
@@ -458,12 +457,12 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
      * @notice Converts the user's staked LP token value to an ARCD token amount based on the
      *         immutable rate set in this contract.
      *
-     * @param arcdWethPairAmount                The LP token amount to use for the conversion.
+     * @param arcdWethLPAmount                  The LP token amount to use for the conversion.
      *
      * @return uint256                          Value of ARCD.
      */
-    function convertARCDWETHtoARCD(uint256 arcdWethPairAmount) public view returns (uint256) {
-        return arcdWethPairAmount * ARCD_TO_WETH_RATE;
+    function convertLPToArcd(uint256 arcdWethLPAmount) public view returns (uint256) {
+        return arcdWethLPAmount * LP_TO_ARCD_RATE;
     }
 
     // ========================================= MUTATIVE FUNCTIONS ========================================
@@ -492,7 +491,7 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
         (uint256 bonus, uint256 lockDuration) = _getBonus(lock);
         uint256 amountWithBonus = amount + ((amount * bonus) / ONE);
 
-        uint256 votingPowerToAdd = convertARCDWETHtoARCD(amountWithBonus);
+        uint256 votingPowerToAdd = convertLPToArcd(amountWithBonus);
         // update the vote power to equal the amount staked with bonus
         _addVotingPower(msg.sender, votingPowerToAdd, firstDelegation);
 
@@ -510,7 +509,7 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
         totalDeposits += amount;
         totalDepositsWithBonus += amountWithBonus;
 
-        arcdWethPair.transferFrom(msg.sender, address(this), amount);
+        arcdWethLP.safeTransferFrom(msg.sender, address(this), amount);
 
         emit Staked(msg.sender, stakes[msg.sender].length - 1, amount);
     }
@@ -540,13 +539,11 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
         (uint256 bonus,) = _getBonus(lock);
         uint256 amountWithBonus = (amount + ((amount * bonus) / ONE));
 
-        uint256 votePowerToSubtract = convertARCDWETHtoARCD(amountWithBonus);
+        uint256 votePowerToSubtract = convertLPToArcd(amountWithBonus);
         _subtractVotingPower(votePowerToSubtract, msg.sender);
 
-        arcdWethPair.approve(address(this), withdrawAmount);
-
         if (withdrawAmount > 0) {
-            arcdWethPair.transferFrom(address(this), msg.sender, withdrawAmount);
+            arcdWethLP.safeTransfer(msg.sender, withdrawAmount);
         }
 
         if (reward > 0) {
@@ -633,12 +630,11 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
             }
         }
 
-        uint256 votePowerToSubtract = convertARCDWETHtoARCD(votingPowerWithBonus);
+        uint256 votePowerToSubtract = convertLPToArcd(votingPowerWithBonus);
         _subtractVotingPower(votePowerToSubtract, msg.sender);
 
-        arcdWethPair.approve(address(this), totalWithdrawAmount);
         if (totalWithdrawAmount > 0) {
-            arcdWethPair.transferFrom(address(this), msg.sender, totalWithdrawAmount);
+            arcdWethLP.safeTransfer(msg.sender, totalWithdrawAmount);
         }
 
         if (totalRewardAmount > 0) {
@@ -686,7 +682,7 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
      * @param tokenAmount                        The amount of token to recover.
      */
     function recoverERC20(address tokenAddress, uint256 tokenAmount) external onlyOwner {
-        if (tokenAddress == address(arcdWethPair)) revert ASR_StakingToken();
+        if (tokenAddress == address(arcdWethLP)) revert ASR_StakingToken();
         if (tokenAddress == address(rewardsToken) && totalDeposits != 0) revert ASR_RewardsToken();
         if (tokenAddress == address(0)) revert ASR_ZeroAddress();
         if (tokenAmount == 0) revert ASR_ZeroAmount();
