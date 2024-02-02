@@ -629,8 +629,6 @@ contract ArcadeStakingRewardsTest is Test {
         mockPair.mint(userA);
 
         // LOCKING POOL LP TOKEN STAKING FLOW
-        uint256 userStake = mockPair.balanceOf(userA);
-
         // mint rewardsTokens to stakingRewards contract
         rewardsToken.mint(address(stakingRewards), 100e18);
         // Admin calls notifyRewardAmount to set the reward rate
@@ -1851,8 +1849,6 @@ contract ArcadeStakingRewardsTest is Test {
         vm.warp(block.timestamp + 8 days);
 
         uint256 userVotingPower = stakingRewards.queryVotePowerView(userB, block.timestamp);
-
-        uint256 rewardPerTokenAmount = stakingRewards.rewardPerToken();
 
         uint256 balanceOfA = stakingRewards.getTotalUserDeposits(userA);
         assertEq(balanceOfA, userStakeAmount + userStakeAmount2);
