@@ -30,7 +30,7 @@ import {
     ASR_ZeroConversionRate,
     LV_FunctionDisabled
 } from "../src/errors/Staking.sol";
-import { console } from "forge-std/Test.sol";
+
 /**
  * @title ArcadeStakingRewards
  * @author Non-Fungible Technologies, Inc.
@@ -39,9 +39,9 @@ import { console } from "forge-std/Test.sol";
  * contract.
  * https://github.com/Synthetixio/synthetix/blob/develop/contracts/StakingRewards.sol
  *
- * The contract manages a staking mechanism where users can stake the ERC20 ARCDWETH pair
+ * The contract manages a staking mechanism where users can stake the ERC20 ARCD/WETH pair
  * token and earn rewards over time, paid in the ERC20 rewardsToken.  Rewards are earned
- * based on the amount of ARCDWETH staked and the length of time staked.
+ * based on the amount of ARCD/WETH staked and the length of time staked.
  *
  * Users have the flexibility to make multiple deposits, each accruing
  * rewards separately until the staking period concludes. Upon depositing
@@ -86,15 +86,13 @@ import { console } from "forge-std/Test.sol";
  * https://etherscan.io/address/0x7a58784063D41cb78FBd30d271F047F0b9156d6e#code
  * as its governance operations foundation.
  *
- * A user's voting power is determined by the quantity of ARCDWETH pair tokens
- * they have staked. To calculate this voting power, the UniswapV2 LP pool is
- * queried for the current reserves of ARCD and WETH, as well as the total supply
- * of ARCDWETH pair tokens. With these values, a user's ARCDWETH pair token deposit
- * is convert into an equivalent amount of ARCD.
+ * A user's voting power is determined by the quantity of ARCD/WETH pair tokens
+ * they have staked. To calculate this voting power, an ARCD/WETH to ARCD
+ * conversion rate is set in the contract at deployment and cannot be updated.
+ * The user's ARCD amount is a product of their deposited ARCD/WETH amount and
+ * the conversion rate.
  * The resulting ARCD value is then enhanced by the lock bonus multiplier, the
- * user has selected at the time of their token deposit. Thus, a user's voting power
- * is essentially their share of ARCD in the LP pool, amplified by the lock
- * multiplier they chose upon staking.
+ * user has selected at the time of their token deposit.
  */
 
 contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, LockingVault, ReentrancyGuard, Pausable {
@@ -635,8 +633,6 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
             }
         }
 
-        // TODO: REMOVE ?
-        //votingPowerWithBonus = (votingPowerWithBonus / 1e6) * 1e6; // round down to 6 decimal places
         uint256 votePowerToSubtract = convertARCDWETHtoARCD(votingPowerWithBonus);
         _subtractVotingPower(votePowerToSubtract, msg.sender);
 

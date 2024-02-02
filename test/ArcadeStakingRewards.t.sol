@@ -185,7 +185,6 @@ contract ArcadeStakingRewardsTest is Test {
         // LP pool mints LP tokens to userA
         mockPair.mint(userA);
 
-
         // LOCKING POOL LP TOKEN STAKING FLOW
         uint256 userStake = mockPair.balanceOf(userA);
 
