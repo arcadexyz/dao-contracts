@@ -25,7 +25,6 @@ import {
     ASR_RewardsToken,
     ASR_InvalidDepositId,
     ASR_DepositCountExceeded,
-    ASR_InvalidAmount,
     ASR_ZeroConversionRate,
     LV_FunctionDisabled
 } from "../src/errors/Staking.sol";

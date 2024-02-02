@@ -88,12 +88,6 @@ error ASR_InvalidDepositId();
 error ASR_DepositCountExceeded();
 
 /**
- * @notice arcdWETH pair reserves or totalSupply is zero.
- *
- */
-error ASR_InvalidAmount(string);
-
-/**
  * @notice Function cannot be called, disabled.
  *
  */
