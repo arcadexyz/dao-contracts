@@ -25,7 +25,7 @@ contract ArcadeStakingRewardsTest is Test {
     uint256 public constant TWO_MONTHS = ONE_MONTH * 2;
     uint256 public constant THREE_MONTHS = ONE_MONTH * 3;
     uint256 public constant MAX_DEPOSITS = 20;
-    uint256 public immutable ARCD_TO_WETH_RATE = 55e18;
+    uint256 public immutable ARCD_TO_WETH_RATE = 2;
 
     address owner = address(0x1);
     address admin = address(0x2);
@@ -62,7 +62,7 @@ contract ArcadeStakingRewardsTest is Test {
         stakingRewards.setRewardsDuration(8 days);
     }
 
-    function testLPTokenToARCDVotePowerConversion() public {
+    function testConvertARCDWETHtoARCD() public {
         setUp();
 
         // DEPOSIT INTO ARCD/WETH POOL
@@ -95,30 +95,10 @@ contract ArcadeStakingRewardsTest is Test {
 
         mockPair.mint(userB);
 
-        // LOCKING POOL LP TOKEN STAKING
-        // mint rewardsTokens to stakingRewards contract
-        rewardsToken.mint(address(stakingRewards), 100e18);
-        // Admin calls notifyRewardAmount to set the reward rate
-        vm.prank(admin);
-        stakingRewards.notifyRewardAmount(100e18);
-
         uint256 userStake = mockPair.balanceOf(userA);
+        uint256 convertedStake = stakingRewards.convertARCDWETHtoARCD(userStake);
 
-        // user approves stakingRewards contract to spend staking tokens
-        vm.startPrank(userA);
-        mockPair.approve(address(stakingRewards), userStake);
-
-        // user stakes LP tokens
-        stakingRewards.deposit(userStake, userC, IArcadeStakingRewards.Lock.Medium);
-        vm.stopPrank();
-
-        //confirm that delegatee user got voting power
-        uint256 userVotingPower = stakingRewards.queryVotePowerView(userC, block.timestamp);
-        uint256 votePowerWithBonus = stakingRewards.getAmountWithBonus(userA, 0);
-        assertEq(votePowerWithBonus, userVotingPower);
-
-        uint256 poolTotalDeposits = stakingRewards.totalSupply();
-        assertEq(poolTotalDeposits, userStake);
+        assertEq(convertedStake, userStake * ARCD_TO_WETH_RATE);
     }
 
     function testConstructorZeroAddress() public {
@@ -366,8 +346,6 @@ contract ArcadeStakingRewardsTest is Test {
 
         // LOCKING POOL LP TOKEN STAKING FLOW
         uint256 userStake = mockPair.balanceOf(userA);
-        uint256 halfOfUserStake = userStake / 2;
-        uint256 remainder = userStake % 2;
 
         // mint rewardsTokens to stakingRewards contract
         rewardsToken.mint(address(stakingRewards), 100e18);
@@ -377,42 +355,39 @@ contract ArcadeStakingRewardsTest is Test {
 
         // increase blockchain time by 2 days
         vm.warp(block.timestamp + 2 days);
-console.log("userStake", userStake);
-console.log("halfOfUserStake ", halfOfUserStake);
-console.log("remainder ", remainder);
-console.log("mockPair.balanceOf(userA)", mockPair.balanceOf(userA));
+
         // user approves stakingRewards contract to spend staking tokens
         vm.startPrank(userA);
         mockPair.approve(address(stakingRewards), userStake);
-        stakingRewards.deposit(halfOfUserStake, userB, IArcadeStakingRewards.Lock.Medium);
-        stakingRewards.deposit(halfOfUserStake, userB, IArcadeStakingRewards.Lock.Long);
-        //stakingRewards.deposit(halfOfUserStake, userB, IArcadeStakingRewards.Lock.Short);
+        stakingRewards.deposit(userStake / 3, userB, IArcadeStakingRewards.Lock.Medium);
+        stakingRewards.deposit(userStake / 3, userB, IArcadeStakingRewards.Lock.Long);
+        stakingRewards.deposit(userStake / 3, userB, IArcadeStakingRewards.Lock.Short);
         vm.stopPrank();
 
-        // //confirm that delegatee user got voting power eq. to
-        // // amount staked with bonus
-        // uint256 userVotingPower = stakingRewards.queryVotePowerView(userB, block.timestamp);
-        // uint256 votePowerWithBonusAll = stakingRewards.getTotalUserDepositsWithBonus(userA) * ARCD_TO_WETH_RATE;
-        // assertEq(userVotingPower, votePowerWithBonusAll);
+        //confirm that delegatee user got voting power eq. to
+        // amount staked with bonus
+        uint256 userVotingPower = stakingRewards.queryVotePowerView(userB, block.timestamp);
+        uint256 votePowerWithBonusAll = stakingRewards.getTotalUserDepositsWithBonus(userA) * ARCD_TO_WETH_RATE;
+        assertEq(userVotingPower, votePowerWithBonusAll);
 
-        // uint256 poolTotalDepositsBeforeWithdraw = stakingRewards.totalSupply();
-        // uint256 balanceBeforeWithdraw = mockPair.balanceOf(userA);
+        uint256 poolTotalDepositsBeforeWithdraw = stakingRewards.totalSupply();
+        uint256 balanceBeforeWithdraw = mockPair.balanceOf(userA);
 
-        // // increase blockchain time by the medium lock duration
-        // vm.warp(block.timestamp + THREE_MONTHS);
+        // increase blockchain time by the medium lock duration
+        vm.warp(block.timestamp + THREE_MONTHS);
 
-        // vm.prank(userA);
-        // stakingRewards.exitAll();
-        // uint256 balanceAfterWithdraw = mockPair.balanceOf(userA);
-        // uint256 poolTotalDepositsAfterWithdraw = stakingRewards.totalSupply();
+        vm.prank(userA);
+        stakingRewards.exitAll();
+        uint256 balanceAfterWithdraw = mockPair.balanceOf(userA);
+        uint256 poolTotalDepositsAfterWithdraw = stakingRewards.totalSupply();
 
-        // uint256 userVotingPowerAfter = stakingRewards.queryVotePowerView(userB, block.timestamp);
-        // uint256 tolerance = 1e6;
-        // assertApproxEqAbs(userVotingPowerAfter, 0, tolerance);
+        uint256 userVotingPowerAfter = stakingRewards.queryVotePowerView(userB, block.timestamp);
+        assertEq(userVotingPowerAfter, 0);
 
-        // assertEq(balanceAfterWithdraw, balanceBeforeWithdraw + (userStake * 3));
-        // assertEq(poolTotalDepositsBeforeWithdraw, userStake * 3);
-        // assertEq(poolTotalDepositsAfterWithdraw, 0);
+        uint256 tolerance = 1e2;
+        assertApproxEqAbs(balanceAfterWithdraw, balanceBeforeWithdraw + userStake, tolerance);
+        assertApproxEqAbs(poolTotalDepositsBeforeWithdraw, userStake, tolerance);
+        assertEq(poolTotalDepositsAfterWithdraw, 0);
     }
 
     function testExit() public {
@@ -611,7 +586,7 @@ console.log("mockPair.balanceOf(userA)", mockPair.balanceOf(userA));
         //confirm that delegatee user got voting power eq. to
         // amount staked with bonus
         uint256 userVotingPower = stakingRewards.queryVotePowerView(userB, block.timestamp);
-        uint256 votePowerWithBonus = stakingRewards.getAmountWithBonus(userA, 0);
+        uint256 votePowerWithBonus = stakingRewards.getAmountWithBonus(userA, 0) * ARCD_TO_WETH_RATE;
         assertEq(userVotingPower, votePowerWithBonus);
 
         uint256 poolTotalDepositsBeforeWithdraw = stakingRewards.totalSupply();
@@ -1231,7 +1206,7 @@ console.log("mockPair.balanceOf(userA)", mockPair.balanceOf(userA));
         stakingRewards.deposit(userStakeAmount, userB, IArcadeStakingRewards.Lock.Medium);
         vm.stopPrank();
 
-        uint256 votePowerWithBonus = stakingRewards.getAmountWithBonus(userA, 0);
+        uint256 votePowerWithBonus = stakingRewards.getAmountWithBonus(userA, 0) * ARCD_TO_WETH_RATE;
         uint256 userVotingPower = stakingRewards.queryVotePowerView(userB, block.timestamp);
         assertEq(votePowerWithBonus, userVotingPower);
     }
@@ -1890,7 +1865,7 @@ console.log("mockPair.balanceOf(userA)", mockPair.balanceOf(userA));
         uint256 rewards = stakingRewards.getPendingRewards(userA, lastStakeId - 1);
         uint256 rewards1 = stakingRewards.getPendingRewards(userA, lastStakeId);
         assertEq(
-            ((stakingRewards.getAmountWithBonus(userA, lastStakeId - 1)) + (stakingRewards.getAmountWithBonus(userA, lastStakeId)))
+            ((stakingRewards.getAmountWithBonus(userA, lastStakeId - 1) * ARCD_TO_WETH_RATE) + (stakingRewards.getAmountWithBonus(userA, lastStakeId) * ARCD_TO_WETH_RATE))
             , userVotingPower
         );
 
@@ -2214,11 +2189,11 @@ console.log("mockPair.balanceOf(userA)", mockPair.balanceOf(userA));
         stakingRewards.unpause();
 
         vm.startPrank(userA);
-        stakingRewards.deposit(userStake, userB, IArcadeStakingRewards.Lock.Medium);
+        stakingRewards.deposit(userStake / 2, userB, IArcadeStakingRewards.Lock.Medium);
         vm.stopPrank();
 
         uint256 poolTotalDeposits = stakingRewards.totalSupply();
-        assertEq(poolTotalDeposits, userStake * 2);
+        assertEq(poolTotalDeposits, userStake);
     }
 
     function testRevertOnLVDeposit() public {
