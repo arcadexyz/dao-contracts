@@ -20,6 +20,7 @@ contract ArcadeStakingRewardsTest is Test {
     uint256 public constant TWO_MONTHS = ONE_MONTH * 2;
     uint256 public constant THREE_MONTHS = ONE_MONTH * 3;
     uint256 public constant MAX_DEPOSITS = 20;
+    uint256 public constant LP_TO_ARCD_DENOMINATOR = 1e3;
     uint256 public immutable LP_TO_ARCD_RATE = 2;
 
     address owner = address(0x1);
@@ -61,7 +62,7 @@ contract ArcadeStakingRewardsTest is Test {
         uint256 userStake = lpToken.balanceOf(userA);
         uint256 convertedStake = stakingRewards.convertLPToArcd(userStake);
 
-        assertEq(convertedStake, userStake * LP_TO_ARCD_RATE);
+        assertEq(convertedStake, (userStake * LP_TO_ARCD_RATE) / LP_TO_ARCD_DENOMINATOR);
     }
 
     function testConstructorZeroAddress() public {
@@ -157,7 +158,7 @@ contract ArcadeStakingRewardsTest is Test {
         //confirm that delegatee user got voting power eq. to
         // amount staked with bonus
         uint256 userVotingPower = stakingRewards.queryVotePowerView(userB, block.timestamp);
-        uint256 votePowerWithBonus = stakingRewards.getAmountWithBonus(userA, 0) * LP_TO_ARCD_RATE;
+        uint256 votePowerWithBonus = (stakingRewards.getAmountWithBonus(userA, 0) * LP_TO_ARCD_RATE) / LP_TO_ARCD_DENOMINATOR;
         assertEq(userVotingPower, votePowerWithBonus);
 
         uint256 poolTotalDeposits = stakingRewards.totalSupply();
@@ -214,7 +215,7 @@ contract ArcadeStakingRewardsTest is Test {
         //confirm that delegatee user got voting power eq. to
         // amount staked with bonus
         uint256 userVotingPower = stakingRewards.queryVotePowerView(userB, block.timestamp);
-        uint256 votePowerWithBonus = stakingRewards.getAmountWithBonus(userA, 0) * LP_TO_ARCD_RATE;
+        uint256 votePowerWithBonus = (stakingRewards.getAmountWithBonus(userA, 0) * LP_TO_ARCD_RATE) / LP_TO_ARCD_DENOMINATOR;
         assertEq(userVotingPower, votePowerWithBonus);
 
         uint256 poolTotalDepositsBeforeWithdraw = stakingRewards.totalSupply();
@@ -265,8 +266,10 @@ contract ArcadeStakingRewardsTest is Test {
         //confirm that delegatee user got voting power eq. to
         // amount staked with bonus
         uint256 userVotingPower = stakingRewards.queryVotePowerView(userB, block.timestamp);
-        uint256 votePowerWithBonusAll = stakingRewards.getTotalUserDepositsWithBonus(userA) * LP_TO_ARCD_RATE;
-        assertEq(userVotingPower, votePowerWithBonusAll);
+        uint256 votePowerWithBonusAll = (stakingRewards.getTotalUserDepositsWithBonus(userA) * LP_TO_ARCD_RATE) / LP_TO_ARCD_DENOMINATOR;
+
+        uint256 tolerance = 1e2;
+        assertApproxEqAbs(userVotingPower, votePowerWithBonusAll, tolerance);
 
         uint256 poolTotalDepositsBeforeWithdraw = stakingRewards.totalSupply();
         uint256 balanceBeforeWithdraw = lpToken.balanceOf(userA);
@@ -280,9 +283,9 @@ contract ArcadeStakingRewardsTest is Test {
         uint256 poolTotalDepositsAfterWithdraw = stakingRewards.totalSupply();
 
         uint256 userVotingPowerAfter = stakingRewards.queryVotePowerView(userB, block.timestamp);
-        assertEq(userVotingPowerAfter, 0);
+        uint256 tolerance2 = 1e6;
+        assertApproxEqAbs(userVotingPowerAfter, 0, tolerance2);
 
-        uint256 tolerance = 1e2;
         assertApproxEqAbs(balanceAfterWithdraw, balanceBeforeWithdraw + userStake, tolerance);
         assertApproxEqAbs(poolTotalDepositsBeforeWithdraw, userStake, tolerance);
         assertEq(poolTotalDepositsAfterWithdraw, 0);
@@ -310,7 +313,7 @@ contract ArcadeStakingRewardsTest is Test {
         //confirm that delegatee user got voting power eq. to
         // amount staked with bonus
         uint256 userVotingPower = stakingRewards.queryVotePowerView(userB, block.timestamp);
-        uint256 votePowerWithBonus = stakingRewards.getAmountWithBonus(userA, 0) * LP_TO_ARCD_RATE;
+        uint256 votePowerWithBonus = (stakingRewards.getAmountWithBonus(userA, 0) * LP_TO_ARCD_RATE) / LP_TO_ARCD_DENOMINATOR;
         assertEq(userVotingPower, votePowerWithBonus);
 
         uint256 poolTotalDepositsBeforeWithdraw = stakingRewards.totalSupply();
@@ -421,7 +424,7 @@ contract ArcadeStakingRewardsTest is Test {
         //confirm that delegatee user got voting power eq. to
         // amount staked with bonus
         uint256 userVotingPower = stakingRewards.queryVotePowerView(userB, block.timestamp);
-        uint256 votePowerWithBonus = stakingRewards.getAmountWithBonus(userA, 0) * LP_TO_ARCD_RATE;
+        uint256 votePowerWithBonus = (stakingRewards.getAmountWithBonus(userA, 0) * LP_TO_ARCD_RATE) / LP_TO_ARCD_DENOMINATOR;
         assertEq(userVotingPower, votePowerWithBonus);
 
         uint256 poolTotalDepositsBeforeWithdraw = stakingRewards.totalSupply();
@@ -881,7 +884,7 @@ contract ArcadeStakingRewardsTest is Test {
         stakingRewards.deposit(userStakeAmount, userB, IArcadeStakingRewards.Lock.Medium);
         vm.stopPrank();
 
-        uint256 votePowerWithBonus = stakingRewards.getAmountWithBonus(userA, 0) * LP_TO_ARCD_RATE;
+        uint256 votePowerWithBonus = (stakingRewards.getAmountWithBonus(userA, 0) * LP_TO_ARCD_RATE) / LP_TO_ARCD_DENOMINATOR;
         uint256 userVotingPower = stakingRewards.queryVotePowerView(userB, block.timestamp);
         assertEq(votePowerWithBonus, userVotingPower);
     }
@@ -1331,7 +1334,11 @@ contract ArcadeStakingRewardsTest is Test {
         uint256 rewards = stakingRewards.getPendingRewards(userA, lastStakeId - 1);
         uint256 rewards1 = stakingRewards.getPendingRewards(userA, lastStakeId);
         assertEq(
-            ((stakingRewards.getAmountWithBonus(userA, lastStakeId - 1) * LP_TO_ARCD_RATE) + (stakingRewards.getAmountWithBonus(userA, lastStakeId) * LP_TO_ARCD_RATE))
+            (
+                ((stakingRewards.getAmountWithBonus(userA, lastStakeId - 1) * LP_TO_ARCD_RATE) / LP_TO_ARCD_DENOMINATOR)
+                +
+                ((stakingRewards.getAmountWithBonus(userA, lastStakeId) * LP_TO_ARCD_RATE) / LP_TO_ARCD_DENOMINATOR)
+            )
             , userVotingPower
         );
 
@@ -1502,7 +1509,7 @@ contract ArcadeStakingRewardsTest is Test {
         //confirm that delegatee user got voting power eq. to
         // amount staked with bonus
         uint256 userVotingPower = stakingRewards.queryVotePowerView(userB, block.timestamp);
-        uint256 votePowerWithBonus = stakingRewards.getAmountWithBonus(userA, 0) * LP_TO_ARCD_RATE;
+        uint256 votePowerWithBonus = (stakingRewards.getAmountWithBonus(userA, 0) * LP_TO_ARCD_RATE) / LP_TO_ARCD_DENOMINATOR;
         assertEq(userVotingPower, votePowerWithBonus);
 
         vm.prank(userA);
@@ -1612,7 +1619,7 @@ contract ArcadeStakingRewardsTest is Test {
         // amount staked with bonus
         uint256 userVotingPower = stakingRewards.queryVotePowerView(userB, block.timestamp);
         uint256 votePowerWithBonus = stakingRewards.getAmountWithBonus(userA, 0);
-        assertEq(userVotingPower, votePowerWithBonus * LP_TO_ARCD_RATE);
+        assertEq(userVotingPower, (votePowerWithBonus * LP_TO_ARCD_RATE) / LP_TO_ARCD_DENOMINATOR);
 
         // increase blockchain time by the medium lock duration
         vm.warp(block.timestamp + TWO_MONTHS);

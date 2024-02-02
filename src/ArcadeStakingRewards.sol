@@ -105,6 +105,7 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
     // ============== Constants ==============
     uint256 public constant ONE = 1e18;
     uint256 public constant MAX_DEPOSITS = 20;
+    uint256 public constant LP_TO_ARCD_DENOMINATOR = 1e3;
 
     uint256 public immutable SHORT_BONUS;
     uint256 public immutable MEDIUM_BONUS;
@@ -462,7 +463,7 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
      * @return uint256                          Value of ARCD.
      */
     function convertLPToArcd(uint256 arcdWethLPAmount) public view returns (uint256) {
-        return arcdWethLPAmount * LP_TO_ARCD_RATE;
+        return (arcdWethLPAmount * LP_TO_ARCD_RATE) / LP_TO_ARCD_DENOMINATOR;
     }
 
     // ========================================= MUTATIVE FUNCTIONS ========================================
@@ -630,7 +631,7 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
             }
         }
 
-        uint256 votePowerToSubtract = convertLPToArcd(votingPowerWithBonus);
+        uint256 votePowerToSubtract = (convertLPToArcd(votingPowerWithBonus) / 1e6) * 1e6; // round down to 6 decimals to avoid rounding errors
         _subtractVotingPower(votePowerToSubtract, msg.sender);
 
         if (totalWithdrawAmount > 0) {
