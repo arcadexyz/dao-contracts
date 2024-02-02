@@ -60,6 +60,8 @@ interface IArcadeStakingRewards {
 
     function getTotalUserPendingRewards(address account) external view returns (uint256);
 
+    function convertLPToArcd(uint256 arcdWethPairAmount) external view returns (uint256);
+
     // =========================================== MUTATIVE FUNCTIONS ============================================
     function exitAll() external;
 

@@ -23,6 +23,11 @@ error ASR_ZeroAddress();
 error ASR_ZeroAmount();
 
 /**
+ * @notice ARCDWETH to ARCD conversion rate cannot be zero.
+ */
+error ASR_ZeroConversionRate();
+
+/**
  * @notice Previous rewards period must be complete
  *         to update rewards duration.
  */

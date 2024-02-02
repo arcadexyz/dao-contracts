@@ -7,7 +7,7 @@ import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/utils/Pausable.sol";
 
-import "./external/LockingVault.sol";
+import "./external/council/LockingVault.sol";
 
 import "./interfaces/IArcadeStakingRewards.sol";
 import "./ArcadeRewardsRecipient.sol";
@@ -25,6 +25,7 @@ import {
     ASR_RewardsToken,
     ASR_InvalidDepositId,
     ASR_DepositCountExceeded,
+    ASR_ZeroConversionRate,
     LV_FunctionDisabled
 } from "../src/errors/Staking.sol";
 
@@ -36,9 +37,9 @@ import {
  * contract.
  * https://github.com/Synthetixio/synthetix/blob/develop/contracts/StakingRewards.sol
  *
- * The contract manages a staking mechanism where users can stake the ERC20 stakingToken
- * and earn rewards over time, paid in the ERC20 rewardsToken.  Rewards are earned based
- * on the amount of stakingToken staked and the length of time staked.
+ * The contract manages a staking mechanism where users can stake the ERC20 ARCD/WETH pair
+ * token and earn rewards over time, paid in the ERC20 rewardsToken.  Rewards are earned
+ * based on the amount of ARCD/WETH staked and the length of time staked.
  *
  * Users have the flexibility to make multiple deposits, each accruing
  * rewards separately until the staking period concludes. Upon depositing
@@ -75,16 +76,21 @@ import {
  * of stakes, they will be required to use a different wallet address.
  *
  * The locking pool gives users governance capabilities by also serving as a
- * voting vault. When users stake, they gain voting power equivalent to their staked
- * amount plus any applicable bonus.  They can use this voting power to vote in
- * ArcadeDAO governance. The voting power is automatically accrued to their
- * account and is delegated to their chosen delegatee's address on their behalf
- * without the need for them to call any additional transaction.
- *
+ * voting vault. When users stake, they gain voting power They can use this voting
+ * power to vote in ArcadeDAO governance. The voting power is automatically accrued
+ * to their account and is delegated to their chosen delegatee's address on their
+ * behalf without the need for them to call any additional transaction.
  * The ArcadeStakingRewards contract utilizes the LockingVault deployment at
  * https://etherscan.io/address/0x7a58784063D41cb78FBd30d271F047F0b9156d6e#code
- * as its governance operations foundation. This deployment has been adapted and
- * modified to integrate with ArcadeStakingRewards.
+ * as its governance operations foundation.
+ *
+ * A user's voting power is determined by the quantity of ARCD/WETH pair tokens
+ * they have staked. To calculate this voting power, an ARCD/WETH to ARCD
+ * conversion rate is set in the contract at deployment and cannot be updated.
+ * The user's ARCD amount is a product of their deposited ARCD/WETH amount and
+ * the conversion rate.
+ * The resulting ARCD value is then enhanced by the lock bonus multiplier, the
+ * user has selected at the time of their token deposit.
  */
 
 contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, LockingVault, ReentrancyGuard, Pausable {
@@ -98,6 +104,7 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
     // ============== Constants ==============
     uint256 public constant ONE = 1e18;
     uint256 public constant MAX_DEPOSITS = 20;
+    uint256 public constant LP_TO_ARCD_DENOMINATOR = 1e3;
 
     uint256 public immutable SHORT_BONUS;
     uint256 public immutable MEDIUM_BONUS;
@@ -106,10 +113,11 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
     uint256 public immutable SHORT_LOCK_TIME;
     uint256 public immutable MEDIUM_LOCK_TIME;
     uint256 public immutable LONG_LOCK_TIME;
+    uint256 public immutable LP_TO_ARCD_RATE;
 
     // ============ Global State =============
     IERC20 public immutable rewardsToken;
-    IERC20 public immutable stakingToken;
+    IERC20 public immutable arcdWethLP;
 
     uint256 public periodFinish = 0;
     uint256 public rewardRate = 0;
@@ -131,33 +139,37 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
      * @param _rewardsDistribution         The address of the entity setting the rules
      *                                     of how rewards are distributed.
      * @param _rewardsToken                The address of the rewards ERC20 token.
-     * @param _stakingToken                The address of the staking ERC20 token.
+     * @param _arcdWethLP                  The address of the staking ERC20 token.
      * @param shortLockTime                The short lock time.
      * @param mediumLockTime               The medium lock time.
      * @param longLockTime                 The long lock time.
      * @param shortBonus                   The bonus multiplier for the short lock time.
      * @param mediumBonus                  The bonus multiplier for the medium lock time.
      * @param longBonus                    The bonus multiplier for the long lock time.
+     * @param _lpToArcdRate                Immutable ARCD/WETH to ARCD conversion rate.
      */
     constructor(
         address _owner,
         address _rewardsDistribution,
         address _rewardsToken,
-        address _stakingToken,
+        address _arcdWethLP,
         uint256 shortLockTime,
         uint256 mediumLockTime,
         uint256 longLockTime,
         uint256 shortBonus,
         uint256 mediumBonus,
-        uint256 longBonus
-    ) Ownable(_owner) LockingVault(IERC20(_stakingToken), staleBlockLag) {
+        uint256 longBonus,
+        uint256 _lpToArcdRate
+    ) Ownable(_owner) LockingVault(IERC20(_arcdWethLP), staleBlockLag) {
         if (address(_rewardsDistribution) == address(0)) revert ASR_ZeroAddress();
         if (address(_rewardsToken) == address(0)) revert ASR_ZeroAddress();
-        if (address(_stakingToken) == address(0)) revert ASR_ZeroAddress();
+        if (address(_arcdWethLP) == address(0)) revert ASR_ZeroAddress();
+        if (_lpToArcdRate == 0) revert ASR_ZeroConversionRate();
         rewardsToken = IERC20(_rewardsToken);
-        stakingToken = IERC20(_stakingToken);
+        arcdWethLP = IERC20(_arcdWethLP);
         rewardsDistribution = _rewardsDistribution;
 
+        LP_TO_ARCD_RATE = _lpToArcdRate;
         SHORT_BONUS = shortBonus;
         MEDIUM_BONUS = mediumBonus;
         LONG_BONUS = longBonus;
@@ -412,7 +424,7 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
      *
      * @return totalRewards                     Value of a user's rewards across all deposits.
      */
-    function getTotalUserPendingRewards(address account) external view returns (uint256) {
+    function getTotalUserPendingRewards(address account) public view returns (uint256) {
         UserStake[] storage userStakes = stakes[account];
         uint256 totalRewards = 0;
 
@@ -441,6 +453,17 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
         return totalDepositsWithBonuses;
     }
 
+    /**
+     * @notice Converts the user's staked LP token value to an ARCD token amount based on the
+     *         immutable rate set in this contract.
+     *
+     * @param arcdWethLPAmount                  The LP token amount to use for the conversion.
+     *
+     * @return uint256                          Value of ARCD.
+     */
+    function convertLPToArcd(uint256 arcdWethLPAmount) public view returns (uint256) {
+        return (arcdWethLPAmount * LP_TO_ARCD_RATE) / LP_TO_ARCD_DENOMINATOR;
+    }
 
     // ========================================= MUTATIVE FUNCTIONS ========================================
     function deposit(
@@ -464,11 +487,13 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
 
         if ((stakes[msg.sender].length + 1) > MAX_DEPOSITS) revert ASR_DepositCountExceeded();
 
-        // Accounting with bonus for updating vote power
+        // Accounting with bonus
         (uint256 bonus, uint256 lockDuration) = _getBonus(lock);
         uint256 amountWithBonus = amount + ((amount * bonus) / ONE);
+
+        uint256 votingPowerToAdd = convertLPToArcd(amountWithBonus);
         // update the vote power to equal the amount staked with bonus
-        _addVotingPower(msg.sender, amountWithBonus, firstDelegation);
+        _addVotingPower(msg.sender, votingPowerToAdd, firstDelegation);
 
         // populate user stake information
         stakes[msg.sender].push(
@@ -484,7 +509,7 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
         totalDeposits += amount;
         totalDepositsWithBonus += amountWithBonus;
 
-        stakingToken.safeTransferFrom(msg.sender, address(this), amount);
+        arcdWethLP.safeTransferFrom(msg.sender, address(this), amount);
 
         emit Staked(msg.sender, stakes[msg.sender].length - 1, amount);
     }
@@ -509,13 +534,16 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
 
         UserStake storage userStake = stakes[msg.sender][depositId];
         Lock lock = userStake.lock;
+
         // Accounting with bonus
         (uint256 bonus,) = _getBonus(lock);
         uint256 amountWithBonus = (amount + ((amount * bonus) / ONE));
-        _subtractVotingPower(amountWithBonus, msg.sender);
+
+        uint256 votePowerToSubtract = convertLPToArcd(amountWithBonus);
+        _subtractVotingPower(votePowerToSubtract, msg.sender);
 
         if (withdrawAmount > 0) {
-            stakingToken.safeTransfer(msg.sender, withdrawAmount);
+            arcdWethLP.safeTransfer(msg.sender, withdrawAmount);
         }
 
         if (reward > 0) {
@@ -579,13 +607,17 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
         UserStake[] storage userStakes = stakes[msg.sender];
         uint256 totalWithdrawAmount = 0;
         uint256 totalRewardAmount = 0;
-
-        uint256 votePower = getTotalUserDepositsWithBonus(msg.sender);
-        _subtractVotingPower(votePower, msg.sender);
+        uint256 votingPowerWithBonus = 0;
 
         for (uint256 i = 0; i < userStakes.length; ++i) {
             UserStake storage userStake = userStakes[i];
             uint256 depositAmount = userStake.amount;
+            Lock lock = userStake.lock;
+
+            // Accounting with bonus
+            (uint256 bonus,) = _getBonus(lock);
+            uint256 amountWithBonus = depositAmount  + ((depositAmount * bonus) / ONE);
+            votingPowerWithBonus += amountWithBonus;
 
             if (depositAmount == 0 || block.timestamp < userStake.unlockTimestamp) continue;
 
@@ -598,8 +630,11 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
             }
         }
 
+        uint256 votePowerToSubtract = (convertLPToArcd(votingPowerWithBonus) / 1e6) * 1e6; // round down to 6 decimals to avoid rounding errors
+        _subtractVotingPower(votePowerToSubtract, msg.sender);
+
         if (totalWithdrawAmount > 0) {
-            stakingToken.safeTransfer(msg.sender, totalWithdrawAmount);
+            arcdWethLP.safeTransfer(msg.sender, totalWithdrawAmount);
         }
 
         if (totalRewardAmount > 0) {
@@ -641,14 +676,13 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
 
     /**
      * @notice Allows the contract owner to recover ERC20 tokens locked in the contract.
-     *         Added to support recovering rewards from other systems such as BAL, to be
-     *         distributed to holders.
+     *         Reward tokens can be recovered only if the total staked amount is zero.
      *
      * @param tokenAddress                       The address of the token to recover.
      * @param tokenAmount                        The amount of token to recover.
      */
     function recoverERC20(address tokenAddress, uint256 tokenAmount) external onlyOwner {
-        if (tokenAddress == address(stakingToken)) revert ASR_StakingToken();
+        if (tokenAddress == address(arcdWethLP)) revert ASR_StakingToken();
         if (tokenAddress == address(rewardsToken) && totalDeposits != 0) revert ASR_RewardsToken();
         if (tokenAddress == address(0)) revert ASR_ZeroAddress();
         if (tokenAmount == 0) revert ASR_ZeroAmount();
@@ -673,16 +707,16 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
     }
 
     /**
-     * @notice Pauses the contract, callable by onlyRewardsDistribution. Reversible.
+     * @notice Pauses the contract, callable by only the owner. Reversible.
      */
-    function pause() external onlyRewardsDistribution {
+    function pause() external onlyOwner {
         _pause();
     }
 
     /**
-     * @notice Unpauses the contract, callable by onlyRewardsDistribution. Reversible.
+     * @notice Unpauses the contract, callable by only the owner. Reversible.
      */
-    function unpause() external onlyRewardsDistribution {
+    function unpause() external onlyOwner {
         _unpause();
     }
 
@@ -897,7 +931,7 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
         address fundedAccount,
         uint256 amount,
         address firstDelegation
-    ) external override {
+    ) external pure override {
         revert LV_FunctionDisabled();
     }
 
@@ -908,7 +942,7 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
      */
     function withdraw(
         uint256 amount
-    ) external override {
+    ) external pure override {
         revert LV_FunctionDisabled();
     }
 }
