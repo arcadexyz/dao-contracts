@@ -204,13 +204,8 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
      *
      * @return depositBalance               The total amount staked in the deposit.
      */
-    function balanceOfDeposit(address account, uint256 depositId) external view returns (uint256) {
-        UserStake[] storage userStakes = stakes[account];
-        UserStake storage userStake = userStakes[depositId];
-
-        uint256 depositBalance = userStake.amount;
-
-        return depositBalance;
+    function balanceOfDeposit(address account, uint256 depositId) external view returns (uint256 depositBalance) {
+        return stakes[account][depositId].amount;
     }
 
     /**
@@ -249,7 +244,7 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
      *
      * @return rewards                        Rewards amounts earned for each deposit.
      */
-    function getPendingRewards(address account, uint256 depositId) public view returns (uint256) {
+    function getPendingRewards(address account, uint256 depositId) public view returns (uint256 rewards) {
         UserStake[] storage userStakes = stakes[account];
         UserStake storage userStake = userStakes[depositId];
 
@@ -258,9 +253,7 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
         uint256 userRewardPerTokenPaid = userStake.rewardPerTokenPaid;
         uint256 userRewards = userStake.rewards;
 
-        uint256 rewards = ((stakeAmountWithBonus * (rewardPerToken() - userRewardPerTokenPaid)) / ONE + userRewards);
-
-        return rewards;
+        return ((stakeAmountWithBonus * (rewardPerToken() - userRewardPerTokenPaid)) / ONE + userRewards);
     }
 
     /**
@@ -302,10 +295,8 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
      *
      * @return lastDepositId                    Id of the last stake.
      */
-    function getLastDepositId(address account) public view returns (uint256) {
-        uint256 lastDepositId = stakes[account].length - 1;
-
-        return lastDepositId;
+    function getLastDepositId(address account) public view returns (uint256 lastDepositId) {
+        return stakes[account].length - 1;
     }
 
     /**
@@ -393,7 +384,7 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
      *
      * @return amountWithBonus                  Value of user stake with bonus.
      */
-    function getAmountWithBonus(address account, uint256 depositId) public view returns (uint256) {
+    function getAmountWithBonus(address account, uint256 depositId) public view returns (uint256 amountWithBonus) {
         UserStake[] storage userStakes = stakes[account];
 
         UserStake storage userStake = userStakes[depositId];
@@ -402,9 +393,8 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
 
         // Accounting with bonus
         (uint256 bonus,) = _getBonus(lock);
-        uint256 amountWithBonus = (amount + ((amount * bonus) / ONE));
 
-        return amountWithBonus;
+        return (amount + ((amount * bonus) / ONE));
     }
 
     /**
@@ -414,7 +404,7 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
      *
      * @return totalRewards                     Value of a user's rewards across all deposits.
      */
-    function getTotalUserPendingRewards(address account) public view returns (uint256) {
+    function getTotalUserPendingRewards(address account) public view returns (uint256 totalRewards) {
         UserStake[] storage userStakes = stakes[account];
         uint256 totalRewards = 0;
 
@@ -430,9 +420,9 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
      *
      * @param account                           The user's account.
      *
-     * @return totalRewards                     Value of a user's rewards across all deposits.
+     * @return totalDepositsWithBonuses         Value of a user's deposits with bonuses across all deposits.
      */
-    function getTotalUserDepositsWithBonus(address account) public view returns (uint256) {
+    function getTotalUserDepositsWithBonus(address account) public view returns (uint256 totalDepositsWithBonuses) {
         UserStake[] storage userStakes = stakes[account];
         uint256 totalDepositsWithBonuses = 0;
 
