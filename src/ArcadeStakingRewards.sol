@@ -32,6 +32,10 @@ import {
  * @title ArcadeStakingRewards
  * @author Non-Fungible Technologies, Inc.
  *
+ * @notice To optimize gas usage, all time-related variables are stored in uint32
+ *         format. This limits timestamp support to dates before 03:14:07 UTC on
+ *         19 January 2038. Any time beyond this point will cause an overflow.
+ *
  * The ArcadeStakingRewards contract is a fork of the Synthetix StakingRewards
  * contract.
  * https://github.com/Synthetixio/synthetix/blob/develop/contracts/StakingRewards.sol
@@ -118,11 +122,11 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
     IERC20 public immutable rewardsToken;
     IERC20 public immutable arcdWethLP;
 
-    uint256 public periodFinish = 0;
-    uint256 public rewardRate = 0;
-    uint256 public rewardsDuration = 15780000; // six months
-    uint256 public lastUpdateTime;
+    uint32 public periodFinish = 0;
+    uint32 public lastUpdateTime;
+    uint32 public rewardsDuration = 15780000; // six months
     uint256 public rewardPerTokenStored;
+    uint256 public rewardRate = 0;
 
     mapping(address => UserStake[]) public stakes;
 
@@ -212,11 +216,11 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
      * @notice Returns the last timestamp at which rewards can be calculated and
      *         be accounted for.
      *
-     * @return uint256                       The timestamp record after which rewards
+     * @return uint32                        The timestamp record after which rewards
      *                                       can no longer be calculated.
      */
-    function lastTimeRewardApplicable() public view returns (uint256) {
-        return block.timestamp < periodFinish ? block.timestamp : periodFinish;
+    function lastTimeRewardApplicable() public view returns (uint32) {
+        return uint32(block.timestamp) < periodFinish ? uint32(block.timestamp) : periodFinish;
     }
 
     /**
@@ -643,8 +647,8 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
 
         if (rewardRate > (balance / rewardsDuration)) revert ASR_RewardTooHigh();
 
-        lastUpdateTime = block.timestamp;
-        periodFinish = block.timestamp + rewardsDuration;
+        lastUpdateTime = uint32(block.timestamp);
+        periodFinish = uint32(block.timestamp) + rewardsDuration;
 
         emit RewardAdded(reward);
     }
@@ -673,7 +677,7 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
      *
      * @param _rewardsDuration                    The amount of time the rewards period will be.
      */
-    function setRewardsDuration(uint256 _rewardsDuration) external whenNotPaused onlyOwner {
+    function setRewardsDuration(uint32 _rewardsDuration) external whenNotPaused onlyOwner {
         if (block.timestamp <= periodFinish) revert ASR_RewardsPeriod();
 
         rewardsDuration = _rewardsDuration;

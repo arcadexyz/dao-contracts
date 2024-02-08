@@ -15,10 +15,10 @@ contract ArcadeStakingRewardsTest is Test {
     MockERC20 otherToken;
 
     uint256 public constant ONE = 1e18;
-    uint256 public constant ONE_DAY = 60 * 60 * 24;
-    uint256 public constant ONE_MONTH = ONE_DAY * 30;
-    uint256 public constant TWO_MONTHS = ONE_MONTH * 2;
-    uint256 public constant THREE_MONTHS = ONE_MONTH * 3;
+    uint32 public constant ONE_DAY = 60 * 60 * 24;
+    uint32 public constant ONE_MONTH = ONE_DAY * 30;
+    uint32 public constant TWO_MONTHS = ONE_MONTH * 2;
+    uint32 public constant THREE_MONTHS = ONE_MONTH * 3;
     uint256 public constant MAX_DEPOSITS = 20;
     uint256 public constant LP_TO_ARCD_DENOMINATOR = 1e3;
     uint256 public immutable LP_TO_ARCD_RATE = 2;
