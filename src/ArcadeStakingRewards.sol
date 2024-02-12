@@ -27,7 +27,7 @@ import {
     ASR_ZeroConversionRate,
     LV_FunctionDisabled
 } from "../src/errors/Staking.sol";
-import { console } from "forge-std/Test.sol";
+
 /**
  * @title ArcadeStakingRewards
  * @author Non-Fungible Technologies, Inc.
