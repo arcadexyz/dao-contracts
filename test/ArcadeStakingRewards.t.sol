@@ -1061,8 +1061,8 @@ contract ArcadeStakingRewardsTest is Test {
         stakingRewards.deposit(userStake, userC, IArcadeStakingRewards.Lock.Medium);
         vm.stopPrank();
 
-        // increase blockchain time to end the rewards period
-        vm.warp(block.timestamp + 4 days);
+        // increase blockchain time to past the rewards period
+        vm.warp(block.timestamp + 5 days);
 
         // get the total rewards for the duration
         uint256 rewardForDuration = stakingRewards.getRewardForDuration();
@@ -1073,7 +1073,7 @@ contract ArcadeStakingRewardsTest is Test {
         // get rewards earned by userB
         uint256 rewardB  = stakingRewards.getPendingRewards(userB, 0);
 
-        uint256 tolerance = 1e3;
+        uint256 tolerance = 1e14;
         // user B should earn 25% of total rewards
         assertApproxEqAbs(rewardB, rewardForDuration / 4, tolerance);
         // user A should earn 75% of total rewards
@@ -1164,10 +1164,8 @@ contract ArcadeStakingRewardsTest is Test {
 
         // userA unstakes
         vm.startPrank(userA);
-
         bytes4 selector = bytes4(keccak256("ASR_Locked()"));
         vm.expectRevert(abi.encodeWithSelector(selector));
-
         // user withdraws staking tokens
         stakingRewards.withdraw(userStake, 0);
         vm.stopPrank();
@@ -1385,19 +1383,19 @@ contract ArcadeStakingRewardsTest is Test {
         vm.prank(admin);
         stakingRewards.notifyRewardAmount(100e18);
 
+        uint256 currentTime = block.timestamp;
+
         // userA approves stakingRewards contract to spend staking tokens
         vm.startPrank(userA);
         lpToken.approve(address(stakingRewards), userStakeAmount + userStakeAmount2);
         stakingRewards.deposit(userStakeAmount, userC, IArcadeStakingRewards.Lock.Medium);
         stakingRewards.deposit(userStakeAmount2, userC, IArcadeStakingRewards.Lock.Short);
         vm.stopPrank();
-console.log("currentTime", currentTime);
-        uint256 fourDaysLater = 4 days;
+
+        uint256 fourDaysLater = currentTime + 4 days;
         // increase blockchain time to half of the rewards period
         vm.warp(fourDaysLater);
-console.log("fourDaysLater", fourDaysLater);
-console.log("4 days", 4 days);
-console.log("8 days", 8 days);
+
         lpToken.mint(userB, 20e18);
         uint256 userStakeAmountB = lpToken.balanceOf(userB);
         lpToken.mint(userB, 50e18);
@@ -1412,9 +1410,9 @@ console.log("8 days", 8 days);
         stakingRewards.deposit(userStakeAmountB2, userD, IArcadeStakingRewards.Lock.Short);
         vm.stopPrank();
 
-        uint256 endRewardPeriod = 8 days;
+        uint256 afterLock = currentTime + THREE_MONTHS;
         // increase blockchain time to end long lock cycle
-        vm.warp(endRewardPeriod);
+        vm.warp(afterLock);
 
         // check that the rewards of userA are double of those of user B
         uint256 rewardsA = stakingRewards.getPendingRewards(userA, 0);
@@ -1422,52 +1420,49 @@ console.log("8 days", 8 days);
         uint256 rewardsB = stakingRewards.getPendingRewards(userB, 0);
         uint256 rewardsB1 = stakingRewards.getPendingRewards(userB, 1);
 
-        uint256 tolerance = 1e13;
+        uint256 tolerance = 1e14;
         assertApproxEqAbs(rewardsA / 3, rewardsB, tolerance);
         assertApproxEqAbs(rewardsA1 / 3, rewardsB1, tolerance);
 
-        uint256 endLockPeriod = block.timestamp + TWO_MONTHS;
-        vm.warp(endRewardPeriod);
+        uint256 currentTime2 = block.timestamp;
 
-        uint256 currentTime2 = endLockPeriod;
+        // userB withdraws 1/2 of their second deposit
+        vm.startPrank(userB);
+        stakingRewards.withdraw(userStakeAmountB2 / 2, 1);
+        vm.stopPrank();
 
-        // // userB withdraws 1/2 of their second deposit
-        // vm.startPrank(userB);
-        // stakingRewards.withdraw(userStakeAmountB2 / 2, 1);
-        // vm.stopPrank();
+        // Admin calls notifyRewardAmount again to set the reward rate
+        rewardsToken.mint(address(stakingRewards), 100e18);
+        vm.prank(admin);
+        stakingRewards.notifyRewardAmount(100e18);
 
-        // // Admin calls notifyRewardAmount again to set the reward rate
-        // rewardsToken.mint(address(stakingRewards), 100e18);
-        // vm.prank(admin);
-        // stakingRewards.notifyRewardAmount(100e18);
+        // increase blockchain time to end staking period
+        uint256 eightDaysLater = currentTime2 + 8 days;
+        vm.warp(eightDaysLater);
 
-        // // increase blockchain time to past staking period
-        // uint256 nineDaysLater = currentTime2 + 8 days;
-        // vm.warp(nineDaysLater);
+        uint256 rewardsA_ = stakingRewards.getPendingRewards(userA, 0);
+        uint256 rewardsA1_ = stakingRewards.getPendingRewards(userA, 1);
+        uint256 rewardsB_ = stakingRewards.getPendingRewards(userB, 0);
+        uint256 rewardsB1_ = stakingRewards.getPendingRewards(userB, 1);
 
-        // uint256 rewardsA_ = stakingRewards.getPendingRewards(userA, 0);
-        // uint256 rewardsA1_ = stakingRewards.getPendingRewards(userA, 1);
-        // uint256 rewardsB_ = stakingRewards.getPendingRewards(userB, 0);
-        // uint256 rewardsB1_ = stakingRewards.getPendingRewards(userB, 1);
+        uint256 tolerance2 = 1e4;
+        assertApproxEqAbs(rewardsA_ - rewardsA , rewardsB_ - rewardsB, tolerance2);
 
-        // uint256 tolerance2 = 1e4;
-        // assertApproxEqAbs(rewardsA_ - rewardsA , rewardsB_ - rewardsB, tolerance2);
+        // userB withdraws
+        vm.startPrank(userB);
+        stakingRewards.exitAll();
+        vm.stopPrank();
+        assertEq(userStakeAmountB + userStakeAmountB2, lpToken.balanceOf(userB));
+        assertEq(rewardsB_ + rewardsB1_ + rewardsB1, rewardsToken.balanceOf(userB));
 
-        // // userB withdraws
-        // vm.startPrank(userB);
-        // stakingRewards.exitAll();
-        // vm.stopPrank();
-        // assertEq(userStakeAmountB + userStakeAmountB2, lpToken.balanceOf(userB));
-        // assertEq(rewardsB_ + rewardsB1_ + rewardsB1, rewardsToken.balanceOf(userB));
+        // userA withdraws
+        vm.startPrank(userA);
+        stakingRewards.exitAll();
+        vm.stopPrank();
+        assertEq(userStakeAmount + userStakeAmount2, lpToken.balanceOf(userA));
+        assertEq(rewardsA_ + rewardsA1_, rewardsToken.balanceOf(userA));
 
-        // // userA withdraws
-        // vm.startPrank(userA);
-        // stakingRewards.exitAll();
-        // vm.stopPrank();
-        // assertEq(userStakeAmount + userStakeAmount2, lpToken.balanceOf(userA));
-        // assertEq(rewardsA_ + rewardsA1_, rewardsToken.balanceOf(userA));
-
-        // assertEq(0, lpToken.balanceOf(address(stakingRewards)));
+        assertEq(0, lpToken.balanceOf(address(stakingRewards)));
     }
 
     function testMaxDepositsRevert() public {
