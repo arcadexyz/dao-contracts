@@ -452,83 +452,8 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
         _stake(amount, lock, firstDelegation);
     }
 
-    /**
-     * @notice Allows users to stake their tokens, which are then tracked in the contract. The total
-     *         supply of staked tokens and individual user balances are updated accordingly.
-     *
-     * @param amount                            The amount of tokens the user stakes.
-     * @param lock                              The amount of time to lock the stake for.
-     * @param firstDelegation                   The address to delegate voting power to.
-     */
-    function _stake(uint256 amount, Lock lock, address firstDelegation) internal updateReward {
-        if (amount == 0) revert ASR_ZeroAmount();
-
-        uint256 depositsLength = stakes[msg.sender].length;
-        if ((depositsLength + 1) > MAX_DEPOSITS) revert ASR_DepositCountExceeded();
-
-        // Accounting with bonus
-        (uint256 bonus, uint256 lockDuration) = _getBonus(lock);
-        uint256 amountWithBonus = amount + ((amount * bonus) / ONE);
-
-        uint256 votingPowerToAdd = convertLPToArcd(amountWithBonus);
-        // update the vote power to equal the amount staked with bonus
-        _addVotingPower(msg.sender, votingPowerToAdd, firstDelegation);
-
-        // populate user stake information
-        stakes[msg.sender].push(
-            UserStake({
-                amount: amount,
-                unlockTimestamp: uint32(block.timestamp + lockDuration),
-                rewardPerTokenPaid: rewardPerTokenStored,
-                rewards: 0,
-                lock: lock
-            })
-        );
-
-        totalDeposits += amount;
-        totalDepositsWithBonus += amountWithBonus;
-
-        arcdWethLP.safeTransferFrom(msg.sender, address(this), amount);
-
-        emit Staked(msg.sender, depositsLength, amount);
-    }
-
     function withdraw(uint256 amount, uint256 depositId) external whenNotPaused nonReentrant {
         _withdrawFromStake(amount, depositId);
-    }
-
-    /**
-     * @notice Allows users to do partial token withdraws for specific deposits.
-     *         The total supply of staked tokens and individual user balances
-     *         are updated accordingly.
-     *
-     * @param amount                           The amount of tokens the user withdraws.
-     * @param depositId                        The specified deposit to withdraw.
-     */
-    function _withdrawFromStake(uint256 amount, uint256 depositId) internal updateReward {
-        if (amount == 0) revert ASR_ZeroAmount();
-        if (depositId >= stakes[msg.sender].length) revert ASR_InvalidDepositId();
-
-        (uint256 withdrawAmount, uint256 reward) = _processWithdrawal(msg.sender, amount, depositId);
-
-        UserStake storage userStake = stakes[msg.sender][depositId];
-        Lock lock = userStake.lock;
-
-        // Accounting with bonus
-        (uint256 bonus,) = _getBonus(lock);
-        uint256 amountWithBonus = (amount + ((amount * bonus) / ONE));
-
-        uint256 votePowerToSubtract = convertLPToArcd(amountWithBonus);
-        _subtractVotingPower(votePowerToSubtract, msg.sender);
-
-        if (withdrawAmount > 0) {
-            arcdWethLP.safeTransfer(msg.sender, withdrawAmount);
-        }
-
-        if (reward > 0) {
-            rewardsToken.safeTransfer(msg.sender, reward);
-            emit RewardPaid(msg.sender, reward, depositId);
-        }
     }
 
     /**
@@ -576,6 +501,13 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
         uint256 amount = userStake.amount;
 
         _withdrawFromStake(amount, depositId);
+
+        // reset userStake struct
+        if (userStake.amount == 0 && userStake.rewards == 0) {
+            userStake.lock = Lock.Short;
+            userStake.unlockTimestamp = 0;
+            userStake.rewardPerTokenPaid = 0;
+        }
     }
 
     /**
@@ -606,6 +538,13 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
 
             if (reward > 0) {
                 emit RewardPaid(msg.sender, reward, i);
+            }
+
+            // reset userStake struct
+            if (userStake.amount == 0 && userStake.rewards == 0) {
+                userStakes[i].lock = Lock.Short;
+                userStakes[i].unlockTimestamp = 0;
+                userStakes[i].rewardPerTokenPaid = 0;
             }
         }
 
@@ -710,6 +649,46 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
     }
 
     /**
+     * @notice Allows users to stake their tokens, which are then tracked in the contract. The total
+     *         supply of staked tokens and individual user balances are updated accordingly.
+     *
+     * @param amount                            The amount of tokens the user stakes.
+     * @param lock                              The amount of time to lock the stake for.
+     * @param firstDelegation                   The address to delegate voting power to.
+     */
+    function _stake(uint256 amount, Lock lock, address firstDelegation) internal updateReward {
+        if (amount == 0) revert ASR_ZeroAmount();
+
+        if ((stakes[msg.sender].length + 1) > MAX_DEPOSITS) revert ASR_DepositCountExceeded();
+
+        // Accounting with bonus
+        (uint256 bonus, uint256 lockDuration) = _getBonus(lock);
+        uint256 amountWithBonus = amount + ((amount * bonus) / ONE);
+
+        uint256 votingPowerToAdd = convertLPToArcd(amountWithBonus);
+        // update the vote power to equal the amount staked with bonus
+        _addVotingPower(msg.sender, votingPowerToAdd, firstDelegation);
+
+        // populate user stake information
+        stakes[msg.sender].push(
+            UserStake({
+                amount: amount,
+                unlockTimestamp: uint32(block.timestamp + lockDuration),
+                rewardPerTokenPaid: rewardPerTokenStored,
+                rewards: 0,
+                lock: lock
+            })
+        );
+
+        totalDeposits += amount;
+        totalDepositsWithBonus += amountWithBonus;
+
+        arcdWethLP.safeTransferFrom(msg.sender, address(this), amount);
+
+        emit Staked(msg.sender, stakes[msg.sender].length - 1, amount);
+    }
+
+    /**
      * @notice Withdraws staked tokens that are unlocked.
      *
      * @param depositId                        The specified deposit to get the reward for.
@@ -801,6 +780,40 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
         (uint256 withdrawAmount, uint256 reward) = _withdraw(user, amount, depositId);
 
         return (withdrawAmount, reward);
+    }
+
+    /**
+     * @notice Allows users to do partial token withdraws for specific deposits.
+     *         The total supply of staked tokens and individual user balances
+     *         are updated accordingly.
+     *
+     * @param amount                           The amount of tokens the user withdraws.
+     * @param depositId                        The specified deposit to withdraw.
+     */
+    function _withdrawFromStake(uint256 amount, uint256 depositId) internal updateReward {
+        if (amount == 0) revert ASR_ZeroAmount();
+        if (depositId >= stakes[msg.sender].length) revert ASR_InvalidDepositId();
+
+        (uint256 withdrawAmount, uint256 reward) = _calculateWithdrawalAndReward(msg.sender, amount, depositId);
+
+        UserStake storage userStake = stakes[msg.sender][depositId];
+        Lock lock = userStake.lock;
+
+        // Accounting with bonus
+        (uint256 bonus,) = _getBonus(lock);
+        uint256 amountWithBonus = (amount + ((amount * bonus) / ONE));
+
+        uint256 votePowerToSubtract = convertLPToArcd(amountWithBonus);
+        _subtractVotingPower(votePowerToSubtract, msg.sender);
+
+        if (withdrawAmount > 0) {
+            arcdWethLP.safeTransfer(msg.sender, withdrawAmount);
+        }
+
+        if (reward > 0) {
+            rewardsToken.safeTransfer(msg.sender, reward);
+            emit RewardPaid(msg.sender, reward, depositId);
+        }
     }
 
     /**
