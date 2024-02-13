@@ -92,3 +92,9 @@ error ASR_DepositCountExceeded();
  *
  */
 error LV_FunctionDisabled();
+
+/**
+ * @notice The provided stale block number is too high.
+ *
+ */
+error ASR_UpperLimitBlock(uint256);

@@ -26,7 +26,8 @@ import {
     ASR_InvalidDepositId,
     ASR_DepositCountExceeded,
     ASR_ZeroConversionRate,
-    LV_FunctionDisabled
+    LV_FunctionDisabled,
+    ASR_UpperLimitBlock
 } from "../src/errors/Staking.sol";
 
 /**
@@ -147,6 +148,8 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
      * @param mediumBonus                  The bonus multiplier for the medium lock time.
      * @param longBonus                    The bonus multiplier for the long lock time.
      * @param _lpToArcdRate                Immutable ARCD/WETH to ARCD conversion rate.
+     * @param _staleBlockLag               The number of blocks before which the delegation
+     *                                     history is forgotten.
      */
     constructor(
         address _owner,
@@ -159,12 +162,15 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
         uint256 shortBonus,
         uint256 mediumBonus,
         uint256 longBonus,
-        uint256 _lpToArcdRate
-    ) Ownable(_owner) LockingVault(IERC20(_arcdWethLP), staleBlockLag) {
+        uint256 _lpToArcdRate,
+        uint256 _staleBlockLag
+    ) Ownable(_owner) LockingVault(IERC20(_arcdWethLP), _staleBlockLag) {
         if (address(_rewardsDistribution) == address(0)) revert ASR_ZeroAddress();
         if (address(_rewardsToken) == address(0)) revert ASR_ZeroAddress();
         if (address(_arcdWethLP) == address(0)) revert ASR_ZeroAddress();
         if (_lpToArcdRate == 0) revert ASR_ZeroConversionRate();
+        if (_staleBlockLag >= block.number) revert ASR_UpperLimitBlock(_staleBlockLag);
+
         rewardsToken = IERC20(_rewardsToken);
         arcdWethLP = IERC20(_arcdWethLP);
         rewardsDistribution = _rewardsDistribution;
