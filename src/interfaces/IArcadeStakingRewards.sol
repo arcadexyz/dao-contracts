@@ -42,7 +42,7 @@ interface IArcadeStakingRewards {
 
     function rewardsToken() external view returns (IERC20);
 
-    function totalDeposits() external view returns (uint256);
+    function totalSupply() external view returns (uint256);
 
     function getAmountWithBonus(address account, uint256 depositId) external view returns (uint256);
 
@@ -82,4 +82,6 @@ interface IArcadeStakingRewards {
     function pause() external;
 
     function unpause() external;
+
+    function notifyRewardAmount(uint256 reward) external;
 }
