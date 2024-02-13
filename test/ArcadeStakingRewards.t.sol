@@ -146,6 +146,27 @@ contract ArcadeStakingRewardsTest is Test {
         );
     }
 
+    function testUpperLimitBlock() public {
+        bytes4 selector = bytes4(keccak256("ASR_UpperLimitBlock(uint256)"));
+        uint256 STALE_BLOCK_LAG2 = 105;
+
+        vm.expectRevert(abi.encodeWithSelector(selector, STALE_BLOCK_LAG2));
+        stakingRewards = new ArcadeStakingRewards(
+            owner,
+            admin,
+            address(rewardsToken),
+            address(lpToken),
+            ONE_MONTH,
+            TWO_MONTHS,
+            THREE_MONTHS,
+            1.1e18,
+            1.3e18,
+            1.5e18,
+            LP_TO_ARCD_RATE,
+            STALE_BLOCK_LAG2
+        );
+    }
+
     function testDeposit() public {
         setUp();
 
