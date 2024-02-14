@@ -7,7 +7,9 @@ import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/utils/Pausable.sol";
 
-import "./external/council/LockingVault.sol";
+import "./external/council/interfaces/IVotingVault.sol";
+import "./external/council/libraries/History.sol";
+import "./external/council/libraries/Storage.sol";
 
 import "./interfaces/IArcadeStakingRewards.sol";
 import "./ArcadeRewardsRecipient.sol";
@@ -25,7 +27,7 @@ import {
     ASR_InvalidDepositId,
     ASR_DepositCountExceeded,
     ASR_ZeroConversionRate,
-    LV_FunctionDisabled
+    ASR_UpperLimitBlock
 } from "../src/errors/Staking.sol";
 
 /**
@@ -96,7 +98,7 @@ import {
  * user has selected at the time of their token deposit.
  */
 
-contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, LockingVault, ReentrancyGuard, Pausable {
+contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, IVotingVault, ReentrancyGuard, Pausable {
     using SafeERC20 for IERC20;
     using Math for uint256;
 
@@ -112,6 +114,13 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
     uint256 public constant SHORT_BONUS = 1.1e18;
     uint256 public constant MEDIUM_BONUS = 1.3e18;
     uint256 public constant LONG_BONUS = 1.5e18;
+
+    uint256 public immutable SHORT_LOCK_TIME;
+    uint256 public immutable MEDIUM_LOCK_TIME;
+    uint256 public immutable LONG_LOCK_TIME;
+
+    uint256 public immutable LP_TO_ARCD_RATE;
+    uint256 public immutable STALE_BLOCK_LAG;
 
     // ============ Global State =============
     uint32 public immutable SHORT_LOCK_TIME;
@@ -153,20 +162,23 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
         address _rewardsDistribution,
         address _rewardsToken,
         address _arcdWethLP,
-        uint32 shortLockTime,
-        uint32 mediumLockTime,
-        uint32 longLockTime,
-        uint256 _lpToArcdRate
-    ) Ownable(_owner) LockingVault(IERC20(_arcdWethLP), staleBlockLag) {
+        uint256 shortLockTime,
+        uint256 mediumLockTime,
+        uint256 longLockTime,
+        uint256 _lpToArcdRate,
+        uint256 _staleBlockLag
+    ) Ownable(_owner) {
         if (address(_rewardsDistribution) == address(0)) revert ASR_ZeroAddress();
         if (address(_rewardsToken) == address(0)) revert ASR_ZeroAddress();
         if (address(_arcdWethLP) == address(0)) revert ASR_ZeroAddress();
         if (_lpToArcdRate == 0) revert ASR_ZeroConversionRate();
+        if (_staleBlockLag >= block.number) revert ASR_UpperLimitBlock(_staleBlockLag);
 
         rewardsToken = IERC20(_rewardsToken);
         arcdWethLP = IERC20(_arcdWethLP);
         rewardsDistribution = _rewardsDistribution;
 
+        STALE_BLOCK_LAG = _staleBlockLag;
         LP_TO_ARCD_RATE = _lpToArcdRate;
 
         SHORT_LOCK_TIME = shortLockTime;
@@ -837,7 +849,7 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
     }
 
     /**
-     * @notice This internal function mirrors the external withdraw function from the Locking Vault
+     * @notice This internal function adapted from the external withdraw function from the LockingVault
      *         contract, with a key modification: it omits the token transfer transaction. This
      *         is because the tokens are already present within the vault. Additionally, the function
      *         adds an address account parameter to specify the user whose voting power needs updating.
@@ -869,7 +881,7 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
     }
 
     /**
-     * @notice This internal function mirrors the external deposit function from the Locking Vault
+     * @notice This internal function is adapted from the external deposit function from the LockingVault
      *         contract, with a key modification: it omits the token transfer transaction.
      *
      * @param fundedAccount                    The address to credit this deposit to.
@@ -913,26 +925,113 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
     }
 
     /**
-     * @notice The purpose of this function is to prevent function deposit in inherited Locking Vault
-     * from being callable.
+     * @notice This function is taken from the LockingVault contract. It is a single endpoint
+     *        for loading storage for deposits.
      *
+     * @return                                  A storage mapping which can be used to look
+     *                                          up deposit data.
      */
-    function deposit(
-        address fundedAccount,
-        uint256 amount,
-        address firstDelegation
-    ) external pure override {
-        revert LV_FunctionDisabled();
+    function _deposits()
+        internal
+        pure
+        returns (mapping(address => Storage.AddressUint) storage)
+    {
+        // This call returns a storage mapping with a unique non overwrite-able storage location
+        // which can be persisted through upgrades, even if they change storage layout
+        return (Storage.mappingAddressToPackedAddressUint("deposits"));
     }
 
     /**
-     * @notice The purpose of this function is to prevent function withdraw in inherited Locking Vault
-     * from being callable.
+     * @notice This function is taken from the LockingVault contract. Returns the historical
+     *         voting power tracker.
      *
+     * @return                                  A struct which can push to and find items in
+     *                                          block indexed storage.
      */
-    function withdraw(
-        uint256 amount
-    ) external pure override {
-        revert LV_FunctionDisabled();
+    function _votingPower()
+        internal
+        pure
+        returns (History.HistoricalBalances memory)
+    {
+        // This call returns a storage mapping with a unique non overwrite-able storage location
+        // which can be persisted through upgrades, even if they change storage layout
+        return (History.load("votingPower"));
+    }
+
+    /**
+     * @notice This function is taken from the LockingVault contract. Attempts to load the voting
+     *         power of a user.
+     *
+     * @param user                              The address we want to load the voting power of.
+     * @param blockNumber                       The block number we want the user's voting power at.
+     *
+     * @return                                  The number of votes.
+     */
+    function queryVotePower(
+        address user,
+        uint256 blockNumber,
+        bytes calldata
+    ) external override returns (uint256) {
+        // Get our reference to historical data
+        History.HistoricalBalances memory votingPower = _votingPower();
+        // Find the historical data and clear everything more than 'staleBlockLag' into the past
+        return
+            votingPower.findAndClear(
+                user,
+                blockNumber,
+                block.number - STALE_BLOCK_LAG
+            );
+    }
+
+    /**
+     * @notice This function is taken from the LockingVault contract. Loads the voting power of a
+     *         user without changing state.
+     *
+     * @param user                              The address we want to load the voting power of.
+     * @param blockNumber                       The block number we want the user's voting power at.
+     *
+     * @return                                  The number of votes.
+     */
+    function queryVotePowerView(address user, uint256 blockNumber)
+        external
+        view
+        returns (uint256)
+    {
+        // Get our reference to historical data
+        History.HistoricalBalances memory votingPower = _votingPower();
+        // Find the historical datum
+        return votingPower.find(user, blockNumber);
+    }
+
+    /**
+     * @notice This function is taken from the LockingVault contract. Changes a user's voting power.
+     *
+     * @param newDelegate                        The new address which gets voting power.
+     */
+    function changeDelegation(address newDelegate) external {
+        // No delegating to zero
+        require(newDelegate != address(0), "Zero addr delegation");
+        // Get the stored user data
+        Storage.AddressUint storage userData = _deposits()[msg.sender];
+        // Get the user balance
+        uint256 userBalance = uint256(userData.amount);
+        address oldDelegate = userData.who;
+        // Reset the user delegation
+        userData.who = newDelegate;
+        // Reduce the old voting power
+        // Get the storage pointer
+        History.HistoricalBalances memory votingPower = _votingPower();
+        // Load the old delegate's voting power
+        uint256 oldDelegateVotes = votingPower.loadTop(oldDelegate);
+        // Reduce the old voting power
+        votingPower.push(oldDelegate, oldDelegateVotes - userBalance);
+        // Emit an event to track votes
+        emit VoteChange(msg.sender, oldDelegate, -1 * int256(userBalance));
+        // Get the new delegate's votes
+        uint256 newDelegateVotes = votingPower.loadTop(newDelegate);
+        // Store the increase in power
+        votingPower.push(newDelegate, newDelegateVotes + userBalance);
+        // Emit an event tracking this voting power change
+        emit VoteChange(msg.sender, newDelegate, int256(userBalance));
     }
 }

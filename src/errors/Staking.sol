@@ -81,7 +81,7 @@ error ASR_InvalidDepositId();
 error ASR_DepositCountExceeded();
 
 /**
- * @notice Function cannot be called, disabled.
+ * @notice The provided stale block number is too high.
  *
  */
-error LV_FunctionDisabled();
+error ASR_UpperLimitBlock(uint256);
