@@ -81,13 +81,13 @@ import {
  * of stakes, they will be required to use a different wallet address.
  *
  * The locking pool gives users governance capabilities by also serving as a
- * voting vault. When users stake, they gain voting power They can use this voting
+ * voting vault. When users stake, they gain voting power. They can use this voting
  * power to vote in ArcadeDAO governance. The voting power is automatically accrued
  * to their account and is delegated to their chosen delegatee's address on their
  * behalf without the need for them to call any additional transaction.
- * The ArcadeStakingRewards contract utilizes the LockingVault deployment at
+ * The ArcadeStakingRewards contract governance functionality is adapted from the
+ * LockingVault deployment at:
  * https://etherscan.io/address/0x7a58784063D41cb78FBd30d271F047F0b9156d6e#code
- * as its governance operations foundation.
  *
  * A user's voting power is determined by the quantity of ARCD/WETH pair tokens
  * they have staked. To calculate this voting power, an ARCD/WETH to ARCD
