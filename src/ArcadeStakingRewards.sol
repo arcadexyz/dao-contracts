@@ -156,6 +156,8 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
      * @param mediumLockTime               The medium lock time.
      * @param longLockTime                 The long lock time.
      * @param _lpToArcdRate                Immutable ARCD/WETH to ARCD conversion rate.
+     * @param _staleBlockLag               The number of blocks before which the delegation
+     *                                     history is forgotten.
      */
     constructor(
         address _owner,
@@ -168,9 +170,9 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
         uint256 _lpToArcdRate,
         uint256 _staleBlockLag
     ) Ownable(_owner) {
-        if (address(_rewardsDistribution) == address(0)) revert ASR_ZeroAddress();
-        if (address(_rewardsToken) == address(0)) revert ASR_ZeroAddress();
-        if (address(_arcdWethLP) == address(0)) revert ASR_ZeroAddress();
+        if (address(_rewardsDistribution) == address(0)) revert ASR_ZeroAddress("rewardsDistribution");
+        if (address(_rewardsToken) == address(0)) revert ASR_ZeroAddress("rewardsToken");
+        if (address(_arcdWethLP) == address(0)) revert ASR_ZeroAddress("arcdWethLP");
         if (_lpToArcdRate == 0) revert ASR_ZeroConversionRate();
         if (_staleBlockLag >= block.number) revert ASR_UpperLimitBlock(_staleBlockLag);
 
@@ -616,7 +618,7 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
     function recoverERC20(address tokenAddress, uint256 tokenAmount) external onlyOwner {
         if (tokenAddress == address(arcdWethLP)) revert ASR_StakingToken();
         if (tokenAddress == address(rewardsToken) && totalDeposits != 0) revert ASR_RewardsToken();
-        if (tokenAddress == address(0)) revert ASR_ZeroAddress();
+        if (tokenAddress == address(0)) revert ASR_ZeroAddress("token");
         if (tokenAmount == 0) revert ASR_ZeroAmount();
 
         IERC20(tokenAddress).safeTransfer(msg.sender, tokenAmount);
@@ -1010,7 +1012,7 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
      */
     function changeDelegation(address newDelegate) external {
         // No delegating to zero
-        require(newDelegate != address(0), "Zero addr delegation");
+        if (newDelegate == address(0)) revert ASR_ZeroAddress("delegation");
         // Get the stored user data
         Storage.AddressUint storage userData = _deposits()[msg.sender];
         // Get the user balance

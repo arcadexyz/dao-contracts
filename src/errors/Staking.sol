@@ -14,8 +14,10 @@ pragma solidity 0.8.20;
 // ==================================== Arcade Staking Rewards Errors ======================================
 /**
  * @notice Zero address passed in where not allowed.
+ * @param addressType                The name of the parameter for which a zero
+ *                                   address was provided.
  */
-error ASR_ZeroAddress();
+error ASR_ZeroAddress(string addressType);
 
 /**
  * @notice Cannot withdraw or stake amount zero.

@@ -23,6 +23,7 @@ contract ArcadeStakingRewardsTest is Test {
     uint256 public constant LP_TO_ARCD_DENOMINATOR = 1e3;
     uint256 public immutable LP_TO_ARCD_RATE = 2;
 
+    address zeroAddress = address(0x0);
     address owner = address(0x1);
     address admin = address(0x2);
     address userA = address(0x3);
@@ -75,10 +76,10 @@ contract ArcadeStakingRewardsTest is Test {
     }
 
     function testConstructorZeroAddress() public {
-        bytes4 selector = bytes4(keccak256("ASR_ZeroAddress()"));
+        bytes4 selector = bytes4(keccak256("ASR_ZeroAddress(string)"));
         bytes4 selector2 = bytes4(keccak256("ASR_ZeroConversionRate()"));
 
-        vm.expectRevert(abi.encodeWithSelector(selector));
+        vm.expectRevert(abi.encodeWithSelector(selector, "rewardsDistribution"));
         stakingRewards = new ArcadeStakingRewards(
             owner,
             address(0),
@@ -91,7 +92,7 @@ contract ArcadeStakingRewardsTest is Test {
             STALE_BLOCK_LAG
         );
 
-        vm.expectRevert(abi.encodeWithSelector(selector));
+        vm.expectRevert(abi.encodeWithSelector(selector, "rewardsToken"));
         stakingRewards = new ArcadeStakingRewards(
             owner,
             admin,
@@ -104,7 +105,7 @@ contract ArcadeStakingRewardsTest is Test {
             STALE_BLOCK_LAG
         );
 
-        vm.expectRevert(abi.encodeWithSelector(selector));
+        vm.expectRevert(abi.encodeWithSelector(selector, "arcdWethLP"));
         stakingRewards = new ArcadeStakingRewards(
             owner,
             admin,
@@ -568,8 +569,8 @@ contract ArcadeStakingRewardsTest is Test {
         vm.prank(owner);
         stakingRewards.recoverERC20(address(lpToken), 1e18);
 
-        bytes4 selector2 = bytes4(keccak256("ASR_ZeroAddress()"));
-        vm.expectRevert(abi.encodeWithSelector(selector2));
+        bytes4 selector2 = bytes4(keccak256("ASR_ZeroAddress(string)"));
+        vm.expectRevert(abi.encodeWithSelector(selector2, "token"));
 
         vm.prank(owner);
         stakingRewards.recoverERC20(address(0), 1e18);
@@ -1530,6 +1531,12 @@ contract ArcadeStakingRewardsTest is Test {
         uint256 userVotingPower = stakingRewards.queryVotePowerView(userB, currentBlock);
         uint256 votePowerWithBonus = (stakingRewards.getAmountWithBonus(userA, 0) * LP_TO_ARCD_RATE) / LP_TO_ARCD_DENOMINATOR;
         assertEq(userVotingPower, votePowerWithBonus);
+
+        bytes4 selector = bytes4(keccak256("ASR_ZeroAddress(string)"));
+        vm.expectRevert(abi.encodeWithSelector(selector, "delegation"));
+
+        vm.prank(userA);
+        stakingRewards.changeDelegation(zeroAddress);
 
         vm.prank(userA);
         stakingRewards.changeDelegation(userC);
