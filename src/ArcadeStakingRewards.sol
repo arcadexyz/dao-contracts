@@ -19,7 +19,6 @@ import {
     ASR_StakingToken,
     ASR_RewardTooHigh,
     ASR_BalanceAmount,
-    ASR_InvalidLockValue,
     ASR_NoStake,
     ASR_Locked,
     ASR_RewardsToken,
@@ -842,8 +841,6 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
             return (MEDIUM_BONUS, MEDIUM_LOCK_TIME);
         } else if (_lock == Lock.Long) {
             return (LONG_BONUS, LONG_LOCK_TIME);
-        } else {
-            revert ASR_InvalidLockValue(uint256(_lock));
         }
     }
 

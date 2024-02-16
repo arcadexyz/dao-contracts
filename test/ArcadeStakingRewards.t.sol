@@ -672,16 +672,17 @@ contract ArcadeStakingRewardsTest is Test {
         vm.prank(admin);
         stakingRewards.notifyRewardAmount(50e18);
 
-        uint256 invalidLock = uint256(IArcadeStakingRewards.Lock.Invalid);
-        bytes4 selector = bytes4(keccak256("ASR_InvalidLockValue(uint256)"));
+        uint256 invalidLock = 3;
+        bytes4 selector = bytes4(keccak256("Panic(uint256)"));
 
         // userA approves stakingRewards contract to spend staking tokens
         vm.startPrank(userA);
         lpToken.approve(address(stakingRewards), userStake);
 
-        vm.expectRevert(abi.encodeWithSelector(selector, invalidLock));
+        // expect the 0x21 panic code for invalid enum values
+        vm.expectRevert(abi.encodeWithSelector(selector, 0x21));
 
-        stakingRewards.deposit(userStake, userB, IArcadeStakingRewards.Lock.Invalid);
+        stakingRewards.deposit(userStake, userB, IArcadeStakingRewards.Lock(invalidLock));
     }
 
     function testLastTimeRewardApplicable() public {

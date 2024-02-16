@@ -52,13 +52,6 @@ error ASR_RewardTooHigh();
 error ASR_BalanceAmount();
 
 /**
- * @notice The caller attempted to stake with a lock value
- *         that does not correspond to a valid staking time.
- *
- */
-error ASR_InvalidLockValue(uint256);
-
-/**
  * @notice There is no stake for this caller.
  */
 error ASR_NoStake();
