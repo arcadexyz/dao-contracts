@@ -70,7 +70,7 @@ import {
  * prevent exceeding the block gas limit. Because of this, the contract enforces
  * a hard limit on the number deposits a user can have per wallet address and
  * consequently on the number of iterations that can be processed in a single
- * transaction. This limit is defined by the MAX_IDEPOSITS state variable.
+ * transaction. This limit is defined by the MAX_DEPOSITS state variable.
  * Should a user necessitate making more than the MAX_DEPOSITS  number
  * of stakes, they will be required to use a different wallet address.
  *
@@ -105,16 +105,16 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
     uint256 public constant MAX_DEPOSITS = 20;
     uint256 public constant LP_TO_ARCD_DENOMINATOR = 1e3;
 
-    uint256 public immutable SHORT_BONUS;
-    uint256 public immutable MEDIUM_BONUS;
-    uint256 public immutable LONG_BONUS;
-
-    uint256 public immutable SHORT_LOCK_TIME;
-    uint256 public immutable MEDIUM_LOCK_TIME;
-    uint256 public immutable LONG_LOCK_TIME;
-    uint256 public immutable LP_TO_ARCD_RATE;
+    uint256 public constant SHORT_BONUS = 1.1e18;
+    uint256 public constant MEDIUM_BONUS = 1.3e18;
+    uint256 public constant LONG_BONUS = 1.5e18;
+    uint256 public constant SHORT_LOCK_TIME;
+    uint256 public constant MEDIUM_LOCK_TIME;
+    uint256 public constant LONG_LOCK_TIME;
 
     // ============ Global State =============
+    uint256 public immutable LP_TO_ARCD_RATE;
+
     IERC20 public immutable rewardsToken;
     IERC20 public immutable arcdWethLP;
 
@@ -142,9 +142,6 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
      * @param shortLockTime                The short lock time.
      * @param mediumLockTime               The medium lock time.
      * @param longLockTime                 The long lock time.
-     * @param shortBonus                   The bonus multiplier for the short lock time.
-     * @param mediumBonus                  The bonus multiplier for the medium lock time.
-     * @param longBonus                    The bonus multiplier for the long lock time.
      * @param _lpToArcdRate                Immutable ARCD/WETH to ARCD conversion rate.
      */
     constructor(
@@ -155,23 +152,18 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
         uint256 shortLockTime,
         uint256 mediumLockTime,
         uint256 longLockTime,
-        uint256 shortBonus,
-        uint256 mediumBonus,
-        uint256 longBonus,
         uint256 _lpToArcdRate
     ) Ownable(_owner) LockingVault(IERC20(_arcdWethLP), staleBlockLag) {
         if (address(_rewardsDistribution) == address(0)) revert ASR_ZeroAddress();
         if (address(_rewardsToken) == address(0)) revert ASR_ZeroAddress();
         if (address(_arcdWethLP) == address(0)) revert ASR_ZeroAddress();
         if (_lpToArcdRate == 0) revert ASR_ZeroConversionRate();
+
         rewardsToken = IERC20(_rewardsToken);
         arcdWethLP = IERC20(_arcdWethLP);
         rewardsDistribution = _rewardsDistribution;
 
         LP_TO_ARCD_RATE = _lpToArcdRate;
-        SHORT_BONUS = shortBonus;
-        MEDIUM_BONUS = mediumBonus;
-        LONG_BONUS = longBonus;
 
         SHORT_LOCK_TIME = shortLockTime;
         MEDIUM_LOCK_TIME = mediumLockTime;

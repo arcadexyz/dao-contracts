@@ -43,9 +43,6 @@ contract ArcadeStakingRewardsTest is Test {
             ONE_MONTH,
             TWO_MONTHS,
             THREE_MONTHS,
-            1.1e18,
-            1.3e18,
-            1.5e18,
             LP_TO_ARCD_RATE
         );
 
@@ -78,9 +75,6 @@ contract ArcadeStakingRewardsTest is Test {
             ONE_MONTH,
             TWO_MONTHS,
             THREE_MONTHS,
-            1.1e18,
-            1.3e18,
-            1.5e18,
             LP_TO_ARCD_RATE
         );
 
@@ -93,9 +87,6 @@ contract ArcadeStakingRewardsTest is Test {
             ONE_MONTH,
             TWO_MONTHS,
             THREE_MONTHS,
-            1.1e18,
-            1.3e18,
-            1.5e18,
             LP_TO_ARCD_RATE
         );
 
@@ -108,9 +99,6 @@ contract ArcadeStakingRewardsTest is Test {
             ONE_MONTH,
             TWO_MONTHS,
             THREE_MONTHS,
-            1.1e18,
-            1.3e18,
-            1.5e18,
             LP_TO_ARCD_RATE
         );
 
@@ -123,9 +111,6 @@ contract ArcadeStakingRewardsTest is Test {
             ONE_MONTH,
             TWO_MONTHS,
             THREE_MONTHS,
-            1.1e18,
-            1.3e18,
-            1.5e18,
             0
         );
     }
