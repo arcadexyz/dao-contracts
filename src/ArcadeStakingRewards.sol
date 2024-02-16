@@ -509,7 +509,7 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
         if (amount == 0) revert ASR_ZeroAmount();
         if (depositId >= stakes[msg.sender].length) revert ASR_InvalidDepositId();
 
-        (uint256 withdrawAmount, uint256 reward) = _processWithdrawalAndReward(msg.sender, amount, depositId);
+        (uint256 withdrawAmount, uint256 reward) = _processWithdrawal(msg.sender, amount, depositId);
 
         UserStake storage userStake = stakes[msg.sender][depositId];
         Lock lock = userStake.lock;
@@ -790,7 +790,7 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
      * @return withdrawAmount                  The staked amount which will be withdrawn.
      * @return reward                          The reward amount which will be withdrawn.
      */
-    function _processWithdrawalAndReward(address user, uint256 amount, uint256 depositId) internal returns (uint256, uint256) {
+    function _processWithdrawal(address user, uint256 amount, uint256 depositId) internal returns (uint256, uint256) {
         UserStake storage userStake = stakes[user][depositId];
         uint256 depositAmount = userStake.amount;
 
