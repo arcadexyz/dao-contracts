@@ -410,8 +410,6 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
         for (uint256 i = 0; i < userStakes.length; ++i) {
             totalRewards += getPendingRewards(account, i);
         }
-
-        return totalRewards;
     }
 
     /**
@@ -427,8 +425,6 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
         for (uint256 i = 0; i < userStakes.length; ++i) {
             totalDepositsWithBonuses += getAmountWithBonus(account, i);
         }
-
-        return totalDepositsWithBonuses;
     }
 
     /**
