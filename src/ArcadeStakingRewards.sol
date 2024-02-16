@@ -484,7 +484,9 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
     function _stake(uint256 amount, Lock lock, address firstDelegation) internal updateReward {
         if (amount == 0) revert ASR_ZeroAmount();
 
-        if ((stakes[msg.sender].length + 1) > MAX_DEPOSITS) revert ASR_DepositCountExceeded();
+        uint256 depositsLength = stakes[msg.sender].length;
+
+        if ((depositsLength + 1) > MAX_DEPOSITS) revert ASR_DepositCountExceeded();
 
         // Accounting with bonus
         (uint256 bonus, uint256 lockDuration) = _getBonus(lock);
@@ -510,7 +512,7 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
 
         arcdWethLP.safeTransferFrom(msg.sender, address(this), amount);
 
-        emit Staked(msg.sender, stakes[msg.sender].length - 1, amount);
+        emit Staked(msg.sender, depositsLength - 1, amount);
     }
 
     function withdraw(uint256 amount, uint256 depositId) external whenNotPaused nonReentrant {
