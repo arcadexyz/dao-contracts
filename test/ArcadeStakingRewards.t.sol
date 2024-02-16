@@ -839,9 +839,10 @@ contract ArcadeStakingRewardsTest is Test {
         uint256 rewardA2 = stakingRewards.getPendingRewards(userA, 2);
 
         vm.startPrank(userA);
-        stakingRewards.exit(1);
-        (uint256[] memory rewardedDeposits, uint256[] memory rewardAmounts) = stakingRewards.getDepositIndicesWithRewards();
+        stakingRewards.claimReward(1);
         vm.stopPrank();
+
+        (uint256[] memory rewardedDeposits, uint256[] memory rewardAmounts) = stakingRewards.getDepositIndicesWithRewards(userA);
 
         assertEq(rewardedDeposits.length, 2);
         assertEq(rewardAmounts.length, 2);
