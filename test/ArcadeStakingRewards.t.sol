@@ -1633,5 +1633,119 @@ contract ArcadeStakingRewardsTest is Test {
         stakingRewards.withdraw(userStake);
         vm.stopPrank();
     }
+
+    // A user stakes. After the reward period is complete, notifyRewardAmount is called
+    // again with a higher amount.
+    // User rewards for the first period are not boosted by the new higher rewards rate.
+    function testNoOverdrawOnRateChange() public {
+        setUp();
+
+        lpToken.mint(userA, 20e18);
+        lpToken.mint(userB, 20e18);
+        uint256 userStake = lpToken.balanceOf(userA);
+
+        // mint rewardsTokens to stakingRewards contract
+        rewardsToken.mint(address(stakingRewards), 100e18);
+        // Admin calls notifyRewardAmount to set the reward rate
+        vm.prank(admin);
+        stakingRewards.notifyRewardAmount(25e18);
+
+        // userA approves stakingRewards contract to spend staking tokens
+        vm.startPrank(userA);
+        lpToken.approve(address(stakingRewards), userStake);
+        // user stakes staking tokens
+        stakingRewards.deposit(userStake, userC, IArcadeStakingRewards.Lock.Medium);
+        vm.stopPrank();
+
+        // increase blockchain time to end of the rewards period
+        vm.warp(block.timestamp + 8 days);
+
+        // rewards earned by userA
+        uint256 earnedA = stakingRewards.getPendingRewards(userA, 0);
+
+        // increase blockchain time for 5 days in between 2 reward periods
+        vm.warp(block.timestamp + 5 days);
+
+        // Admin calls notifyRewardAmount with double the initial reward amount
+        vm.prank(admin);
+        stakingRewards.notifyRewardAmount(50e18);
+
+        // userB approves stakingRewards contract to spend staking tokens
+        vm.startPrank(userB);
+        lpToken.approve(address(stakingRewards), userStake);
+        // user stakes staking tokens
+        stakingRewards.deposit(userStake, userC, IArcadeStakingRewards.Lock.Medium);
+        vm.stopPrank();
+
+        // increase blockchain time to end of the new rewards period
+        vm.warp(block.timestamp + 8 days);
+
+        // rewards earned by userB
+        uint256 earnedB = stakingRewards.getPendingRewards(userB, 0);
+
+        // The total rewards for userA is the amount they earned in the
+        // first period plus an amount equivalent to what userB earned
+        // when they started staking in the second period.
+        uint256 earnedA2 = stakingRewards.getPendingRewards(userA, 0);
+
+        // Rewards for the second staking period is half of the first staking period
+        assertEq(earnedA2, earnedA + earnedB);
+    }
+
+    // A user stakes. Before the reward period is complete, notifyRewardAmount is called
+    // again with a higher amount.
+    // User rewards for the first half of the period are not boosted by the new higher rewards rate.
+    function testNoOverdrawOnRateChange2() public {
+        setUp();
+
+        lpToken.mint(userA, 20e18);
+        lpToken.mint(userB, 20e18);
+        uint256 userStake = lpToken.balanceOf(userA);
+
+        // mint rewardsTokens to stakingRewards contract
+        rewardsToken.mint(address(stakingRewards), 100e18);
+        // Admin calls notifyRewardAmount to set the reward rate
+        vm.prank(admin);
+        stakingRewards.notifyRewardAmount(25e18);
+
+        // userA approves stakingRewards contract to spend staking tokens
+        vm.startPrank(userA);
+        lpToken.approve(address(stakingRewards), userStake);
+        // user stakes staking tokens
+        stakingRewards.deposit(userStake, userC, IArcadeStakingRewards.Lock.Medium);
+        vm.stopPrank();
+
+        uint256 currentTime = block.timestamp;
+        // increase blockchain time to middle of the rewards period
+        vm.warp(currentTime + 4 days);
+
+        // rewards earned by userA
+        uint256 earnedA = stakingRewards.getPendingRewards(userA, 0);
+
+        // Admin calls notifyRewardAmount with double the initial reward amount
+        vm.prank(admin);
+        stakingRewards.notifyRewardAmount(50e18);
+
+        // userB approves stakingRewards contract to spend staking tokens
+        vm.startPrank(userB);
+        lpToken.approve(address(stakingRewards), userStake);
+        // user stakes staking tokens
+        stakingRewards.deposit(userStake, userC, IArcadeStakingRewards.Lock.Medium);
+        vm.stopPrank();
+
+        // increase blockchain time to end of the first rewards period
+        vm.warp(currentTime + 8 days);
+
+        // rewards earned by userB
+        uint256 earnedB = stakingRewards.getPendingRewards(userB, 0);
+
+        // The total rewards for userA is the amount they earned in the
+        // first half of the period plus an amount equivalent to what userB
+        // earned when they started staking in the middle of the period.
+        uint256 earnedA2 = stakingRewards.getPendingRewards(userA, 0);
+
+        // Rewards for the second staking period is half of the first staking period
+        assertEq(earnedA2, earnedA + earnedB);
+    }
 }
 
