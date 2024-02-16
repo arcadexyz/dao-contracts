@@ -205,7 +205,7 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
      * @return depositBalance               The total amount staked in the deposit.
      */
     function balanceOfDeposit(address account, uint256 depositId) external view returns (uint256 depositBalance) {
-        return stakes[account][depositId].amount;
+        depositBalance = stakes[account][depositId].amount;
     }
 
     /**
@@ -253,7 +253,7 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
         uint256 userRewardPerTokenPaid = userStake.rewardPerTokenPaid;
         uint256 userRewards = userStake.rewards;
 
-        return ((stakeAmountWithBonus * (rewardPerToken() - userRewardPerTokenPaid)) / ONE + userRewards);
+        rewards = ((stakeAmountWithBonus * (rewardPerToken() - userRewardPerTokenPaid)) / ONE + userRewards);
     }
 
     /**
@@ -296,7 +296,7 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
      * @return lastDepositId                    Id of the last stake.
      */
     function getLastDepositId(address account) public view returns (uint256 lastDepositId) {
-        return stakes[account].length - 1;
+        lastDepositId = stakes[account].length - 1;
     }
 
     /**
@@ -394,7 +394,7 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
         // Accounting with bonus
         (uint256 bonus,) = _getBonus(lock);
 
-        return (amount + ((amount * bonus) / ONE));
+        amountWithBonus = (amount + ((amount * bonus) / ONE));
     }
 
     /**
@@ -406,7 +406,6 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
      */
     function getTotalUserPendingRewards(address account) public view returns (uint256 totalRewards) {
         UserStake[] storage userStakes = stakes[account];
-        uint256 totalRewards = 0;
 
         for (uint256 i = 0; i < userStakes.length; ++i) {
             totalRewards += getPendingRewards(account, i);
@@ -424,7 +423,6 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
      */
     function getTotalUserDepositsWithBonus(address account) public view returns (uint256 totalDepositsWithBonuses) {
         UserStake[] storage userStakes = stakes[account];
-        uint256 totalDepositsWithBonuses = 0;
 
         for (uint256 i = 0; i < userStakes.length; ++i) {
             totalDepositsWithBonuses += getAmountWithBonus(account, i);
