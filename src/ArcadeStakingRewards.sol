@@ -108,11 +108,11 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
     uint256 public constant SHORT_BONUS = 1.1e18;
     uint256 public constant MEDIUM_BONUS = 1.3e18;
     uint256 public constant LONG_BONUS = 1.5e18;
-    uint256 public constant SHORT_LOCK_TIME;
-    uint256 public constant MEDIUM_LOCK_TIME;
-    uint256 public constant LONG_LOCK_TIME;
 
     // ============ Global State =============
+    uint256 public immutable SHORT_LOCK_TIME;
+    uint256 public immutable MEDIUM_LOCK_TIME;
+    uint256 public immutable LONG_LOCK_TIME;
     uint256 public immutable LP_TO_ARCD_RATE;
 
     IERC20 public immutable rewardsToken;
@@ -476,7 +476,6 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
         if (amount == 0) revert ASR_ZeroAmount();
 
         uint256 depositsLength = stakes[msg.sender].length;
-
         if ((depositsLength + 1) > MAX_DEPOSITS) revert ASR_DepositCountExceeded();
 
         // Accounting with bonus
@@ -503,7 +502,7 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
 
         arcdWethLP.safeTransferFrom(msg.sender, address(this), amount);
 
-        emit Staked(msg.sender, depositsLength - 1, amount);
+        emit Staked(msg.sender, depositsLength, amount);
     }
 
     function withdraw(uint256 amount, uint256 depositId) external whenNotPaused nonReentrant {
