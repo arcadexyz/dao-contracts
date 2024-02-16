@@ -81,6 +81,4 @@ interface IArcadeStakingRewards {
     function pause() external;
 
     function unpause() external;
-
-    function notifyRewardAmount(uint256 reward) external;
 }
