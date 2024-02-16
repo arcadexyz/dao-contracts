@@ -108,13 +108,13 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
     uint256 public constant SHORT_BONUS = 1.1e18;
     uint256 public constant MEDIUM_BONUS = 1.3e18;
     uint256 public constant LONG_BONUS = 1.5e18;
-
-    uint256 public immutable SHORT_LOCK_TIME;
-    uint256 public immutable MEDIUM_LOCK_TIME;
-    uint256 public immutable LONG_LOCK_TIME;
-    uint256 public immutable LP_TO_ARCD_RATE;
+    uint256 public constant SHORT_LOCK_TIME;
+    uint256 public constant MEDIUM_LOCK_TIME;
+    uint256 public constant LONG_LOCK_TIME;
 
     // ============ Global State =============
+    uint256 public immutable LP_TO_ARCD_RATE;
+
     IERC20 public immutable rewardsToken;
     IERC20 public immutable arcdWethLP;
 
