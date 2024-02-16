@@ -266,7 +266,7 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
      * @return uint256                         The amount of reward token that is distributable.
      */
     function getRewardForDuration() external view returns (uint256) {
-        return rewardRate * rewardsDuration;
+        return rewardRate * uint256(rewardsDuration);
     }
 
     /**
@@ -632,11 +632,11 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
      */
     function notifyRewardAmount(uint256 reward) external override whenNotPaused onlyRewardsDistribution updateReward {
         if (block.timestamp >= periodFinish) {
-            rewardRate = reward / rewardsDuration;
+            rewardRate = reward / uint256(rewardsDuration);
         } else {
             uint256 remaining = periodFinish - block.timestamp;
             uint256 leftover = remaining * rewardRate;
-            rewardRate = (reward + leftover) / rewardsDuration;
+            rewardRate = (reward + leftover) / uint256(rewardsDuration);
         }
 
         // Ensure the provided reward amount is not more than the balance in the contract.
@@ -682,7 +682,7 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
 
         rewardsDuration = _rewardsDuration;
 
-        emit RewardsDurationUpdated(rewardsDuration);
+        emit RewardsDurationUpdated(uint256(rewardsDuration));
     }
 
     /**
