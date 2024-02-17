@@ -180,7 +180,7 @@ contract ArcadeStakingRewardsTest is Test {
         // increase blockchain time by 2 days
         vm.warp(block.timestamp + 2 days);
 
-        bytes4 selector = bytes4(keccak256("ASR_ZeroAmount()"));
+        bytes4 selector = bytes4(keccak256("ASR_NoStake()"));
 
         // user approves stakingRewards contract to spend staking tokens
         vm.startPrank(userA);
@@ -640,24 +640,16 @@ contract ArcadeStakingRewardsTest is Test {
         vm.prank(admin);
         stakingRewards.notifyRewardAmount(50e18);
 
+        bytes4 selector = bytes4(keccak256("ASR_NoStake()"));
+
         // userA approves stakingRewards contract to spend staking tokens
         vm.startPrank(userA);
         lpToken.approve(address(stakingRewards), userStakeAmount);
+
+         vm.expectRevert(abi.encodeWithSelector(selector));
         // userA stakes staking tokens
-        stakingRewards.deposit(userStakeAmount, userB, IArcadeStakingRewards.Lock.Medium);
+        stakingRewards.deposit(0, userB, IArcadeStakingRewards.Lock.Medium);
         vm.stopPrank();
-
-        // increase blockchain time by the medium lock duration
-        vm.warp(block.timestamp + TWO_MONTHS);
-
-        vm.startPrank(userA);
-        stakingRewards.withdraw(userStakeAmount, 0);
-
-        bytes4 selector = bytes4(keccak256("ASR_NoStake()"));
-        vm.expectRevert(abi.encodeWithSelector(selector));
-
-        vm.startPrank(userA);
-        stakingRewards.withdraw(userStakeAmount, 0);
     }
 
     function testInvalidLockValue() public {
@@ -853,9 +845,10 @@ contract ArcadeStakingRewardsTest is Test {
         uint256 rewardA2 = stakingRewards.getPendingRewards(userA, 2);
 
         vm.startPrank(userA);
-        stakingRewards.exit(1);
-        (uint256[] memory rewardedDeposits, uint256[] memory rewardAmounts) = stakingRewards.getDepositIndicesWithRewards();
+        stakingRewards.claimReward(1);
         vm.stopPrank();
+
+        (uint256[] memory rewardedDeposits, uint256[] memory rewardAmounts) = stakingRewards.getDepositIndicesWithRewards(userA);
 
         assertEq(rewardedDeposits.length, 2);
         assertEq(rewardAmounts.length, 2);

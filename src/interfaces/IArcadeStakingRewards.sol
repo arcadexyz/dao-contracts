@@ -50,7 +50,7 @@ interface IArcadeStakingRewards {
 
     function getLastDepositId(address account) external view returns (uint256);
 
-    function getDepositIndicesWithRewards() external view returns (uint256[] memory, uint256[] memory);
+    function getDepositIndicesWithRewards(address account) external view returns (uint256[] memory, uint256[] memory);
 
     function getUserStake(address account, uint256 depositId) external view returns (uint8 lock, uint32 unlockTimestamp, uint256 amount, uint256 rewardPerTokenPaid, uint256 rewards);
 

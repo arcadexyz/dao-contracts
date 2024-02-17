@@ -353,18 +353,20 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
      * @notice Gets all of a user's deposit ids for stakes that are holding a reward.
      *         Also gets the amount of rewards for each deposit.
      *
+     * @param account                           The user whose deposit indices to get.
+     *
      * @return rewardedDeposits                 Array of id's of user's stakes holding
      *                                          rewards.
      * @return rewardsArray                     Array of user's rewards.
      */
-    function getDepositIndicesWithRewards() public view returns (uint256[] memory, uint256[] memory) {
-       uint256[] memory rewards = new uint256[](stakes[msg.sender].length);
+    function getDepositIndicesWithRewards(address account) public view returns (uint256[] memory, uint256[] memory) {
+       uint256[] memory rewards = new uint256[](stakes[account].length);
 
-        UserStake[] storage userStakes = stakes[msg.sender];
+        UserStake[] storage userStakes = stakes[account];
         uint256 rewarded = 0;
 
         for (uint256 i = 0; i < userStakes.length; ++i) {
-            uint256 stakeAmountWithBonus = getAmountWithBonus(msg.sender, i);
+            uint256 stakeAmountWithBonus = getAmountWithBonus(account, i);
             if (stakeAmountWithBonus == 0) continue;
 
             UserStake storage userStake = userStakes[i];
@@ -471,6 +473,8 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
         address firstDelegation,
         Lock lock
     ) external nonReentrant whenNotPaused {
+        if (amount == 0) revert ASR_NoStake();
+
         _stake(amount, lock, firstDelegation);
     }
 
@@ -483,8 +487,6 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
      * @param firstDelegation                   The address to delegate voting power to.
      */
     function _stake(uint256 amount, Lock lock, address firstDelegation) internal updateReward {
-        if (amount == 0) revert ASR_ZeroAmount();
-
         if ((stakes[msg.sender].length + 1) > MAX_DEPOSITS) revert ASR_DepositCountExceeded();
 
         // Accounting with bonus
@@ -515,7 +517,8 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
     }
 
     function withdraw(uint256 amount, uint256 depositId) external whenNotPaused nonReentrant {
-        _withdrawFromStake(amount, depositId);
+        //_withdrawFromStake(amount, depositId);
+        _withdraw1(msg.sender, amount, depositId);
     }
 
     /**
@@ -595,8 +598,8 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
 
         UserStake storage userStake = stakes[msg.sender][depositId];
         uint256 amount = userStake.amount;
-
-        _withdrawFromStake(amount, depositId);
+// TODO: remove the 1 here
+        _withdraw1(msg.sender, amount, depositId);
     }
 
     /**
@@ -728,6 +731,78 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
         rewardPerTokenStored = rewardPerToken();
         lastUpdateTime = lastTimeRewardApplicable();
         _;
+    }
+
+    /** //TODO: Double check NATSPEC verbiage
+     * @notice Updates the global totals and voting power.
+     *
+     * @param user                             The account to update the totals for.
+     * @param amountWithBonus                  The staked amount with bonus.
+     * @param reward                           The reward amount.
+     * @param depositId                        The specified deposit to update the totals for.
+     */
+    function _calculateWithdraw(address user, uint256 amount, uint256 depositId) internal view returns (uint256 amountWithBonus, uint256 reward) {
+        UserStake storage userStake = stakes[user][depositId];
+
+        if (amount > userStake.amount) revert ASR_BalanceAmount();
+        if (block.timestamp < userStake.unlockTimestamp) revert ASR_Locked();
+
+        (uint256 bonus,) = _getBonus(userStake.lock);
+        amountWithBonus = (amount + ((amount * bonus) / ONE));
+
+        //reward = userStake.rewards; //TODO: calculate reward ??? is below sufficient?
+        reward = getPendingRewards(user, depositId);
+    }
+
+    /** //TODO: Double check NATSPEC comment verbiage
+     * @notice Updates the global totals and voting power.
+     *
+     * @param user                             The account to update the totals for.
+     * @param amount                           The staked amount with bonus.
+     * @param depositId                        The specified deposit to update the totals for.
+     */
+    function _withdraw1(address user, uint256 amount, uint256 depositId) internal {
+        if (amount == 0) revert ASR_ZeroAmount();
+        if (depositId >= stakes[msg.sender].length) revert ASR_InvalidDepositId();
+
+        (uint256 amountWithBonus, uint256 reward) = _calculateWithdraw(user, amount, depositId);
+
+        UserStake storage userStake = stakes[user][depositId];
+        userStake.amount -= amount;
+        userStake.rewards = 0; //TODO: WHAT ABOUT PARTIAL WITHDRAWALS?
+
+        _updateGlobalTotalsAndVotingPower(user, amount, amountWithBonus, reward, depositId);
+
+        _withdrawTransferTokens(amount, reward, depositId);
+    }
+
+    // TODO: Create NATSPEC
+    function _withdrawTransferTokens(uint256 withdrawAmount, uint256 rewardAmount, uint256 depositId) internal {
+        arcdWethLP.safeTransfer(msg.sender, withdrawAmount);
+
+        if (rewardAmount > 0) {
+            rewardsToken.safeTransfer(msg.sender, rewardAmount);
+            emit RewardPaid(msg.sender, rewardAmount, depositId);
+        }
+
+        emit Withdrawn(msg.sender, withdrawAmount);
+    }
+
+    /** //TODO: Double check NATSPEC
+     * @notice Updates the global totals and voting power.
+     *
+     * @param user                             The account to update the totals for.
+     * @param amount                           The staked amount with bonus.
+     * @param amountWithBonus                  The staked amount with bonus.
+     * @param reward                           The reward amount.
+     * @param depositId                        The specified deposit to update the totals for.
+     */
+    function _updateGlobalTotalsAndVotingPower(address user, uint256 amount, uint256 amountWithBonus, uint256 reward, uint256 depositId) internal {
+        totalDeposits -= amount;
+        totalDepositsWithBonus -= amountWithBonus;
+
+        uint256 votePowerToSubtract = (convertLPToArcd(amountWithBonus) / 1e6) * 1e6; // round down to 6 decimals to avoid rounding errors
+        _subtractVotingPower(votePowerToSubtract, user);
     }
 
     /**
