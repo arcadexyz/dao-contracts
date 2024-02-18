@@ -24,7 +24,7 @@ ArcadeStakingRewards is inspired by the [Synthetix StakingRewards](https://githu
 
 ### Governance and Voting
 
-ArcadeStakingRewards.sol utilizes the [Council Kit](https://github.com/delvtech/council-kit/wiki/Voting-Vaults-Overview) LockingVault deployment [here](https://etherscan.io/address/0x7a58784063D41cb78FBd30d271F047F0b9156d6e#code) as its governance operations foundation.
+`ArcadeStakingRewards.sol` utilizes the [Council Kit](https://github.com/delvtech/council-kit/wiki/Voting-Vaults-Overview) LockingVault deployment [here](https://etherscan.io/address/0x7a58784063D41cb78FBd30d271F047F0b9156d6e#code) as its governance operations foundation.
 
 - **Voting Power:** Staking tokens in the locking pool grants users voting power in ArcadeDAO governance, proportional to their staked amount plus any bonuses. A user's voting power is determined by the quantity of ARCDWETH pair tokens they have staked. To calculate their voting power, an ARCD/WETH to ARCD conversion rate is set in the contract at deployment time and stored in an immutable state variable. The user's ARCD amount is the product of their deposited ARCD/WETH amount and the immutable conversion rate. The resulting voting power is amplified by the lock multiplier that users choose upon staking.
 - **Automatic Delegation:** Voting power is automatically accrued and delegated without additional transactions by the user.

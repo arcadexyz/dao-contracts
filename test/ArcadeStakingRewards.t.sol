@@ -23,6 +23,7 @@ contract ArcadeStakingRewardsTest is Test {
     uint256 public constant LP_TO_ARCD_DENOMINATOR = 1e3;
     uint256 public immutable LP_TO_ARCD_RATE = 2;
 
+    address zeroAddress = address(0x0);
     address owner = address(0x1);
     address admin = address(0x2);
     address userA = address(0x3);
@@ -30,10 +31,21 @@ contract ArcadeStakingRewardsTest is Test {
     address userC = address(0x5);
     address userD = address(0x6);
 
+    // staleBlockNum has to be a number in the past, lower than the current block number.
+    // upon deployment, update staleBlockNum to be relevant in the realm of mainnet
+    uint256 STALE_BLOCK_LAG = 100;
+    uint256 currentBlock = 101;
+    uint256 currentTime;
+
     function setUp() public {
         rewardsToken = new MockERC20("Rewards Token", "RWD");
         otherToken = new MockERC20("Other Token", "OTHR");
         lpToken = new MockERC20("LP Token", "LPT");
+
+        // advance the block number to a number higher than the STALE_BLOCK_LAG
+        vm.roll(101);
+
+        currentTime = block.timestamp;
 
         stakingRewards = new ArcadeStakingRewards(
             owner,
@@ -43,7 +55,8 @@ contract ArcadeStakingRewardsTest is Test {
             ONE_MONTH,
             TWO_MONTHS,
             THREE_MONTHS,
-            LP_TO_ARCD_RATE
+            LP_TO_ARCD_RATE,
+            STALE_BLOCK_LAG
         );
 
         // set rewards to duration to an even number of days for easier testing
@@ -63,10 +76,10 @@ contract ArcadeStakingRewardsTest is Test {
     }
 
     function testConstructorZeroAddress() public {
-        bytes4 selector = bytes4(keccak256("ASR_ZeroAddress()"));
+        bytes4 selector = bytes4(keccak256("ASR_ZeroAddress(string)"));
         bytes4 selector2 = bytes4(keccak256("ASR_ZeroConversionRate()"));
 
-        vm.expectRevert(abi.encodeWithSelector(selector));
+        vm.expectRevert(abi.encodeWithSelector(selector, "rewardsDistribution"));
         stakingRewards = new ArcadeStakingRewards(
             owner,
             address(0),
@@ -75,10 +88,11 @@ contract ArcadeStakingRewardsTest is Test {
             ONE_MONTH,
             TWO_MONTHS,
             THREE_MONTHS,
-            LP_TO_ARCD_RATE
+            LP_TO_ARCD_RATE,
+            STALE_BLOCK_LAG
         );
 
-        vm.expectRevert(abi.encodeWithSelector(selector));
+        vm.expectRevert(abi.encodeWithSelector(selector, "rewardsToken"));
         stakingRewards = new ArcadeStakingRewards(
             owner,
             admin,
@@ -87,10 +101,11 @@ contract ArcadeStakingRewardsTest is Test {
             ONE_MONTH,
             TWO_MONTHS,
             THREE_MONTHS,
-            LP_TO_ARCD_RATE
+            LP_TO_ARCD_RATE,
+            STALE_BLOCK_LAG
         );
 
-        vm.expectRevert(abi.encodeWithSelector(selector));
+        vm.expectRevert(abi.encodeWithSelector(selector, "arcdWethLP"));
         stakingRewards = new ArcadeStakingRewards(
             owner,
             admin,
@@ -99,7 +114,8 @@ contract ArcadeStakingRewardsTest is Test {
             ONE_MONTH,
             TWO_MONTHS,
             THREE_MONTHS,
-            LP_TO_ARCD_RATE
+            LP_TO_ARCD_RATE,
+            STALE_BLOCK_LAG
         );
 
         vm.expectRevert(abi.encodeWithSelector(selector2));
@@ -111,7 +127,26 @@ contract ArcadeStakingRewardsTest is Test {
             ONE_MONTH,
             TWO_MONTHS,
             THREE_MONTHS,
-            0
+            0,
+            STALE_BLOCK_LAG
+        );
+    }
+
+    function testUpperLimitBlock() public {
+        bytes4 selector = bytes4(keccak256("ASR_UpperLimitBlock(uint256)"));
+        uint256 STALE_BLOCK_LAG2 = 105;
+
+        vm.expectRevert(abi.encodeWithSelector(selector, STALE_BLOCK_LAG2));
+        stakingRewards = new ArcadeStakingRewards(
+            owner,
+            admin,
+            address(rewardsToken),
+            address(lpToken),
+            ONE_MONTH,
+            TWO_MONTHS,
+            THREE_MONTHS,
+            LP_TO_ARCD_RATE,
+            STALE_BLOCK_LAG2
         );
     }
 
@@ -142,7 +177,7 @@ contract ArcadeStakingRewardsTest is Test {
 
         //confirm that delegatee user got voting power eq. to
         // amount staked with bonus
-        uint256 userVotingPower = stakingRewards.queryVotePowerView(userB, block.timestamp);
+        uint256 userVotingPower = stakingRewards.queryVotePowerView(userB, currentBlock);
         uint256 votePowerWithBonus = (stakingRewards.getAmountWithBonus(userA, 0) * LP_TO_ARCD_RATE) / LP_TO_ARCD_DENOMINATOR;
         assertEq(userVotingPower, votePowerWithBonus);
 
@@ -199,7 +234,7 @@ contract ArcadeStakingRewardsTest is Test {
 
         //confirm that delegatee user got voting power eq. to
         // amount staked with bonus
-        uint256 userVotingPower = stakingRewards.queryVotePowerView(userB, block.timestamp);
+        uint256 userVotingPower = stakingRewards.queryVotePowerView(userB, currentBlock);
         uint256 votePowerWithBonus = (stakingRewards.getAmountWithBonus(userA, 0) * LP_TO_ARCD_RATE) / LP_TO_ARCD_DENOMINATOR;
         assertEq(userVotingPower, votePowerWithBonus);
 
@@ -215,7 +250,7 @@ contract ArcadeStakingRewardsTest is Test {
 
         //confirm that delegatee user got voting power eq. to
         // amount staked with bonus
-        uint256 userVotingPowerAfter = stakingRewards.queryVotePowerView(userB, block.timestamp);
+        uint256 userVotingPowerAfter = stakingRewards.queryVotePowerView(userB, block.number);
         assertEq(userVotingPowerAfter, 0);
 
         uint256 balanceAfterWithdraw = lpToken.balanceOf(userA);
@@ -250,7 +285,7 @@ contract ArcadeStakingRewardsTest is Test {
 
         //confirm that delegatee user got voting power eq. to
         // amount staked with bonus
-        uint256 userVotingPower = stakingRewards.queryVotePowerView(userB, block.timestamp);
+        uint256 userVotingPower = stakingRewards.queryVotePowerView(userB, currentBlock);
         uint256 votePowerWithBonusAll = (stakingRewards.getTotalUserDepositsWithBonus(userA) * LP_TO_ARCD_RATE) / LP_TO_ARCD_DENOMINATOR;
 
         uint256 tolerance = 1e2;
@@ -267,7 +302,7 @@ contract ArcadeStakingRewardsTest is Test {
         uint256 balanceAfterWithdraw = lpToken.balanceOf(userA);
         uint256 poolTotalDepositsAfterWithdraw = stakingRewards.totalSupply();
 
-        uint256 userVotingPowerAfter = stakingRewards.queryVotePowerView(userB, block.timestamp);
+        uint256 userVotingPowerAfter = stakingRewards.queryVotePowerView(userB, block.number);
         uint256 tolerance2 = 1e6;
         assertApproxEqAbs(userVotingPowerAfter, 0, tolerance2);
 
@@ -297,7 +332,7 @@ contract ArcadeStakingRewardsTest is Test {
 
         //confirm that delegatee user got voting power eq. to
         // amount staked with bonus
-        uint256 userVotingPower = stakingRewards.queryVotePowerView(userB, block.timestamp);
+        uint256 userVotingPower = stakingRewards.queryVotePowerView(userB, currentBlock);
         uint256 votePowerWithBonus = (stakingRewards.getAmountWithBonus(userA, 0) * LP_TO_ARCD_RATE) / LP_TO_ARCD_DENOMINATOR;
         assertEq(userVotingPower, votePowerWithBonus);
 
@@ -316,7 +351,7 @@ contract ArcadeStakingRewardsTest is Test {
         vm.stopPrank();
 
         //confirm that delegatee no longer has voting power
-        uint256 userVotingPowerAfter = stakingRewards.queryVotePowerView(userB, block.timestamp);
+        uint256 userVotingPowerAfter = stakingRewards.queryVotePowerView(userB, block.number);
         assertEq(userVotingPowerAfter, 0);
 
         uint256 balanceAfterWithdraw = lpToken.balanceOf(userA);
@@ -408,7 +443,7 @@ contract ArcadeStakingRewardsTest is Test {
 
         //confirm that delegatee user got voting power eq. to
         // amount staked with bonus
-        uint256 userVotingPower = stakingRewards.queryVotePowerView(userB, block.timestamp);
+        uint256 userVotingPower = stakingRewards.queryVotePowerView(userB, currentBlock);
         uint256 votePowerWithBonus = (stakingRewards.getAmountWithBonus(userA, 0) * LP_TO_ARCD_RATE) / LP_TO_ARCD_DENOMINATOR;
         assertEq(userVotingPower, votePowerWithBonus);
 
@@ -534,8 +569,8 @@ contract ArcadeStakingRewardsTest is Test {
         vm.prank(owner);
         stakingRewards.recoverERC20(address(lpToken), 1e18);
 
-        bytes4 selector2 = bytes4(keccak256("ASR_ZeroAddress()"));
-        vm.expectRevert(abi.encodeWithSelector(selector2));
+        bytes4 selector2 = bytes4(keccak256("ASR_ZeroAddress(string)"));
+        vm.expectRevert(abi.encodeWithSelector(selector2, "token"));
 
         vm.prank(owner);
         stakingRewards.recoverERC20(address(0), 1e18);
@@ -872,7 +907,7 @@ contract ArcadeStakingRewardsTest is Test {
         vm.stopPrank();
 
         uint256 votePowerWithBonus = (stakingRewards.getAmountWithBonus(userA, 0) * LP_TO_ARCD_RATE) / LP_TO_ARCD_DENOMINATOR;
-        uint256 userVotingPower = stakingRewards.queryVotePowerView(userB, block.timestamp);
+        uint256 userVotingPower = stakingRewards.queryVotePowerView(userB, currentBlock);
         assertEq(votePowerWithBonus, userVotingPower);
     }
 
@@ -1309,7 +1344,7 @@ contract ArcadeStakingRewardsTest is Test {
         // increase blockchain time to end of staking period
         vm.warp(block.timestamp + 8 days);
 
-        uint256 userVotingPower = stakingRewards.queryVotePowerView(userB, block.timestamp);
+        uint256 userVotingPower = stakingRewards.queryVotePowerView(userB, currentBlock);
 
         uint256 balanceOfA = stakingRewards.getTotalUserDeposits(userA);
         assertEq(balanceOfA, userStakeAmount + userStakeAmount2);
@@ -1359,8 +1394,6 @@ contract ArcadeStakingRewardsTest is Test {
         // Admin calls notifyRewardAmount to set the reward rate
         vm.prank(admin);
         stakingRewards.notifyRewardAmount(100e18);
-
-        uint256 currentTime = block.timestamp;
 
         // userA approves stakingRewards contract to spend staking tokens
         vm.startPrank(userA);
@@ -1495,9 +1528,15 @@ contract ArcadeStakingRewardsTest is Test {
 
         //confirm that delegatee user got voting power eq. to
         // amount staked with bonus
-        uint256 userVotingPower = stakingRewards.queryVotePowerView(userB, block.timestamp);
+        uint256 userVotingPower = stakingRewards.queryVotePowerView(userB, currentBlock);
         uint256 votePowerWithBonus = (stakingRewards.getAmountWithBonus(userA, 0) * LP_TO_ARCD_RATE) / LP_TO_ARCD_DENOMINATOR;
         assertEq(userVotingPower, votePowerWithBonus);
+
+        bytes4 selector = bytes4(keccak256("ASR_ZeroAddress(string)"));
+        vm.expectRevert(abi.encodeWithSelector(selector, "delegation"));
+
+        vm.prank(userA);
+        stakingRewards.changeDelegation(zeroAddress);
 
         vm.prank(userA);
         stakingRewards.changeDelegation(userC);
@@ -1552,72 +1591,6 @@ contract ArcadeStakingRewardsTest is Test {
 
         uint256 poolTotalDeposits = stakingRewards.totalSupply();
         assertEq(poolTotalDeposits, userStake);
-    }
-
-    function testRevertOnLVDeposit() public {
-        setUp();
-
-        lpToken.mint(userA, 20e18);
-        uint256 userStake = lpToken.balanceOf(userA);
-
-        // mint rewardsTokens to stakingRewards contract
-        rewardsToken.mint(address(stakingRewards), 100e18);
-        // Admin calls notifyRewardAmount to set the reward rate
-        vm.prank(admin);
-        stakingRewards.notifyRewardAmount(100e18);
-
-        // increase blockchain time by 2 days
-        vm.warp(block.timestamp + 2 days);
-
-        // user approves stakingRewards contract to spend staking tokens
-        vm.startPrank(userA);
-        lpToken.approve(address(stakingRewards), userStake);
-
-        bytes4 selector = bytes4(keccak256("LV_FunctionDisabled()"));
-
-        // user calls deposit using the Locking Vault deposit function signature
-        vm.expectRevert(abi.encodeWithSelector(selector));
-        stakingRewards.deposit(userA, userStake, userB);
-        vm.stopPrank();
-    }
-
-    function testRevertOnLVWithdraw() public {
-        setUp();
-
-        lpToken.mint(userA, 20e18);
-        uint256 userStake = lpToken.balanceOf(userA);
-
-        // mint rewardsTokens to stakingRewards contract
-        rewardsToken.mint(address(stakingRewards), 100e18);
-        // Admin calls notifyRewardAmount to set the reward rate
-        vm.prank(admin);
-        stakingRewards.notifyRewardAmount(100e18);
-
-        // increase blockchain time by 2 days
-        vm.warp(block.timestamp + 2 days);
-
-        // user approves stakingRewards contract to spend staking tokens
-        vm.startPrank(userA);
-        lpToken.approve(address(stakingRewards), userStake);
-        stakingRewards.deposit(userStake, userB, IArcadeStakingRewards.Lock.Medium);
-        vm.stopPrank();
-
-        //confirm that delegatee user got voting power eq. to
-        // amount staked with bonus
-        uint256 userVotingPower = stakingRewards.queryVotePowerView(userB, block.timestamp);
-        uint256 votePowerWithBonus = stakingRewards.getAmountWithBonus(userA, 0);
-        assertEq(userVotingPower, (votePowerWithBonus * LP_TO_ARCD_RATE) / LP_TO_ARCD_DENOMINATOR);
-
-        // increase blockchain time by the medium lock duration
-        vm.warp(block.timestamp + TWO_MONTHS);
-
-        bytes4 selector = bytes4(keccak256("LV_FunctionDisabled()"));
-
-        vm.startPrank(userA);
-        // user calls withdraw using the Locking Vault deposit function signature
-        vm.expectRevert(abi.encodeWithSelector(selector));
-        stakingRewards.withdraw(userStake);
-        vm.stopPrank();
     }
 
     function testUserStakeDeletedAfterExit() public {
