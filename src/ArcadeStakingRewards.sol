@@ -723,13 +723,10 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
         UserStake storage userStake = stakes[user][depositId];
         amountToWithdraw = amount;
 
-        _updateRewardForDeposit(user, depositId);
+        reward = _claimReward(depositId);
 
         // Update user stake
         userStake.amount -= amount;
-
-        reward = userStake.rewards;
-        userStake.rewards = 0;
 
         (uint256 bonus,) = _getBonus(userStake.lock);
         uint256 amountToWithdrawWithBonus = amount + (amount * bonus) / ONE;
