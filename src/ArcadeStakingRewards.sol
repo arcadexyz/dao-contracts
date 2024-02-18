@@ -338,18 +338,20 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
      * @notice Gets all of a user's deposit ids for stakes that are holding a reward.
      *         Also gets the amount of rewards for each deposit.
      *
+     * @param account                           The user whose deposit indices to get.
+     *
      * @return rewardedDeposits                 Array of id's of user's stakes holding
      *                                          rewards.
      * @return rewardsArray                     Array of user's rewards.
      */
-    function getDepositIndicesWithRewards() public view returns (uint256[] memory, uint256[] memory) {
-       uint256[] memory rewards = new uint256[](stakes[msg.sender].length);
+    function getDepositIndicesWithRewards(address account) public view returns (uint256[] memory, uint256[] memory) {
+       uint256[] memory rewards = new uint256[](stakes[account].length);
 
-        UserStake[] storage userStakes = stakes[msg.sender];
+        UserStake[] storage userStakes = stakes[account];
         uint256 rewarded = 0;
 
         for (uint256 i = 0; i < userStakes.length; ++i) {
-            uint256 stakeAmountWithBonus = getAmountWithBonus(msg.sender, i);
+            uint256 stakeAmountWithBonus = getAmountWithBonus(account, i);
             if (stakeAmountWithBonus == 0) continue;
 
             UserStake storage userStake = userStakes[i];
