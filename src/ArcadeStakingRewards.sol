@@ -115,18 +115,12 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
     uint256 public constant MEDIUM_BONUS = 1.3e18;
     uint256 public constant LONG_BONUS = 1.5e18;
 
-    uint256 public immutable SHORT_LOCK_TIME;
-    uint256 public immutable MEDIUM_LOCK_TIME;
-    uint256 public immutable LONG_LOCK_TIME;
-
-    uint256 public immutable LP_TO_ARCD_RATE;
-    uint256 public immutable STALE_BLOCK_LAG;
-
     // ============ Global State =============
     uint32 public immutable SHORT_LOCK_TIME;
     uint32 public immutable MEDIUM_LOCK_TIME;
     uint32 public immutable LONG_LOCK_TIME;
     uint256 public immutable LP_TO_ARCD_RATE;
+    uint256 public immutable STALE_BLOCK_LAG;
 
     IERC20 public immutable rewardsToken;
     IERC20 public immutable arcdWethLP;
@@ -164,9 +158,9 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
         address _rewardsDistribution,
         address _rewardsToken,
         address _arcdWethLP,
-        uint256 shortLockTime,
-        uint256 mediumLockTime,
-        uint256 longLockTime,
+        uint32 shortLockTime,
+        uint32 mediumLockTime,
+        uint32 longLockTime,
         uint256 _lpToArcdRate,
         uint256 _staleBlockLag
     ) Ownable(_owner) {
