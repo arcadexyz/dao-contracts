@@ -273,6 +273,23 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
         return rewards;
     }
 
+    // TODO: Create natspec for this function
+    function getPendingRewardsPartial(address account, uint256 amount, uint256 depositId) public view returns (uint256 rewards) {
+        UserStake[] storage userStakes = stakes[account];
+        UserStake storage userStake = userStakes[depositId];
+        uint256 amount = userStake.amount;
+        Lock lock = userStake.lock;
+
+        // Accounting with bonus
+        (uint256 bonus,) = _getBonus(lock);
+        uint256 amountWithBonus = (amount + ((amount * bonus) / ONE));
+
+        uint256 userRewardPerTokenPaid = userStake.rewardPerTokenPaid;
+        uint256 userRewards = userStake.rewards;
+
+        uint256 rewards = ((amountWithBonus * (rewardPerToken() - userRewardPerTokenPaid)) / ONE + userRewards);
+    }
+
     /**
      * @notice Returns the amount of reward distributable over the current reward period.
      *
@@ -769,11 +786,13 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
 
         UserStake storage userStake = stakes[user][depositId];
         userStake.amount -= amount;
-        userStake.rewards = 0; //TODO: WHAT ABOUT PARTIAL WITHDRAWALS?
 
-        _updateGlobalTotalsAndVotingPower(user, amount, amountWithBonus, reward, depositId);
+        uint256 rewards = getPendingRewardsPartial(user, amount, depositId);
+        userStake.rewards = rewards; //TODO: WHAT ABOUT PARTIAL WITHDRAWALS?
 
-        _withdrawTransferTokens(amount, reward, depositId);
+        _updateGlobalTotalsAndVotingPower(user, amount, amountWithBonus, rewards, depositId);
+
+        _withdrawTransferTokens(amount, rewards, depositId);
     }
 
     // TODO: Create NATSPEC
