@@ -114,9 +114,9 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
     uint256 public constant LONG_BONUS = 1.5e18;
 
     // ============ Global State =============
-    uint256 public immutable SHORT_LOCK_TIME;
-    uint256 public immutable MEDIUM_LOCK_TIME;
-    uint256 public immutable LONG_LOCK_TIME;
+    uint32 public immutable SHORT_LOCK_TIME;
+    uint32 public immutable MEDIUM_LOCK_TIME;
+    uint32 public immutable LONG_LOCK_TIME;
     uint256 public immutable LP_TO_ARCD_RATE;
 
     IERC20 public immutable rewardsToken;
@@ -153,9 +153,9 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
         address _rewardsDistribution,
         address _rewardsToken,
         address _arcdWethLP,
-        uint256 shortLockTime,
-        uint256 mediumLockTime,
-        uint256 longLockTime,
+        uint32 shortLockTime,
+        uint32 mediumLockTime,
+        uint32 longLockTime,
         uint256 _lpToArcdRate
     ) Ownable(_owner) LockingVault(IERC20(_arcdWethLP), staleBlockLag) {
         if (address(_rewardsDistribution) == address(0)) revert ASR_ZeroAddress();
