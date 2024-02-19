@@ -28,7 +28,7 @@ import {
     ASR_ZeroConversionRate,
     LV_FunctionDisabled
 } from "../src/errors/Staking.sol";
-
+import { console } from "forge-std/Test.sol";
 /**
  * @title ArcadeStakingRewards
  * @author Non-Fungible Technologies, Inc.
@@ -277,7 +277,8 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
     function getPendingRewardsPartial(address account, uint256 amount, uint256 depositId) public view returns (uint256 rewards) {
         UserStake[] storage userStakes = stakes[account];
         UserStake storage userStake = userStakes[depositId];
-        uint256 amount = userStake.amount;
+
+        //uint256 amount = userStake.amount;
         Lock lock = userStake.lock;
 
         // Accounting with bonus
@@ -287,7 +288,7 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
         uint256 userRewardPerTokenPaid = userStake.rewardPerTokenPaid;
         uint256 userRewards = userStake.rewards;
 
-        uint256 rewards = ((amountWithBonus * (rewardPerToken() - userRewardPerTokenPaid)) / ONE + userRewards);
+        rewards = ((amountWithBonus * (rewardPerToken() - userRewardPerTokenPaid)) / ONE + userRewards);
     }
 
     /**
@@ -525,6 +526,9 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
             })
         );
 
+console.log("_stake depositId: %s", stakes[msg.sender].length - 1);
+console.log("_stake amount: %s", amount);
+
         totalDeposits += amount;
         totalDepositsWithBonus += amountWithBonus;
 
@@ -538,39 +542,40 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
         _withdraw1(msg.sender, amount, depositId);
     }
 
-    /**
-     * @notice Allows users to do partial token withdraws for specific deposits.
-     *         The total supply of staked tokens and individual user balances
-     *         are updated accordingly.
-     *
-     * @param amount                           The amount of tokens the user withdraws.
-     * @param depositId                        The specified deposit to withdraw.
-     */
-    function _withdrawFromStake(uint256 amount, uint256 depositId) internal updateReward {
-        if (amount == 0) revert ASR_ZeroAmount();
-        if (depositId >= stakes[msg.sender].length) revert ASR_InvalidDepositId();
+// TODO: REMOVE???
+    // /**
+    //  * @notice Allows users to do partial token withdraws for specific deposits.
+    //  *         The total supply of staked tokens and individual user balances
+    //  *         are updated accordingly.
+    //  *
+    //  * @param amount                           The amount of tokens the user withdraws.
+    //  * @param depositId                        The specified deposit to withdraw.
+    //  */
+    // function _withdrawFromStake(uint256 amount, uint256 depositId) internal updateReward {
+    //     if (amount == 0) revert ASR_ZeroAmount();
+    //     if (depositId >= stakes[msg.sender].length) revert ASR_InvalidDepositId();
 
-        (uint256 withdrawAmount, uint256 reward) = _calculateWithdrawalAndReward(msg.sender, amount, depositId);
+    //     (uint256 withdrawAmount, uint256 reward) = _calculateWithdrawalAndReward(msg.sender, amount, depositId);
 
-        UserStake storage userStake = stakes[msg.sender][depositId];
-        Lock lock = userStake.lock;
+    //     UserStake storage userStake = stakes[msg.sender][depositId];
+    //     Lock lock = userStake.lock;
 
-        // Accounting with bonus
-        (uint256 bonus,) = _getBonus(lock);
-        uint256 amountWithBonus = (amount + ((amount * bonus) / ONE));
+    //     // Accounting with bonus
+    //     (uint256 bonus,) = _getBonus(lock);
+    //     uint256 amountWithBonus = (amount + ((amount * bonus) / ONE));
 
-        uint256 votePowerToSubtract = convertLPToArcd(amountWithBonus);
-        _subtractVotingPower(votePowerToSubtract, msg.sender);
+    //     uint256 votePowerToSubtract = convertLPToArcd(amountWithBonus);
+    //     _subtractVotingPower(votePowerToSubtract, msg.sender);
 
-        if (withdrawAmount > 0) {
-            arcdWethLP.safeTransfer(msg.sender, withdrawAmount);
-        }
+    //     if (withdrawAmount > 0) {
+    //         arcdWethLP.safeTransfer(msg.sender, withdrawAmount);
+    //     }
 
-        if (reward > 0) {
-            rewardsToken.safeTransfer(msg.sender, reward);
-            emit RewardPaid(msg.sender, reward, depositId);
-        }
-    }
+    //     if (reward > 0) {
+    //         rewardsToken.safeTransfer(msg.sender, reward);
+    //         emit RewardPaid(msg.sender, reward, depositId);
+    //     }
+    // }
 
     /**
      * @notice Enables the claim of accumulated rewards.
@@ -615,7 +620,7 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
 
         UserStake storage userStake = stakes[msg.sender][depositId];
         uint256 amount = userStake.amount;
-// TODO: remove the 1 here
+// TODO: remove the 1 in the function name
         _withdraw1(msg.sender, amount, depositId);
     }
 
@@ -632,6 +637,8 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
         for (uint256 i = 0; i < userStakes.length; ++i) {
             UserStake storage userStake = userStakes[i];
             uint256 depositAmount = userStake.amount;
+console.log("exitAll userStake.amount: %s", userStake.amount);
+console.log("exitAll userStake.rewards: %s", userStake.rewards);
             Lock lock = userStake.lock;
 
             // Accounting with bonus
@@ -642,6 +649,8 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
             if (depositAmount == 0 || block.timestamp < userStake.unlockTimestamp) continue;
 
             (uint256 withdrawAmount, uint256 reward) = _withdraw(msg.sender, depositAmount, i);
+console.log("exitAll withdrawAmount: %s", withdrawAmount);
+console.log("exitAll reward: %s", reward);
             totalWithdrawAmount += withdrawAmount;
             totalRewardAmount += reward;
 
@@ -649,7 +658,8 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
                 emit RewardPaid(msg.sender, reward, i);
             }
         }
-
+// console.log("exitAll totalWithdrawAmount: %s", totalWithdrawAmount);
+// console.log("exitAll totalRewardAmount: %s", totalRewardAmount);
         uint256 votePowerToSubtract = (convertLPToArcd(votingPowerWithBonus) / 1e6) * 1e6; // round down to 6 decimals to avoid rounding errors
         _subtractVotingPower(votePowerToSubtract, msg.sender);
 
@@ -659,7 +669,7 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
 
         if (totalRewardAmount > 0) {
             rewardsToken.safeTransfer(msg.sender, totalRewardAmount);
-        }
+       }
     }
 
     // ======================================== RESTRICTED FUNCTIONS =========================================
@@ -767,32 +777,41 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
         (uint256 bonus,) = _getBonus(userStake.lock);
         amountWithBonus = (amount + ((amount * bonus) / ONE));
 
-        //reward = userStake.rewards; //TODO: calculate reward ??? is below sufficient?
-        reward = getPendingRewards(user, depositId);
+        reward = getPendingRewardsPartial(user, amount, depositId);
     }
 
-    /** //TODO: Double check NATSPEC comment verbiage
+    /** //TODO: Double check NATSPEC comment verbiage . ADD returns !!!
      * @notice Updates the global totals and voting power.
      *
      * @param user                             The account to update the totals for.
      * @param amount                           The staked amount with bonus.
      * @param depositId                        The specified deposit to update the totals for.
      */
-    function _withdraw1(address user, uint256 amount, uint256 depositId) internal {
+    function _withdraw1(address user, uint256 amount, uint256 depositId) internal updateReward {
         if (amount == 0) revert ASR_ZeroAmount();
         if (depositId >= stakes[msg.sender].length) revert ASR_InvalidDepositId();
 
-        (uint256 amountWithBonus, uint256 reward) = _calculateWithdraw(user, amount, depositId);
+        (uint256 amountWithBonus, uint256 earnedReward) = _calculateWithdraw(user, amount, depositId);
 
         UserStake storage userStake = stakes[user][depositId];
+        userStake.rewards += earnedReward;
+        userStake.rewardPerTokenPaid = rewardPerTokenStored;
+
         userStake.amount -= amount;
 
-        uint256 rewards = getPendingRewardsPartial(user, amount, depositId);
-        userStake.rewards = rewards; //TODO: WHAT ABOUT PARTIAL WITHDRAWALS?
+console.log("_withdraw1 user: %s", user);
+console.log("_withdraw1 reward: %s", earnedReward);
+        //uint256 rewards = getPendingRewardsPartial(user, amount, depositId);
+        //userStake.rewards -= earnedReward; //TODO: WHAT ABOUT PARTIAL WITHDRAWALS?
+console.log("_withdraw1 rewards from userStake.rewards BEFORE TRANSFER: %s", userStake.rewards);
 
-        _updateGlobalTotalsAndVotingPower(user, amount, amountWithBonus, rewards, depositId);
+        _updateGlobalTotalsAndVotingPower(user, amount, amountWithBonus, earnedReward, depositId);
 
-        _withdrawTransferTokens(amount, rewards, depositId);
+        _withdrawTransferTokens(amount, earnedReward, depositId);
+console.log("_withdraw1 rewards from userStake.rewards AFTER TRANSFER: %s", userStake.rewards);
+
+
+console.log("_withdraw1 rewards after withdrawTokens from getPendingRewardsPartial: %s", getPendingRewardsPartial(msg.sender, userStake.amount, 0));
     }
 
     // TODO: Create NATSPEC
@@ -807,7 +826,7 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
         emit Withdrawn(msg.sender, withdrawAmount);
     }
 
-    /** //TODO: Double check NATSPEC
+    /** //TODO: FIX PLACEHOLDER NATSPEC
      * @notice Updates the global totals and voting power.
      *
      * @param user                             The account to update the totals for.
@@ -845,7 +864,7 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
 
         reward = userStake.rewards;
         userStake.rewards = 0;
-
+console.log("In _withdraw for extiAll reward: %s", reward);
         (uint256 bonus,) = _getBonus(userStake.lock);
         uint256 amountToWithdrawWithBonus = amount + (amount * bonus) / ONE;
 
@@ -892,33 +911,39 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
         UserStake storage userStake = stakes[account][depositId];
         if (userStake.amount == 0) return;
 
-        uint256 earnedReward = getPendingRewards(account, depositId);
+        uint256 amount = userStake.amount;
+console.log("In _updateRewardForDeposit for extiAll amount: %s", amount);
+console.log("In _updateRewardForDeposit for extiAll amount: %s", userStake.rewards);
+
+        uint256 earnedReward = getPendingRewardsPartial(account, amount, depositId);
+console.log("In _updateRewardForDeposit getPendingRewardsPartial: %s", earnedReward);
         userStake.rewards += earnedReward;
+console.log("In _updateRewardForDeposit for extiAll reward: %s", userStake.rewards);
         userStake.rewardPerTokenPaid = rewardPerTokenStored;
     }
 
-    /**
-     * @notice Calculates stake amount to withdraw and reward amount to claim.
-     *
-     * @param user                             The account to make the calculations for.
-     * @param amount                           The amount of tokens the being withdrawn.
-     * @param depositId                        The user's specified deposit id.
-     *
-     * @return withdrawAmount                  The staked amount which will be withdrawn.
-     * @return reward                          The reward amount which will be withdrawn.
-     */
-    function _calculateWithdrawalAndReward(address user, uint256 amount, uint256 depositId) internal returns (uint256, uint256) {
-        UserStake storage userStake = stakes[user][depositId];
-        uint256 depositAmount = userStake.amount;
+    // /**
+    //  * @notice Calculates stake amount to withdraw and reward amount to claim.
+    //  *
+    //  * @param user                             The account to make the calculations for.
+    //  * @param amount                           The amount of tokens the being withdrawn.
+    //  * @param depositId                        The user's specified deposit id.
+    //  *
+    //  * @return withdrawAmount                  The staked amount which will be withdrawn.
+    //  * @return reward                          The reward amount which will be withdrawn.
+    //  */
+    // function _calculateWithdrawalAndReward(address user, uint256 amount, uint256 depositId) internal returns (uint256, uint256) {
+    //     UserStake storage userStake = stakes[user][depositId];
+    //     uint256 depositAmount = userStake.amount;
 
-        if (depositAmount == 0) revert ASR_NoStake();
-        if (amount > depositAmount) revert ASR_BalanceAmount();
-        if (block.timestamp < userStake.unlockTimestamp) revert ASR_Locked();
+    //     if (depositAmount == 0) revert ASR_NoStake();
+    //     if (amount > depositAmount) revert ASR_BalanceAmount();
+    //     if (block.timestamp < userStake.unlockTimestamp) revert ASR_Locked();
 
-        (uint256 withdrawAmount, uint256 reward) = _withdraw(user, amount, depositId);
+    //     (uint256 withdrawAmount, uint256 reward) = _withdraw(user, amount, depositId);
 
-        return (withdrawAmount, reward);
-    }
+    //     return (withdrawAmount, reward);
+    // }
 
     /**
      * @dev Maps Lock enum values to corresponding lengths of time and reward bonuses.
