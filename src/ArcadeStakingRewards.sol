@@ -526,9 +526,6 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
             })
         );
 
-console.log("_stake depositId: %s", stakes[msg.sender].length - 1);
-console.log("_stake amount: %s", amount);
-
         totalDeposits += amount;
         totalDepositsWithBonus += amountWithBonus;
 
@@ -542,7 +539,7 @@ console.log("_stake amount: %s", amount);
         _withdraw1(msg.sender, amount, depositId);
     }
 
-// TODO: REMOVE???
+// TODO: REMOVE?
     // /**
     //  * @notice Allows users to do partial token withdraws for specific deposits.
     //  *         The total supply of staked tokens and individual user balances
@@ -637,8 +634,7 @@ console.log("_stake amount: %s", amount);
         for (uint256 i = 0; i < userStakes.length; ++i) {
             UserStake storage userStake = userStakes[i];
             uint256 depositAmount = userStake.amount;
-console.log("exitAll userStake.amount: %s", userStake.amount);
-console.log("exitAll userStake.rewards: %s", userStake.rewards);
+
             Lock lock = userStake.lock;
 
             // Accounting with bonus
@@ -649,8 +645,7 @@ console.log("exitAll userStake.rewards: %s", userStake.rewards);
             if (depositAmount == 0 || block.timestamp < userStake.unlockTimestamp) continue;
 
             (uint256 withdrawAmount, uint256 reward) = _withdraw(msg.sender, depositAmount, i);
-console.log("exitAll withdrawAmount: %s", withdrawAmount);
-console.log("exitAll reward: %s", reward);
+
             totalWithdrawAmount += withdrawAmount;
             totalRewardAmount += reward;
 
@@ -658,8 +653,7 @@ console.log("exitAll reward: %s", reward);
                 emit RewardPaid(msg.sender, reward, i);
             }
         }
-// console.log("exitAll totalWithdrawAmount: %s", totalWithdrawAmount);
-// console.log("exitAll totalRewardAmount: %s", totalRewardAmount);
+
         uint256 votePowerToSubtract = (convertLPToArcd(votingPowerWithBonus) / 1e6) * 1e6; // round down to 6 decimals to avoid rounding errors
         _subtractVotingPower(votePowerToSubtract, msg.sender);
 
@@ -799,19 +793,11 @@ console.log("exitAll reward: %s", reward);
 
         userStake.amount -= amount;
 
-console.log("_withdraw1 user: %s", user);
-console.log("_withdraw1 reward: %s", earnedReward);
-        //uint256 rewards = getPendingRewardsPartial(user, amount, depositId);
-        //userStake.rewards -= earnedReward; //TODO: WHAT ABOUT PARTIAL WITHDRAWALS?
-console.log("_withdraw1 rewards from userStake.rewards BEFORE TRANSFER: %s", userStake.rewards);
+        userStake.rewards = 0; //TODO: WHAT ABOUT PARTIAL WITHDRAWALS?
 
         _updateGlobalTotalsAndVotingPower(user, amount, amountWithBonus, earnedReward, depositId);
 
         _withdrawTransferTokens(amount, earnedReward, depositId);
-console.log("_withdraw1 rewards from userStake.rewards AFTER TRANSFER: %s", userStake.rewards);
-
-
-console.log("_withdraw1 rewards after withdrawTokens from getPendingRewardsPartial: %s", getPendingRewardsPartial(msg.sender, userStake.amount, 0));
     }
 
     // TODO: Create NATSPEC
@@ -864,7 +850,7 @@ console.log("_withdraw1 rewards after withdrawTokens from getPendingRewardsParti
 
         reward = userStake.rewards;
         userStake.rewards = 0;
-console.log("In _withdraw for extiAll reward: %s", reward);
+
         (uint256 bonus,) = _getBonus(userStake.lock);
         uint256 amountToWithdrawWithBonus = amount + (amount * bonus) / ONE;
 
@@ -912,13 +898,11 @@ console.log("In _withdraw for extiAll reward: %s", reward);
         if (userStake.amount == 0) return;
 
         uint256 amount = userStake.amount;
-console.log("In _updateRewardForDeposit for extiAll amount: %s", amount);
-console.log("In _updateRewardForDeposit for extiAll amount: %s", userStake.rewards);
 
         uint256 earnedReward = getPendingRewardsPartial(account, amount, depositId);
-console.log("In _updateRewardForDeposit getPendingRewardsPartial: %s", earnedReward);
+
         userStake.rewards += earnedReward;
-console.log("In _updateRewardForDeposit for extiAll reward: %s", userStake.rewards);
+
         userStake.rewardPerTokenPaid = rewardPerTokenStored;
     }
 
