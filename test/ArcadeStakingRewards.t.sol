@@ -1767,7 +1767,6 @@ contract ArcadeStakingRewardsTest is Test {
         stakingRewards.deposit(userStake, userC, IArcadeStakingRewards.Lock.Medium);
         vm.stopPrank();
 
-        uint256 currentTime = block.timestamp;
         // increase blockchain time to middle of the rewards period
         vm.warp(currentTime + 4 days);
 
