@@ -673,7 +673,7 @@ contract ArcadeStakingRewardsTest is Test {
         vm.startPrank(userA);
         stakingRewards.withdraw(userStakeAmount, 0);
 
-        bytes4 selector = bytes4(keccak256("ASR_NoStake()"));
+        bytes4 selector = bytes4(keccak256("ASR_BalanceAmount()"));
         vm.expectRevert(abi.encodeWithSelector(selector));
 
         vm.startPrank(userA);

@@ -21,7 +21,6 @@ import {
     ASR_StakingToken,
     ASR_RewardTooHigh,
     ASR_BalanceAmount,
-    ASR_NoStake,
     ASR_Locked,
     ASR_RewardsToken,
     ASR_InvalidDepositId,

@@ -54,11 +54,6 @@ error ASR_RewardTooHigh();
 error ASR_BalanceAmount();
 
 /**
- * @notice There is no stake for this caller.
- */
-error ASR_NoStake();
-
-/**
  * @notice Cannot withdraw a deposit which is still locked.
  */
 error ASR_Locked();
