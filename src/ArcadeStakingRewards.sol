@@ -709,9 +709,7 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
     function _claimReward(uint256 depositId) internal returns (uint256 reward) {
         UserStake storage userStake = stakes[msg.sender][depositId];
 
-        _updateRewardForDeposit(msg.sender, depositId);
-
-        reward = userStake.rewards;
+        reward = _updateRewardForDeposit(msg.sender, depositId);
 
         if (reward > 0) {
             userStake.rewards = 0;
@@ -728,12 +726,11 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
      *                                             reward calculation for.
      * @param depositId                            The specified deposit id to update the reward for.
      */
-    function _updateRewardForDeposit(address account, uint256 depositId) internal {
+    function _updateRewardForDeposit(address account, uint256 depositId) internal returns (uint256 earnedReward) {
         UserStake storage userStake = stakes[account][depositId];
-        if (userStake.amount == 0) return;
+        if (userStake.amount == 0) return 0;
 
-        uint256 earnedReward = getPendingRewards(account, depositId);
-        userStake.rewards += earnedReward;
+        earnedReward = getPendingRewards(account, depositId);
         userStake.rewardPerTokenPaid = rewardPerTokenStored;
     }
 
