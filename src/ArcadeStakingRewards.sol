@@ -106,6 +106,7 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
     // ============================================ STATE ==============================================
     // ============== Constants ==============
     uint256 public constant ONE = 1e18;
+    uint32 public constant ONE_DAY = 60 * 60 * 24;
     uint256 public constant MAX_DEPOSITS = 20;
     uint256 public constant LP_TO_ARCD_DENOMINATOR = 1e3;
 
@@ -113,10 +114,11 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
     uint256 public constant MEDIUM_BONUS = 1.3e18;
     uint256 public constant LONG_BONUS = 1.5e18;
 
+    uint32 public constant SHORT_LOCK_TIME = ONE_DAY * 30; //one month
+    uint32 public constant MEDIUM_LOCK_TIME = ONE_DAY * 60; // two months
+    uint32 public constant LONG_LOCK_TIME = ONE_DAY * 90; // three months
+
     // ============ Global State =============
-    uint32 public immutable SHORT_LOCK_TIME;
-    uint32 public immutable MEDIUM_LOCK_TIME;
-    uint32 public immutable LONG_LOCK_TIME;
     uint256 public immutable LP_TO_ARCD_RATE;
     uint256 public immutable STALE_BLOCK_LAG;
 
@@ -144,9 +146,6 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
      *                                     of how rewards are distributed.
      * @param _rewardsToken                The address of the rewards ERC20 token.
      * @param _arcdWethLP                  The address of the staking ERC20 token.
-     * @param shortLockTime                The short lock time.
-     * @param mediumLockTime               The medium lock time.
-     * @param longLockTime                 The long lock time.
      * @param _lpToArcdRate                Immutable ARCD/WETH to ARCD conversion rate.
      * @param _staleBlockLag               The number of blocks before which the delegation
      *                                     history is forgotten.
@@ -156,9 +155,6 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
         address _rewardsDistribution,
         address _rewardsToken,
         address _arcdWethLP,
-        uint32 shortLockTime,
-        uint32 mediumLockTime,
-        uint32 longLockTime,
         uint256 _lpToArcdRate,
         uint256 _staleBlockLag
     ) Ownable(_owner) {
@@ -174,10 +170,6 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
 
         STALE_BLOCK_LAG = _staleBlockLag;
         LP_TO_ARCD_RATE = _lpToArcdRate;
-
-        SHORT_LOCK_TIME = shortLockTime;
-        MEDIUM_LOCK_TIME = mediumLockTime;
-        LONG_LOCK_TIME = longLockTime;
     }
 
     // ========================================== VIEW FUNCTIONS =========================================
