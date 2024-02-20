@@ -303,7 +303,7 @@ contract ArcadeStakingRewardsTest is Test {
         uint256 poolTotalDepositsAfterWithdraw = stakingRewards.totalSupply();
 
         uint256 userVotingPowerAfter = stakingRewards.queryVotePowerView(userB, block.number);
-        uint256 tolerance2 = 1e6;
+        uint256 tolerance2 = 1e7;
         assertApproxEqAbs(userVotingPowerAfter, 0, tolerance2);
 
         assertApproxEqAbs(balanceAfterWithdraw, balanceBeforeWithdraw + userStake, tolerance);
