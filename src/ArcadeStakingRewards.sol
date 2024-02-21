@@ -708,8 +708,10 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
      */
     function _claimReward(uint256 depositId) internal returns (uint256 reward) {
         UserStake storage userStake = stakes[msg.sender][depositId];
+        if (userStake.amount == 0) return 0;
 
-        reward = _updateRewardForDeposit(msg.sender, depositId);
+        reward = getPendingRewards(msg.sender, depositId);
+        userStake.rewardPerTokenPaid = rewardPerTokenStored;
 
         if (reward > 0) {
             userStake.rewards = 0;
@@ -718,20 +720,27 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
     }
 
     /**
-     * @notice Updates the reward calculation for a user before executing any transaction such as
-     *         staking, withdrawing, or reward claiming, to ensure the correct calculation of
-     *         rewards for the user.
+     * @notice Processes stake amount to withdraw and reward amount to claim and calls
+     *         _withdraw.
      *
-     * @param account                              The address of the user account to update the
-     *                                             reward calculation for.
-     * @param depositId                            The specified deposit id to update the reward for.
+     * @param user                             The account to make the calculations for.
+     * @param amount                           The amount of tokens the being withdrawn.
+     * @param depositId                        The user's specified deposit id.
+     *
+     * @return withdrawAmount                  The staked amount which will be withdrawn.
+     * @return reward                          The reward amount which will be withdrawn.
      */
-    function _updateRewardForDeposit(address account, uint256 depositId) internal returns (uint256 earnedReward) {
-        UserStake storage userStake = stakes[account][depositId];
-        if (userStake.amount == 0) return 0;
+    function _processWithdrawal(address user, uint256 amount, uint256 depositId) internal returns (uint256, uint256) {
+        UserStake storage userStake = stakes[user][depositId];
+        uint256 depositAmount = userStake.amount;
 
-        earnedReward = getPendingRewards(account, depositId);
-        userStake.rewardPerTokenPaid = rewardPerTokenStored;
+        if (depositAmount == 0) revert ASR_NoStake();
+        if (amount > depositAmount) revert ASR_BalanceAmount();
+        if (block.timestamp < userStake.unlockTimestamp) revert ASR_Locked();
+
+        (uint256 withdrawAmount, uint256 reward) = _withdraw(user, amount, depositId);
+
+        return (withdrawAmount, reward);
     }
 
     /**
