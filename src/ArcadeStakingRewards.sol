@@ -114,7 +114,7 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
     uint256 public constant MEDIUM_BONUS = 1.3e18;
     uint256 public constant LONG_BONUS = 1.5e18;
 
-    uint32 public constant SHORT_LOCK_TIME = ONE_DAY * 30; //one month
+    uint32 public constant SHORT_LOCK_TIME = ONE_DAY * 30; // one month
     uint32 public constant MEDIUM_LOCK_TIME = ONE_DAY * 60; // two months
     uint32 public constant LONG_LOCK_TIME = ONE_DAY * 90; // three months
 
@@ -127,7 +127,7 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
 
     uint32 public periodFinish = 0;
     uint32 public lastUpdateTime;
-    uint32 public rewardsDuration = 15780000; // six months
+    uint32 public rewardsDuration = ONE_DAY * 30 * 6; // six months
     uint256 public rewardPerTokenStored;
     uint256 public rewardRate = 0;
 
