@@ -404,7 +404,7 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
         uint256 amount = userStake.amount;
         Lock lock = userStake.lock;
 
-        amountWithBonus = _calculateBonus(amount, lock);
+        (amountWithBonus, ) = _calculateBonus(amount, lock);
     }
 
     /**
@@ -459,6 +459,8 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
     }
 
     function withdraw(uint256 amount, uint256 depositId) external whenNotPaused nonReentrant {
+        _validateStake(depositId, amount);
+
         _withdrawFromStake(amount, depositId);
     }
 
@@ -501,8 +503,10 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
      * @param depositId                        The specified deposit to exit.
      */
     function exit(uint256 depositId) external {
-        UserStake storage userStake = _validateStake(depositId, stakes[msg.sender][depositId].amount);
+        UserStake storage userStake = stakes[msg.sender][depositId];
         uint256 amount = userStake.amount;
+
+        _validateStake(depositId, amount);
 
         _withdrawFromStake(amount, depositId);
 
@@ -532,6 +536,10 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
 
             totalWithdrawAmount += amount;
             totalRewardAmount += reward;
+
+            if (reward > 0) {
+                emit RewardPaid(msg.sender, reward, i);
+            }
 
             // reset userStake struct
             if (userStake.amount == 0 && userStake.rewards == 0) {
@@ -651,9 +659,7 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
 
         if ((stakes[msg.sender].length + 1) > MAX_DEPOSITS) revert ASR_DepositCountExceeded();
 
-        (, uint256 lockDuration) = _getBonus(lock);
-
-        uint256 amountWithBonus = _calculateBonus(amount, lock);
+        (uint256 amountWithBonus, uint256 lockDuration)  = _calculateBonus(amount, lock);
 
         uint256 votingPowerToAdd = convertLPToArcd(amountWithBonus);
         // update the vote power to equal the amount staked with bonus
@@ -725,7 +731,7 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
      * @param depositId                        The specified deposit to withdraw.
      */
     function _withdrawFromStake(uint256 amount, uint256 depositId) internal updateReward {
-        UserStake storage userStake = _validateStake(depositId, amount);
+        UserStake storage userStake = stakes[msg.sender][depositId];
 
         uint256 reward = _processWithdrawal(userStake, amount, depositId);
 
@@ -744,14 +750,14 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
      * @return reward                           The stake reward amount.
      */
     function _processWithdrawal(UserStake storage userStake, uint256 amount, uint256 depositId) internal returns (uint256 reward) {
-        uint256 amountWithBonus = _calculateBonus(amount, userStake.lock);
-        uint256 votePowerToSubtract = (convertLPToArcd(amountWithBonus) / 1e6) * 1e6; // round down to 6 decimals to avoid rounding errors
+        (uint256 amountWithBonus, ) = _calculateBonus(amount, userStake.lock);
+        uint256 votePowerToSubtract = convertLPToArcd(amountWithBonus);
+
         _subtractVotingPower(votePowerToSubtract, msg.sender);
 
         reward = _claimReward(depositId);
 
         userStake.amount -= amount;
-        userStake.rewards = 0;
 
         totalDeposits -= amount;
         totalDepositsWithBonus -= amountWithBonus;
@@ -764,13 +770,11 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
      *
      * @param depositId                         The id of the user's stake.
      * @param amount                            The stake amount.
-     *
-     * @return userStake                        The stake storage object.
      */
-    function _validateStake(uint256 depositId, uint256 amount) internal view returns (UserStake storage userStake) {
+    function _validateStake(uint256 depositId, uint256 amount) internal view {
         if (amount == 0) revert ASR_ZeroAmount();
         if (depositId >= stakes[msg.sender].length) revert ASR_InvalidDepositId();
-        userStake = stakes[msg.sender][depositId];
+        UserStake storage userStake = stakes[msg.sender][depositId];
         if (amount > userStake.amount) revert ASR_BalanceAmount();
         if (block.timestamp < userStake.unlockTimestamp) revert ASR_Locked();
     }
@@ -797,27 +801,21 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
      *
      * @return bonusAmount                      The bonus value of of the.
      */
-    function _calculateBonus(uint256 amount, Lock lock) internal view returns (uint256 bonusAmount) {
-        (uint256 bonus,) = _getBonus(lock);
-        bonusAmount = amount + (amount * bonus) / ONE;
-    }
+    function _calculateBonus(uint256 amount, Lock lock) internal view returns (uint256 bonusAmount, uint256 lockDuration) {
+        uint256 bonus;
 
-    /**
-     * @dev Maps Lock enum values to corresponding lengths of time and reward bonuses.
-     *
-     * @param _lock                            The lock value.
-     *
-     * @return bonus                           The bonus amount associated with the lock.
-     * @return lockDuration                    The amount of time that the stake will be locked.
-     */
-    function _getBonus(Lock _lock) internal view returns (uint256 bonus, uint256 lockDuration) {
-        if (_lock == Lock.Short) {
-            return (SHORT_BONUS, SHORT_LOCK_TIME);
-        } else if (_lock == Lock.Medium) {
-            return (MEDIUM_BONUS, MEDIUM_LOCK_TIME);
-        } else if (_lock == Lock.Long) {
-            return (LONG_BONUS, LONG_LOCK_TIME);
+        if (lock == Lock.Short) {
+           bonus = SHORT_BONUS;
+           lockDuration = SHORT_LOCK_TIME;
+        } else if (lock == Lock.Medium) {
+            bonus = MEDIUM_BONUS;
+            lockDuration = MEDIUM_LOCK_TIME;
+        } else if (lock == Lock.Long) {
+            bonus = LONG_BONUS;
+            lockDuration = LONG_LOCK_TIME;
         }
+
+        bonusAmount = amount + (amount * bonus) / ONE;
     }
 
     /**
