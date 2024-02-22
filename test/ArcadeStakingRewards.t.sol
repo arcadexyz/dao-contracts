@@ -52,9 +52,6 @@ contract ArcadeStakingRewardsTest is Test {
             admin,
             address(rewardsToken),
             address(lpToken),
-            ONE_MONTH,
-            TWO_MONTHS,
-            THREE_MONTHS,
             LP_TO_ARCD_RATE,
             STALE_BLOCK_LAG
         );
@@ -85,9 +82,6 @@ contract ArcadeStakingRewardsTest is Test {
             address(0),
             address(rewardsToken),
             address(lpToken),
-            ONE_MONTH,
-            TWO_MONTHS,
-            THREE_MONTHS,
             LP_TO_ARCD_RATE,
             STALE_BLOCK_LAG
         );
@@ -98,9 +92,6 @@ contract ArcadeStakingRewardsTest is Test {
             admin,
             address(0),
             address(lpToken),
-            ONE_MONTH,
-            TWO_MONTHS,
-            THREE_MONTHS,
             LP_TO_ARCD_RATE,
             STALE_BLOCK_LAG
         );
@@ -111,9 +102,6 @@ contract ArcadeStakingRewardsTest is Test {
             admin,
             address(rewardsToken),
             address(0),
-            ONE_MONTH,
-            TWO_MONTHS,
-            THREE_MONTHS,
             LP_TO_ARCD_RATE,
             STALE_BLOCK_LAG
         );
@@ -124,9 +112,6 @@ contract ArcadeStakingRewardsTest is Test {
             admin,
             address(rewardsToken),
             address(lpToken),
-            ONE_MONTH,
-            TWO_MONTHS,
-            THREE_MONTHS,
             0,
             STALE_BLOCK_LAG
         );
@@ -142,9 +127,6 @@ contract ArcadeStakingRewardsTest is Test {
             admin,
             address(rewardsToken),
             address(lpToken),
-            ONE_MONTH,
-            TWO_MONTHS,
-            THREE_MONTHS,
             LP_TO_ARCD_RATE,
             STALE_BLOCK_LAG2
         );
