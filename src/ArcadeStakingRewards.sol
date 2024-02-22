@@ -23,7 +23,6 @@ import {
     ASR_BalanceAmount,
     ASR_Locked,
     ASR_RewardsToken,
-    ASR_InvalidDepositId,
     ASR_DepositCountExceeded,
     ASR_ZeroConversionRate,
     ASR_UpperLimitBlock
@@ -459,9 +458,11 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
     }
 
     function withdraw(uint256 amount, uint256 depositId) external whenNotPaused nonReentrant {
-        _validateStake(depositId, amount);
+        UserStake storage userStake = stakes[msg.sender][depositId];
 
-        _withdrawFromStake(amount, depositId);
+        _validateStake(depositId, amount, userStake);
+
+        _withdrawFromStake(amount, depositId, userStake);
     }
 
     /**
@@ -506,9 +507,9 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
         UserStake storage userStake = stakes[msg.sender][depositId];
         uint256 amount = userStake.amount;
 
-        _validateStake(depositId, amount);
+        _validateStake(depositId, amount, userStake);
 
-        _withdrawFromStake(amount, depositId);
+        _withdrawFromStake(amount, depositId, userStake);
 
         // reset userStake struct
         if (userStake.amount == 0 && userStake.rewards == 0) {
@@ -729,10 +730,9 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
      *
      * @param amount                           The amount of tokens the user withdraws.
      * @param depositId                        The specified deposit to withdraw.
+     * @param userStake                        The user's stake object.
      */
-    function _withdrawFromStake(uint256 amount, uint256 depositId) internal updateReward {
-        UserStake storage userStake = stakes[msg.sender][depositId];
-
+    function _withdrawFromStake(uint256 amount, uint256 depositId, UserStake storage userStake) internal updateReward {
         uint256 reward = _processWithdrawal(userStake, amount, depositId);
 
         arcdWethLP.safeTransfer(msg.sender, amount);
@@ -770,11 +770,10 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
      *
      * @param depositId                         The id of the user's stake.
      * @param amount                            The stake amount.
+     * @param userStake                         The user's stake object.
      */
-    function _validateStake(uint256 depositId, uint256 amount) internal view {
+    function _validateStake(uint256 depositId, uint256 amount, UserStake storage userStake) internal view {
         if (amount == 0) revert ASR_ZeroAmount();
-        if (depositId >= stakes[msg.sender].length) revert ASR_InvalidDepositId();
-        UserStake storage userStake = stakes[msg.sender][depositId];
         if (amount > userStake.amount) revert ASR_BalanceAmount();
         if (block.timestamp < userStake.unlockTimestamp) revert ASR_Locked();
     }

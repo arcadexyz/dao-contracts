@@ -640,9 +640,9 @@ contract ArcadeStakingRewardsTest is Test {
         vm.prank(admin);
         stakingRewards.notifyRewardAmount(100e18);
 
-        bytes4 selector = bytes4(keccak256("ASR_InvalidDepositId()"));
-
-        vm.expectRevert(abi.encodeWithSelector(selector));
+        bytes4 selector = bytes4(keccak256("Panic(uint256)"));
+        // expect the 0x32 panic code for array out-of-bounds access
+        vm.expectRevert(abi.encodeWithSelector(selector, 0x32));
 
         vm.startPrank(userA);
         stakingRewards.withdraw(20e18, 0);

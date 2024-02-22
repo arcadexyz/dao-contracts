@@ -66,12 +66,6 @@ error ASR_Locked();
 error ASR_RewardsToken();
 
 /**
- * @notice The depositId does not exist.
- *
- */
-error ASR_InvalidDepositId();
-
-/**
  * @notice Deposits number is larger than MAX_ITERATIONS.
  *
  */
