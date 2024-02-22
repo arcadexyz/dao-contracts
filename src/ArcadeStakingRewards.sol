@@ -530,7 +530,7 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
         for (uint256 i = 0; i < userStakes.length; ++i) {
             UserStake storage userStake = userStakes[i];
             uint256 amount = userStake.amount;
-            if (amount == 0 || block.timestamp < userStake.unlockTimestamp) continue;
+            if (block.timestamp < userStake.unlockTimestamp) continue;
 
             uint256 reward = _processWithdrawal(userStake, amount, i);
 
