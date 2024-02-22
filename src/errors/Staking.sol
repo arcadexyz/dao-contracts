@@ -54,11 +54,6 @@ error ASR_RewardTooHigh();
 error ASR_BalanceAmount();
 
 /**
- * @notice There is no stake for this caller.
- */
-error ASR_NoStake();
-
-/**
  * @notice Cannot withdraw a deposit which is still locked.
  */
 error ASR_Locked();
@@ -69,12 +64,6 @@ error ASR_Locked();
  *
  */
 error ASR_RewardsToken();
-
-/**
- * @notice The depositId does not exist.
- *
- */
-error ASR_InvalidDepositId();
 
 /**
  * @notice Deposits number is larger than MAX_ITERATIONS.
