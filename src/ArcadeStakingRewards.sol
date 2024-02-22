@@ -720,30 +720,6 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
     }
 
     /**
-     * @notice Processes stake amount to withdraw and reward amount to claim and calls
-     *         _withdraw.
-     *
-     * @param user                             The account to make the calculations for.
-     * @param amount                           The amount of tokens the being withdrawn.
-     * @param depositId                        The user's specified deposit id.
-     *
-     * @return withdrawAmount                  The staked amount which will be withdrawn.
-     * @return reward                          The reward amount which will be withdrawn.
-     */
-    function _processWithdrawal(address user, uint256 amount, uint256 depositId) internal returns (uint256, uint256) {
-        UserStake storage userStake = stakes[user][depositId];
-        uint256 depositAmount = userStake.amount;
-
-        if (depositAmount == 0) revert ASR_NoStake();
-        if (amount > depositAmount) revert ASR_BalanceAmount();
-        if (block.timestamp < userStake.unlockTimestamp) revert ASR_Locked();
-
-        (uint256 withdrawAmount, uint256 reward) = _withdraw(user, amount, depositId);
-
-        return (withdrawAmount, reward);
-    }
-
-    /**
      * @notice Allows users to do partial token withdraws for specific deposits.
      *         The total supply of staked tokens and individual user balances
      *         are updated accordingly.
