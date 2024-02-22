@@ -5,8 +5,6 @@ pragma solidity 0.8.20;
 import "@openzeppelin/contracts/token/ERC20/extensions/ERC20Burnable.sol";
 
 contract MockERC20 is ERC20Burnable {
-    uint8 private _decimals;
-
     /**
      * @dev Initializes ERC20 token
      */
@@ -20,10 +18,5 @@ contract MockERC20 is ERC20Burnable {
     function mint(address to, uint256 amount) public virtual {
         _mint(to, amount);
     }
-
-    function decimals() public view virtual override returns (uint8) {
-        return _decimals;
-    }
-
 }
 

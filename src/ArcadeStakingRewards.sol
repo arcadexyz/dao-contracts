@@ -460,7 +460,7 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
     function withdraw(uint256 amount, uint256 depositId) external whenNotPaused nonReentrant {
         UserStake storage userStake = stakes[msg.sender][depositId];
 
-        _validateStake(depositId, amount, userStake);
+        _validateStake(amount, userStake);
 
         _withdrawFromStake(amount, depositId, userStake);
     }
@@ -507,7 +507,7 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
         UserStake storage userStake = stakes[msg.sender][depositId];
         uint256 amount = userStake.amount;
 
-        _validateStake(depositId, amount, userStake);
+        _validateStake(amount, userStake);
 
         _withdrawFromStake(amount, depositId, userStake);
 
@@ -768,11 +768,10 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
     /**
      * @notice Validates the deposit Id and amount and checks if the stake is locked.
      *
-     * @param depositId                         The id of the user's stake.
      * @param amount                            The stake amount.
      * @param userStake                         The user's stake object.
      */
-    function _validateStake(uint256 depositId, uint256 amount, UserStake storage userStake) internal view {
+    function _validateStake(uint256 amount, UserStake storage userStake) internal view {
         if (amount == 0) revert ASR_ZeroAmount();
         if (amount > userStake.amount) revert ASR_BalanceAmount();
         if (block.timestamp < userStake.unlockTimestamp) revert ASR_Locked();
