@@ -449,6 +449,14 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
     }
 
     // ========================================= MUTATIVE FUNCTIONS ========================================
+    /**
+     * @notice Allows users to deposit tokens into the pool, automatically staking them according to
+     *         the specified lock period.
+     *
+     * @param amount                           The amount of tokens the user wishes to deposit and stake.
+     * @param firstDelegation                  The address to which the user's voting power will be delegated.
+     * @param lock                             The locking period for the staked tokens.
+     */
     function deposit(
         uint256 amount,
         address firstDelegation,
@@ -457,6 +465,12 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
         _stake(amount, lock, firstDelegation);
     }
 
+    /**
+     * @notice Withdraws staked tokens that are unlocked.  Allows for partial withdrawals.
+     *
+     * @param depositId                        The specified deposit to get the reward for.
+     * @param amount                           The amount to be withdrawn from the user stake.
+     */
     function withdraw(uint256 amount, uint256 depositId) external whenNotPaused nonReentrant {
         UserStake storage userStake = stakes[msg.sender][depositId];
 
