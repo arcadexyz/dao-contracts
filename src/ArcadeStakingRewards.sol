@@ -485,9 +485,7 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
      * @param depositId                        The specified deposit to get the reward for.
      */
     function claimReward(uint256 depositId) public nonReentrant updateReward {
-        uint256 reward = 0;
-
-        reward = _claimReward(depositId);
+        uint256 reward = _claimReward(depositId);
 
         if (reward > 0) {
             rewardsToken.safeTransfer(msg.sender, reward);
@@ -708,33 +706,15 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
      */
     function _claimReward(uint256 depositId) internal returns (uint256 reward) {
         UserStake storage userStake = stakes[msg.sender][depositId];
+        if (userStake.amount == 0) return 0;
 
-        _updateRewardForDeposit(msg.sender, depositId);
-
-        reward = userStake.rewards;
+        reward = getPendingRewards(msg.sender, depositId);
+        userStake.rewardPerTokenPaid = rewardPerTokenStored;
 
         if (reward > 0) {
             userStake.rewards = 0;
             emit RewardPaid(msg.sender, reward, depositId);
         }
-    }
-
-    /**
-     * @notice Updates the reward calculation for a user before executing any transaction such as
-     *         staking, withdrawing, or reward claiming, to ensure the correct calculation of
-     *         rewards for the user.
-     *
-     * @param account                              The address of the user account to update the
-     *                                             reward calculation for.
-     * @param depositId                            The specified deposit id to update the reward for.
-     */
-    function _updateRewardForDeposit(address account, uint256 depositId) internal {
-        UserStake storage userStake = stakes[account][depositId];
-        if (userStake.amount == 0) return;
-
-        uint256 earnedReward = getPendingRewards(account, depositId);
-        userStake.rewards += earnedReward;
-        userStake.rewardPerTokenPaid = rewardPerTokenStored;
     }
 
     /**
