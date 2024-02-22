@@ -485,9 +485,7 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
      * @param depositId                        The specified deposit to get the reward for.
      */
     function claimReward(uint256 depositId) public nonReentrant updateReward {
-        uint256 reward = 0;
-
-        reward = _claimReward(depositId);
+        uint256 reward = _claimReward(depositId);
 
         if (reward > 0) {
             rewardsToken.safeTransfer(msg.sender, reward);
