@@ -469,6 +469,13 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
         _validateStake(amount, userStake);
 
         _withdrawFromStake(amount, depositId, userStake);
+
+        // reset userStake struct
+        if (userStake.amount == 0 && userStake.rewards == 0) {
+            userStake.lock = Lock.Short;
+            userStake.unlockTimestamp = 0;
+            userStake.rewardPerTokenPaid = 0;
+        }
     }
 
     /**
