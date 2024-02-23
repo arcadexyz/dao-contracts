@@ -448,8 +448,8 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
 
     // ========================================= MUTATIVE FUNCTIONS ========================================
     /**
-     * @notice Allows users to deposit tokens into the pool, automatically staking them according to
-     *         the specified lock period.
+     * @notice Allows users to stake their tokens, which are then tracked in the contract. The total
+     *         supply of staked tokens and individual user balances are updated accordingly.
      *
      * @param amount                           The amount of tokens the user wishes to deposit and stake.
      * @param firstDelegation                  The address to which the user's voting power will be delegated.
@@ -459,11 +459,35 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
         uint256 amount,
         address firstDelegation,
         Lock lock
-    ) external nonReentrant whenNotPaused {
-        // No delegating to zero
-        if (firstDelegation == address(0)) revert ASR_ZeroAddress("delegation");
+    ) external nonReentrant whenNotPaused updateReward {
+        if (amount == 0) revert ASR_ZeroAmount();
 
-        _stake(amount, lock, firstDelegation);
+        uint256 userStakeCount = stakes[msg.sender].length;
+        if (userStakeCount >= MAX_DEPOSITS) revert ASR_DepositCountExceeded();
+
+        (uint256 amountWithBonus, uint256 lockDuration)  = _calculateBonus(amount, lock);
+
+        uint256 votingPowerToAdd = convertLPToArcd(amountWithBonus);
+        // update the vote power to equal the amount staked with bonus
+        _addVotingPower(msg.sender, votingPowerToAdd, firstDelegation);
+
+        // populate user stake information
+        stakes[msg.sender].push(
+            UserStake({
+                amount: amount,
+                unlockTimestamp: uint32(block.timestamp + lockDuration),
+                rewardPerTokenPaid: rewardPerTokenStored,
+                rewards: 0,
+                lock: lock
+            })
+        );
+
+        totalDeposits += amount;
+        totalDepositsWithBonus += amountWithBonus;
+
+        arcdWethLP.safeTransferFrom(msg.sender, address(this), amount);
+
+        emit Staked(msg.sender, userStakeCount, amount);
     }
 
     /**
@@ -649,44 +673,6 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
         rewardPerTokenStored = rewardPerToken();
         lastUpdateTime = lastTimeRewardApplicable();
         _;
-    }
-
-    /**
-     * @notice Allows users to stake their tokens, which are then tracked in the contract. The total
-     *         supply of staked tokens and individual user balances are updated accordingly.
-     *
-     * @param amount                            The amount of tokens the user stakes.
-     * @param lock                              The amount of time to lock the stake for.
-     * @param firstDelegation                   The address to delegate voting power to.
-     */
-    function _stake(uint256 amount, Lock lock, address firstDelegation) internal updateReward {
-        if (amount == 0) revert ASR_ZeroAmount();
-
-        if ((stakes[msg.sender].length + 1) > MAX_DEPOSITS) revert ASR_DepositCountExceeded();
-
-        (uint256 amountWithBonus, uint256 lockDuration)  = _calculateBonus(amount, lock);
-
-        uint256 votingPowerToAdd = convertLPToArcd(amount);
-        // update the vote power to equal the amount staked with bonus
-        _addVotingPower(msg.sender, votingPowerToAdd, firstDelegation);
-
-        // populate user stake information
-        stakes[msg.sender].push(
-            UserStake({
-                amount: amount,
-                unlockTimestamp: uint32(block.timestamp + lockDuration),
-                rewardPerTokenPaid: rewardPerTokenStored,
-                rewards: 0,
-                lock: lock
-            })
-        );
-
-        totalDeposits += amount;
-        totalDepositsWithBonus += amountWithBonus;
-
-        arcdWethLP.safeTransferFrom(msg.sender, address(this), amount);
-
-        emit Staked(msg.sender, stakes[msg.sender].length - 1, amount);
     }
 
     /**
