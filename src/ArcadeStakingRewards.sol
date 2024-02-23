@@ -708,7 +708,11 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
         uint256 reward = _processWithdrawal(userStake, amount, depositId);
 
         arcdWethLP.safeTransfer(msg.sender, amount);
-        _transferRewards(msg.sender, depositId, reward);
+
+        if (reward > 0) {
+            rewardsToken.safeTransfer(msg.sender, reward);
+            emit RewardPaid(msg.sender, reward, depositId);
+        }
     }
 
     /**
@@ -747,20 +751,6 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
         if (amount == 0) revert ASR_ZeroAmount();
         if (amount > userStake.amount) revert ASR_BalanceAmount();
         if (block.timestamp < userStake.unlockTimestamp) revert ASR_Locked();
-    }
-
-    /**
-     * @notice Internal function to transfer rewards to the user.
-     *
-     * @param user                              The account to transfer the rewards to.
-     * @param depositId                         The id of the user's stake.
-     * @param reward                            The amount of reward to transfer.
-     */
-    function _transferRewards(address user, uint256 depositId, uint256 reward) internal {
-        if (reward > 0) {
-            rewardsToken.safeTransfer(user, reward);
-            emit RewardPaid(user, reward, depositId);
-        }
     }
 
     /**
