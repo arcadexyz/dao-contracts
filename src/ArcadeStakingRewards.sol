@@ -652,7 +652,7 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
 
         (uint256 amountWithBonus, uint256 lockDuration)  = _calculateBonus(amount, lock);
 
-        uint256 votingPowerToAdd = convertLPToArcd(amountWithBonus);
+        uint256 votingPowerToAdd = convertLPToArcd(amount);
         // update the vote power to equal the amount staked with bonus
         _addVotingPower(msg.sender, votingPowerToAdd, firstDelegation);
 
@@ -723,7 +723,7 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
      */
     function _processWithdrawal(UserStake storage userStake, uint256 amount, uint256 depositId) internal returns (uint256 reward) {
         (uint256 amountWithBonus, ) = _calculateBonus(amount, userStake.lock);
-        uint256 votePowerToSubtract = convertLPToArcd(amountWithBonus);
+        uint256 votePowerToSubtract = convertLPToArcd(amount);
 
         _subtractVotingPower(votePowerToSubtract, msg.sender);
 

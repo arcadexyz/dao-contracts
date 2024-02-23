@@ -157,11 +157,8 @@ contract ArcadeStakingRewardsTest is Test {
         stakingRewards.deposit(userStake, userB, IArcadeStakingRewards.Lock.Medium);
         vm.stopPrank();
 
-        //confirm that delegatee user got voting power eq. to
-        // amount staked with bonus
         uint256 userVotingPower = stakingRewards.queryVotePowerView(userB, currentBlock);
-        uint256 votePowerWithBonus = (stakingRewards.getAmountWithBonus(userA, 0) * LP_TO_ARCD_RATE) / LP_TO_ARCD_DENOMINATOR;
-        assertEq(userVotingPower, votePowerWithBonus);
+        assertEq(userVotingPower, stakingRewards.convertLPToArcd(userStake));
 
         uint256 poolTotalDeposits = stakingRewards.totalSupply();
         assertEq(poolTotalDeposits, userStake);
@@ -214,11 +211,8 @@ contract ArcadeStakingRewardsTest is Test {
         stakingRewards.deposit(userStake, userB, IArcadeStakingRewards.Lock.Medium);
         vm.stopPrank();
 
-        //confirm that delegatee user got voting power eq. to
-        // amount staked with bonus
         uint256 userVotingPower = stakingRewards.queryVotePowerView(userB, currentBlock);
-        uint256 votePowerWithBonus = (stakingRewards.getAmountWithBonus(userA, 0) * LP_TO_ARCD_RATE) / LP_TO_ARCD_DENOMINATOR;
-        assertEq(userVotingPower, votePowerWithBonus);
+        assertEq(userVotingPower, stakingRewards.convertLPToArcd(userStake));
 
         uint256 poolTotalDepositsBeforeWithdraw = stakingRewards.totalSupply();
         uint256 balanceBeforeWithdraw = lpToken.balanceOf(userA);
@@ -230,8 +224,6 @@ contract ArcadeStakingRewardsTest is Test {
         stakingRewards.withdraw(userStake, 0);
         vm.stopPrank();
 
-        //confirm that delegatee user got voting power eq. to
-        // amount staked with bonus
         uint256 userVotingPowerAfter = stakingRewards.queryVotePowerView(userB, block.number);
         assertEq(userVotingPowerAfter, 0);
 
@@ -265,13 +257,9 @@ contract ArcadeStakingRewardsTest is Test {
         stakingRewards.deposit(userStake / 3, userB, IArcadeStakingRewards.Lock.Short);
         vm.stopPrank();
 
-        //confirm that delegatee user got voting power eq. to
-        // amount staked with bonus
         uint256 userVotingPower = stakingRewards.queryVotePowerView(userB, currentBlock);
-        uint256 votePowerWithBonusAll = (stakingRewards.getTotalUserDepositsWithBonus(userA) * LP_TO_ARCD_RATE) / LP_TO_ARCD_DENOMINATOR;
-
         uint256 tolerance = 1e2;
-        assertApproxEqAbs(userVotingPower, votePowerWithBonusAll, tolerance);
+        assertApproxEqAbs(userVotingPower, stakingRewards.convertLPToArcd(userStake), tolerance);
 
         uint256 poolTotalDepositsBeforeWithdraw = stakingRewards.totalSupply();
         uint256 balanceBeforeWithdraw = lpToken.balanceOf(userA);
@@ -312,11 +300,8 @@ contract ArcadeStakingRewardsTest is Test {
         stakingRewards.deposit(userStake, userB, IArcadeStakingRewards.Lock.Medium);
         vm.stopPrank();
 
-        //confirm that delegatee user got voting power eq. to
-        // amount staked with bonus
         uint256 userVotingPower = stakingRewards.queryVotePowerView(userB, currentBlock);
-        uint256 votePowerWithBonus = (stakingRewards.getAmountWithBonus(userA, 0) * LP_TO_ARCD_RATE) / LP_TO_ARCD_DENOMINATOR;
-        assertEq(userVotingPower, votePowerWithBonus);
+        assertEq(userVotingPower, stakingRewards.convertLPToArcd(userStake));
 
         uint256 poolTotalDepositsBeforeWithdraw = stakingRewards.totalSupply();
         uint256 balanceBeforeWithdraw = lpToken.balanceOf(userA);
@@ -423,11 +408,8 @@ contract ArcadeStakingRewardsTest is Test {
         stakingRewards.deposit(userStake, userB, IArcadeStakingRewards.Lock.Medium);
         vm.stopPrank();
 
-        //confirm that delegatee user got voting power eq. to
-        // amount staked with bonus
         uint256 userVotingPower = stakingRewards.queryVotePowerView(userB, currentBlock);
-        uint256 votePowerWithBonus = (stakingRewards.getAmountWithBonus(userA, 0) * LP_TO_ARCD_RATE) / LP_TO_ARCD_DENOMINATOR;
-        assertEq(userVotingPower, votePowerWithBonus);
+        assertEq(userVotingPower, stakingRewards.convertLPToArcd(userStake));
 
         uint256 poolTotalDepositsBeforeWithdraw = stakingRewards.totalSupply();
 
@@ -440,7 +422,7 @@ contract ArcadeStakingRewardsTest is Test {
 
         uint256 userVotingPowerAfter = stakingRewards.queryVotePowerView(userB, block.timestamp);
         uint256 tolerance = 1e1;
-        assertApproxEqAbs(userVotingPowerAfter, votePowerWithBonus / 2, tolerance);
+        assertApproxEqAbs(userVotingPowerAfter, stakingRewards.convertLPToArcd(userStake) / 2, tolerance);
 
         uint256 balanceAfterWithdraw = lpToken.balanceOf(userA);
         uint256 poolTotalDepositsAfterWithdraw = stakingRewards.totalSupply();
@@ -888,9 +870,8 @@ contract ArcadeStakingRewardsTest is Test {
         stakingRewards.deposit(userStakeAmount, userB, IArcadeStakingRewards.Lock.Medium);
         vm.stopPrank();
 
-        uint256 votePowerWithBonus = (stakingRewards.getAmountWithBonus(userA, 0) * LP_TO_ARCD_RATE) / LP_TO_ARCD_DENOMINATOR;
         uint256 userVotingPower = stakingRewards.queryVotePowerView(userB, currentBlock);
-        assertEq(votePowerWithBonus, userVotingPower);
+        assertEq(userVotingPower, stakingRewards.convertLPToArcd(userStakeAmount));
     }
 
     function testGetTotalUserDepositsWithBonus() public {
@@ -1338,12 +1319,10 @@ contract ArcadeStakingRewardsTest is Test {
         uint256 rewards = stakingRewards.getPendingRewards(userA, lastStakeId - 1);
         uint256 rewards1 = stakingRewards.getPendingRewards(userA, lastStakeId);
         assertEq(
-            (
-                ((stakingRewards.getAmountWithBonus(userA, lastStakeId - 1) * LP_TO_ARCD_RATE) / LP_TO_ARCD_DENOMINATOR)
-                +
-                ((stakingRewards.getAmountWithBonus(userA, lastStakeId) * LP_TO_ARCD_RATE) / LP_TO_ARCD_DENOMINATOR)
-            )
-            , userVotingPower
+            stakingRewards.convertLPToArcd(userStakeAmount)
+            +
+            stakingRewards.convertLPToArcd(userStakeAmount2),
+            userVotingPower
         );
 
         // increase blocckhain to end long lock period
@@ -1508,11 +1487,8 @@ contract ArcadeStakingRewardsTest is Test {
         stakingRewards.deposit(userStake, userB, IArcadeStakingRewards.Lock.Medium);
         vm.stopPrank();
 
-        //confirm that delegatee user got voting power eq. to
-        // amount staked with bonus
         uint256 userVotingPower = stakingRewards.queryVotePowerView(userB, currentBlock);
-        uint256 votePowerWithBonus = (stakingRewards.getAmountWithBonus(userA, 0) * LP_TO_ARCD_RATE) / LP_TO_ARCD_DENOMINATOR;
-        assertEq(userVotingPower, votePowerWithBonus);
+        assertEq(userVotingPower, stakingRewards.convertLPToArcd(userStake));
 
         bytes4 selector = bytes4(keccak256("ASR_ZeroAddress(string)"));
         vm.expectRevert(abi.encodeWithSelector(selector, "delegation"));
@@ -1527,7 +1503,7 @@ contract ArcadeStakingRewardsTest is Test {
         //confirm that delegatee user got the voting power
         uint256 userVotingPowerC = stakingRewards.queryVotePowerView(userC, block.timestamp);
         assertEq(userVotingPowerB, 0);
-        assertEq(userVotingPowerC, votePowerWithBonus);
+        assertEq(userVotingPowerC, stakingRewards.convertLPToArcd(userStake));
 
         uint256 poolTotalDeposits = stakingRewards.totalSupply();
         assertEq(poolTotalDeposits, userStake);
