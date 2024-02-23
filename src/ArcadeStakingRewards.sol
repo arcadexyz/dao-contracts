@@ -454,6 +454,9 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
         address firstDelegation,
         Lock lock
     ) external nonReentrant whenNotPaused {
+        // No delegating to zero
+        if (firstDelegation == address(0)) revert ASR_ZeroAddress("delegation");
+
         _stake(amount, lock, firstDelegation);
     }
 

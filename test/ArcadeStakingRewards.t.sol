@@ -1509,6 +1509,32 @@ contract ArcadeStakingRewardsTest is Test {
         assertEq(poolTotalDeposits, userStake);
     }
 
+    function testZeroAddressFirstDelegate() public {
+        setUp();
+
+        lpToken.mint(userA, 20e18);
+        uint256 userStake = lpToken.balanceOf(userA) / 2;
+
+        // mint rewardsTokens to stakingRewards contract
+        rewardsToken.mint(address(stakingRewards), 100e18);
+        // Admin calls notifyRewardAmount to set the reward rate
+        vm.prank(admin);
+        stakingRewards.notifyRewardAmount(100e18);
+
+        // increase blockchain time by 2 days
+        vm.warp(block.timestamp + 2 days);
+
+        bytes4 selector = bytes4(keccak256("ASR_ZeroAddress(string)"));
+
+        // user approves stakingRewards contract to spend staking tokens
+        vm.prank(userA);
+        lpToken.approve(address(stakingRewards), userStake);
+
+        vm.expectRevert(abi.encodeWithSelector(selector, "delegation"));
+        // user stakes delegating to zero address
+        stakingRewards.deposit(userStake, zeroAddress, IArcadeStakingRewards.Lock.Medium);
+    }
+
     function testPauseUnpause() public {
         setUp();
 
