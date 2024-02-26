@@ -514,13 +514,6 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
         _validateStake(amount, userStake);
 
         _withdrawFromStake(amount, depositId, userStake);
-
-        // reset userStake struct
-        if (userStake.amount == 0 && userStake.rewards == 0) {
-            userStake.lock = Lock.Short;
-            userStake.unlockTimestamp = 0;
-            userStake.rewardPerTokenPaid = 0;
-        }
     }
 
     /**
@@ -544,13 +537,6 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
 
             if (reward > 0) {
                 emit RewardPaid(msg.sender, reward, i);
-            }
-
-            // reset userStake struct
-            if (userStake.amount == 0 && userStake.rewards == 0) {
-                userStakes[i].lock = Lock.Short;
-                userStakes[i].unlockTimestamp = 0;
-                userStakes[i].rewardPerTokenPaid = 0;
             }
         }
 
