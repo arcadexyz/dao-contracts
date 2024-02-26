@@ -110,9 +110,9 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
     uint256 public constant MAX_DEPOSITS = 20;
     uint256 public constant LP_TO_ARCD_DENOMINATOR = 1e3;
 
-    uint256 public constant SHORT_BONUS = 1.1e18;
-    uint256 public constant MEDIUM_BONUS = 1.3e18;
-    uint256 public constant LONG_BONUS = 1.5e18;
+    uint256 public constant SHORT_BONUS = 11e17;
+    uint256 public constant MEDIUM_BONUS = 13e17;
+    uint256 public constant LONG_BONUS = 15e17;
 
     uint32 public constant SHORT_LOCK_TIME = ONE_DAY * 30; // one month
     uint32 public constant MEDIUM_LOCK_TIME = ONE_DAY * 60; // two months
@@ -785,7 +785,7 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
      *
      * @return bonusAmount                      The bonus value of of the.
      */
-    function _calculateBonus(uint256 amount, Lock lock) internal view returns (uint256 bonusAmount, uint256 lockDuration) {
+    function _calculateBonus(uint256 amount, Lock lock) internal pure returns (uint256 bonusAmount, uint256 lockDuration) {
         uint256 bonus;
 
         if (lock == Lock.Short) {
