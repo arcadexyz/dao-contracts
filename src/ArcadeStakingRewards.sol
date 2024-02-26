@@ -675,7 +675,7 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
     /**
      * @notice Triggers reward emissions when the first user stakes and if there is a reward amount.
      *         adjusts the rewardRate rate at which rewards will be distributed to users to over the
-     *         emaining duration of the reward period.
+     *         remaining duration of the reward period.
      *
      * @param reward                            The amount of reward tokens to distribute.
      */
