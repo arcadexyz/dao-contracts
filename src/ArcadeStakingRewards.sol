@@ -504,12 +504,13 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
      * @param depositId                        The specified deposit to get the reward for.
      * @param amount                           The amount to be withdrawn from the user stake.
      */
-    function withdraw(uint256 amount, uint256 depositId) external whenNotPaused nonReentrant {
+    function withdraw(uint256 amount, uint256 depositId) external whenNotPaused nonReentrant updateReward {
         UserStake storage userStake = stakes[msg.sender][depositId];
 
-        _validateStake(amount, userStake);
+        uint256 reward = _processWithdrawal(userStake, amount, depositId);
 
-        _withdrawFromStake(amount, depositId, userStake);
+        arcdWethLP.safeTransfer(msg.sender, amount);
+        _transferRewards(msg.sender, depositId, reward);
     }
 
     /**
@@ -553,13 +554,21 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
      *
      * @param depositId                        The specified deposit to exit.
      */
-    function exit(uint256 depositId) external {
+    function exit(uint256 depositId) external nonReentrant updateReward {
         UserStake storage userStake = stakes[msg.sender][depositId];
         uint256 amount = userStake.amount;
 
-        _validateStake(amount, userStake);
+        uint256 reward = _processWithdrawal(userStake, amount, depositId);
 
-        _withdrawFromStake(amount, depositId, userStake);
+        arcdWethLP.safeTransfer(msg.sender, amount);
+        _transferRewards(msg.sender, depositId, reward);
+
+        // reset userStake struct
+        if (userStake.amount == 0 && userStake.rewards == 0) {
+            userStake.lock = Lock.Short;
+            userStake.unlockTimestamp = 0;
+            userStake.rewardPerTokenPaid = 0;
+        }
     }
 
     /**
@@ -581,8 +590,11 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
             totalWithdrawAmount += amount;
             totalRewardAmount += reward;
 
-            if (reward > 0) {
-                emit RewardPaid(msg.sender, reward, i);
+            // reset userStake struct
+            if (userStake.amount == 0 && userStake.rewards == 0) {
+                userStakes[i].lock = Lock.Short;
+                userStakes[i].unlockTimestamp = 0;
+                userStakes[i].rewardPerTokenPaid = 0;
             }
         }
 
@@ -722,26 +734,6 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
     }
 
     /**
-     * @notice Allows users to do partial token withdraws for specific deposits.
-     *         The total supply of staked tokens and individual user balances
-     *         are updated accordingly.
-     *
-     * @param amount                           The amount of tokens the user withdraws.
-     * @param depositId                        The specified deposit to withdraw.
-     * @param userStake                        The user's stake object.
-     */
-    function _withdrawFromStake(uint256 amount, uint256 depositId, UserStake storage userStake) internal updateReward {
-        uint256 reward = _processWithdrawal(userStake, amount, depositId);
-
-        arcdWethLP.safeTransfer(msg.sender, amount);
-
-        if (reward > 0) {
-            rewardsToken.safeTransfer(msg.sender, reward);
-            emit RewardPaid(msg.sender, reward, depositId);
-        }
-    }
-
-    /**
      * @notice Processes the withdrawal logic for a user's stake and updates
      *         the global state accordingly.
      *
@@ -752,6 +744,10 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
      * @return reward                           The stake reward amount.
      */
     function _processWithdrawal(UserStake storage userStake, uint256 amount, uint256 depositId) internal returns (uint256 reward) {
+        if (amount == 0) revert ASR_ZeroAmount();
+        if (amount > userStake.amount) revert ASR_BalanceAmount();
+        if (block.timestamp < userStake.unlockTimestamp) revert ASR_Locked();
+
         (uint256 amountWithBonus, ) = _calculateBonus(amount, userStake.lock);
         uint256 votePowerToSubtract = convertLPToArcd(amount);
 
@@ -768,15 +764,17 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
     }
 
     /**
-     * @notice Validates the deposit Id and amount and checks if the stake is locked.
+     * @notice Internal function to transfer rewards to the user.
      *
-     * @param amount                            The stake amount.
-     * @param userStake                         The user's stake object.
+     * @param user                              The account to transfer the rewards to.
+     * @param depositId                         The id of the user's stake.
+     * @param reward                            The amount of reward to transfer.
      */
-    function _validateStake(uint256 amount, UserStake storage userStake) internal view {
-        if (amount == 0) revert ASR_ZeroAmount();
-        if (amount > userStake.amount) revert ASR_BalanceAmount();
-        if (block.timestamp < userStake.unlockTimestamp) revert ASR_Locked();
+    function _transferRewards(address user, uint256 depositId, uint256 reward) internal {
+        if (reward > 0) {
+            rewardsToken.safeTransfer(user, reward);
+            emit RewardPaid(user, reward, depositId);
+        }
     }
 
     /**
