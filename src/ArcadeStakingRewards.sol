@@ -590,6 +590,10 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
             totalWithdrawAmount += amount;
             totalRewardAmount += reward;
 
+            if (reward > 0) {
+                emit RewardPaid(msg.sender, reward, i);
+            }
+
             // reset userStake struct
             if (userStake.amount == 0 && userStake.rewards == 0) {
                 userStakes[i].lock = Lock.Short;
