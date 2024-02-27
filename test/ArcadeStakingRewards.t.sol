@@ -1754,8 +1754,8 @@ contract ArcadeStakingRewardsTest is Test {
         vm.prank(admin);
         stakingRewards.notifyRewardAmount(100e18);
 
-        // increase blockchain time by 2 days
-        vm.warp(block.timestamp + 2 days);
+        // // increase blockchain time by 2 days
+        // vm.warp(block.timestamp + 2 days);
 
         // user approves stakingRewards contract to spend staking tokens
         vm.startPrank(userA);
