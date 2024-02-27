@@ -1743,9 +1743,8 @@ contract ArcadeStakingRewardsTest is Test {
 
     function testMinimalStakeAmount() public {
         setUp();
-
+        // userStake is 1 WEI equivalent
         lpToken.mint(userA, 1);
-
         uint256 userStake = lpToken.balanceOf(userA);
 
         // mint rewardsTokens to stakingRewards contract
