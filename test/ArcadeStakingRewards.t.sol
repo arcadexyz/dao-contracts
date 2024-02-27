@@ -1740,5 +1740,55 @@ contract ArcadeStakingRewardsTest is Test {
         uint256 userVotingPower = stakingRewards.queryVotePowerView(userB, currentBlock);
         assertEq(userVotingPower, stakingRewards.convertLPToArcd(userStake));
     }
+
+    function testMinimalStakeAmount() public {
+        setUp();
+
+        lpToken.mint(userA, 1);
+
+        uint256 userStake = lpToken.balanceOf(userA);
+
+        // mint rewardsTokens to stakingRewards contract
+        rewardsToken.mint(address(stakingRewards), 100e18);
+
+        // Admin calls notifyRewardAmount to set the reward rate
+        vm.prank(admin);
+        stakingRewards.notifyRewardAmount(100e18);
+
+        // increase blockchain time by 2 days
+        vm.warp(block.timestamp + 2 days);
+
+        // user approves stakingRewards contract to spend staking tokens
+        vm.startPrank(userA);
+        lpToken.approve(address(stakingRewards), userStake);
+
+        // user stakes staking tokens
+        stakingRewards.deposit(userStake, userB, IArcadeStakingRewards.Lock.Medium);
+        vm.stopPrank();
+
+        uint256 userVotingPower = stakingRewards.queryVotePowerView(userB, currentBlock);
+        assertEq(userVotingPower, stakingRewards.convertLPToArcd(userStake));
+
+        uint256 poolTotalDeposits = stakingRewards.totalSupply();
+        assertEq(poolTotalDeposits, userStake);
+
+        uint256 balanceBeforeWithdraw = lpToken.balanceOf(userA);
+        // increase blockchain time by the medium lock duration
+        vm.warp(block.timestamp + TWO_MONTHS);
+
+        vm.startPrank(userA);
+        stakingRewards.withdraw(userStake, 0);
+        vm.stopPrank();
+
+        uint256 userVotingPowerAfter = stakingRewards.queryVotePowerView(userB, block.number);
+        assertEq(userVotingPowerAfter, 0);
+
+        uint256 balanceAfterWithdraw = lpToken.balanceOf(userA);
+        uint256 poolTotalDepositsAfterWithdraw = stakingRewards.totalSupply();
+
+        assertEq(balanceAfterWithdraw, balanceBeforeWithdraw + userStake);
+        assertEq(poolTotalDeposits, userStake);
+        assertEq(poolTotalDepositsAfterWithdraw, 0);
+    }
 }
 
