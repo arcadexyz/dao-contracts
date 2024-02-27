@@ -504,27 +504,6 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
     }
 
     /**
-     * @notice Withdraws staked tokens that are unlocked.  Allows for partial withdrawals.
-     *
-     * @param depositId                        The specified deposit to get the reward for.
-     * @param amount                           The amount to be withdrawn from the user stake.
-     */
-    function withdraw(uint256 amount, uint256 depositId) external whenNotPaused nonReentrant updateReward {
-        UserStake storage userStake = stakes[msg.sender][depositId];
-
-        uint256 reward = _processWithdrawal(userStake, amount, depositId);
-
-        arcdWethLP.safeTransfer(msg.sender, amount);
-
-        if (reward > 0) {
-            userStake.rewards = 0;
-            rewardsToken.safeTransfer(msg.sender, reward);
-
-            emit RewardPaid(msg.sender, reward, depositId);
-        }
-    }
-
-    /**
      * @notice Enables the claim of accumulated rewards.
      *
      * @param depositId                        The specified deposit to get the reward for.
@@ -571,15 +550,13 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
     }
 
     /**
-     * @notice Allows users to withdraw staked tokens and claim their rewards
-     *         for a specific deposit id, all in one transaction.
-     *         Lock period needs to have ended.
+     * @notice Withdraws staked tokens that are unlocked.  Allows for partial withdrawals.
      *
-     * @param depositId                        The specified deposit to exit.
+     * @param depositId                        The specified deposit to get the reward for.
+     * @param amount                           The amount to be withdrawn from the user stake.
      */
-    function exit(uint256 depositId) external nonReentrant updateReward {
+    function withdraw(uint256 amount, uint256 depositId) public whenNotPaused nonReentrant updateReward {
         UserStake storage userStake = stakes[msg.sender][depositId];
-        uint256 amount = userStake.amount;
 
         uint256 reward = _processWithdrawal(userStake, amount, depositId);
 
@@ -594,6 +571,19 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
     }
 
     /**
+     * @notice Allows users to withdraw staked tokens and claim their rewards
+     *         for a specific deposit id, all in one transaction.
+     *         Lock period needs to have ended.
+     *
+     * @param depositId                        The specified deposit to exit.
+     */
+    function exit(uint256 depositId) external {
+        UserStake storage userStake = stakes[msg.sender][depositId];
+
+        withdraw(userStake.amount, depositId);
+    }
+
+    /**
      * @notice Allows users to withdraw all their staked tokens and claim their reward
      *         tokens all in one transaction. Lock period needs to have ended.
      */
@@ -602,6 +592,7 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
         uint256 totalWithdrawAmount = 0;
         uint256 totalRewardAmount = 0;
         uint256 totalVotingPower = 0;
+        uint256 amountWithBonusToSubtract = 0;
 
         for (uint256 i = 0; i < userStakes.length; ++i) {
             UserStake storage userStake = userStakes[i];
@@ -616,9 +607,7 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
 
             userStake.amount -= amount;
 
-            totalDeposits -= amount;
-            totalDepositsWithBonus -= amountWithBonus;
-
+            amountWithBonusToSubtract += amountWithBonus;
             totalVotingPower += votePowerToSubtract;
             totalWithdrawAmount += amount;
             totalRewardAmount += reward;
@@ -632,7 +621,12 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
             _subtractVotingPower(totalVotingPower, msg.sender);
         }
 
+        if (amountWithBonusToSubtract > 0) {
+            totalDepositsWithBonus -= amountWithBonusToSubtract;
+        }
+
         if (totalWithdrawAmount > 0) {
+            totalDeposits -= totalWithdrawAmount;
             arcdWethLP.safeTransfer(msg.sender, totalWithdrawAmount);
         }
 
