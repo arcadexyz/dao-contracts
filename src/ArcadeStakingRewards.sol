@@ -558,6 +558,9 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
     function withdraw(uint256 amount, uint256 depositId) public whenNotPaused nonReentrant updateReward {
         UserStake storage userStake = stakes[msg.sender][depositId];
 
+        if (userStake.amount == 0) revert ASR_BalanceAmount();
+        if (amount > userStake.amount) amount = userStake.amount;
+
         uint256 reward = _processWithdrawal(userStake, amount, depositId);
 
         arcdWethLP.safeTransfer(msg.sender, amount);
@@ -578,9 +581,7 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
      * @param depositId                        The specified deposit to exit.
      */
     function exit(uint256 depositId) external {
-        UserStake storage userStake = stakes[msg.sender][depositId];
-
-        withdraw(userStake.amount, depositId);
+        withdraw(type(uint256).max, depositId);
     }
 
     /**
@@ -791,7 +792,6 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
      */
     function _processWithdrawal(UserStake storage userStake, uint256 amount, uint256 depositId) internal returns (uint256 reward) {
         if (amount == 0) revert ASR_ZeroAmount();
-        if (amount > userStake.amount) revert ASR_BalanceAmount();
         if (block.timestamp < userStake.unlockTimestamp) revert ASR_Locked();
 
         (uint256 amountWithBonus, ) = _calculateBonus(amount, userStake.lock);
@@ -802,7 +802,7 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
         reward = getPendingRewards(msg.sender, depositId);
         userStake.rewardPerTokenPaid = rewardPerTokenStored;
 
-        userStake.amount -= amount;
+        if (amount <= userStake.amount) userStake.amount -= amount;
 
         totalDeposits -= amount;
         totalDepositsWithBonus -= amountWithBonus;

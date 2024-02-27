@@ -375,15 +375,19 @@ contract ArcadeStakingRewardsTest is Test {
         stakingRewards.deposit(userStake, userB, IArcadeStakingRewards.Lock.Short);
         vm.stopPrank();
 
+        // user balance is 0
+        assertEq(lpToken.balanceOf(userA), 0);
+
         // increase blockchain time by 2 days
-        vm.warp(block.timestamp + 2 days);
+        vm.warp(block.timestamp + ONE_MONTH);
 
-        bytes4 selector = bytes4(keccak256("ASR_BalanceAmount()"));
-
-        vm.expectRevert(abi.encodeWithSelector(selector));
+        // user tries to withdraw more than their stake
         vm.startPrank(userA);
         stakingRewards.withdraw(30e18, 0);
         vm.stopPrank();
+
+        // but only their stake amount is withdrawn
+        assertEq(lpToken.balanceOf(userA), userStake);
     }
 
     // Partial withdraw after lock period.
@@ -653,9 +657,9 @@ contract ArcadeStakingRewardsTest is Test {
         stakingRewards.withdraw(userStakeAmount, 0);
 
         bytes4 selector = bytes4(keccak256("ASR_BalanceAmount()"));
-        vm.expectRevert(abi.encodeWithSelector(selector));
 
         vm.startPrank(userA);
+        vm.expectRevert(abi.encodeWithSelector(selector));
         stakingRewards.withdraw(userStakeAmount, 0);
     }
 
