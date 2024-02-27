@@ -513,14 +513,8 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
         if (userStake.amount == 0) return;
 
         uint256 reward = getPendingRewards(msg.sender, depositId);
-        userStake.rewardPerTokenPaid = rewardPerTokenStored;
 
-        if (reward > 0) {
-            userStake.rewards = 0;
-            rewardsToken.safeTransfer(msg.sender, reward);
-
-            emit RewardPaid(msg.sender, reward, depositId);
-        }
+        _processReward(userStake, reward);
     }
 
     /**
@@ -563,14 +557,9 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
 
         uint256 reward = _processWithdrawal(userStake, amount, depositId);
 
+        _processReward(userStake, reward);
+
         arcdWethLP.safeTransfer(msg.sender, amount);
-
-        if (reward > 0) {
-            userStake.rewards = 0;
-            rewardsToken.safeTransfer(msg.sender, reward);
-
-            emit RewardPaid(msg.sender, reward, depositId);
-        }
     }
 
     /**
@@ -800,7 +789,6 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
         _subtractVotingPower(votePowerToSubtract, msg.sender);
 
         reward = getPendingRewards(msg.sender, depositId);
-        userStake.rewardPerTokenPaid = rewardPerTokenStored;
 
         if (amount <= userStake.amount) userStake.amount -= amount;
 
@@ -808,6 +796,24 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
         totalDepositsWithBonus -= amountWithBonus;
 
         emit Withdrawn(msg.sender, amount);
+    }
+
+    /**
+     * @notice Handles the updating of the reward state of a specific stake and transfers
+     *         the reward amount to the staker.
+     *
+     * @param userStake                         The user's stake object.
+     * @param reward                            The reward amount.
+     */
+    function _processReward(UserStake storage userStake, uint256 reward) internal {
+        userStake.rewardPerTokenPaid = rewardPerTokenStored;
+
+        if (reward > 0) {
+            userStake.rewards = 0;
+            rewardsToken.safeTransfer(msg.sender, reward);
+
+            emit RewardPaid(msg.sender, reward, stakes[msg.sender].length - 1);
+        }
     }
 
     /**
