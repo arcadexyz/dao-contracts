@@ -526,6 +526,7 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
 
         for (uint256 i = 0; i < userStakes.length; ++i) {
             UserStake storage userStake = userStakes[i];
+
             uint256 reward = _getPendingRewards(userStake);
             userStake.rewardPerTokenPaid = rewardPerTokenStored;
 
