@@ -461,13 +461,14 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
         Lock lock
     ) external nonReentrant whenNotPaused updateReward {
         if (amount == 0) revert ASR_ZeroAmount();
+        if (firstDelegation == address(0)) revert ASR_ZeroAddress("delegation");
 
         uint256 userStakeCount = stakes[msg.sender].length;
         if (userStakeCount >= MAX_DEPOSITS) revert ASR_DepositCountExceeded();
 
         (uint256 amountWithBonus, uint256 lockDuration)  = _calculateBonus(amount, lock);
 
-        uint256 votingPowerToAdd = convertLPToArcd(amountWithBonus);
+        uint256 votingPowerToAdd = convertLPToArcd(amount);
         // update the vote power to equal the amount staked with bonus
         _addVotingPower(msg.sender, votingPowerToAdd, firstDelegation);
 
