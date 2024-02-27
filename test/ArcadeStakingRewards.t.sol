@@ -1704,5 +1704,39 @@ contract ArcadeStakingRewardsTest is Test {
         // Rewards for the second staking period is half of the first staking period
         assertEq(earnedA2, earnedA + earnedB);
     }
+
+    function testMultipleDelegateesRevert() public {
+       setUp();
+
+        lpToken.mint(userA, 20e18);
+        uint256 userStake = lpToken.balanceOf(userA) / 2;
+
+        // mint rewardsTokens to stakingRewards contract
+        rewardsToken.mint(address(stakingRewards), 100e18);
+        // Admin calls notifyRewardAmount to set the reward rate
+        vm.prank(admin);
+        stakingRewards.notifyRewardAmount(100e18);
+
+        // increase blockchain time by 2 days
+        vm.warp(block.timestamp + 2 days);
+
+        bytes4 selector = bytes4(keccak256("ASR_InvalidDelegationAddress()"));
+
+        // user approves stakingRewards contract to spend staking tokens
+        vm.startPrank(userA);
+        lpToken.approve(address(stakingRewards), userStake * 2);
+        // user stakes staking tokens
+        stakingRewards.deposit(userStake, userB, IArcadeStakingRewards.Lock.Medium);
+
+        // user stakes delegating to a different delegatee
+        vm.expectRevert(abi.encodeWithSelector(selector));
+        stakingRewards.deposit(userStake, userC, IArcadeStakingRewards.Lock.Medium);
+        vm.stopPrank();
+
+
+        uint256 userVotingPower = stakingRewards.queryVotePowerView(userB, currentBlock);
+        uint256 votePowerWithBonus = (stakingRewards.getAmountWithBonus(userA, 0) * LP_TO_ARCD_RATE) / LP_TO_ARCD_DENOMINATOR;
+        assertEq(userVotingPower, votePowerWithBonus);
+    }
 }
 

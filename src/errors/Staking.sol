@@ -76,3 +76,8 @@ error ASR_DepositCountExceeded();
  *
  */
 error ASR_UpperLimitBlock(uint256);
+
+/**
+ * @notice The provided delegate address does not match their initial delegate.
+ */
+ error ASR_InvalidDelegationAddress();

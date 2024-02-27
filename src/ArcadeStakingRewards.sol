@@ -25,7 +25,8 @@ import {
     ASR_RewardsToken,
     ASR_DepositCountExceeded,
     ASR_ZeroConversionRate,
-    ASR_UpperLimitBlock
+    ASR_UpperLimitBlock,
+    ASR_InvalidDelegationAddress
 } from "../src/errors/Staking.sol";
 
 /**
@@ -89,6 +90,10 @@ import {
  * The contract also uses BoundedHistory.sol which is a modified version of Council's
  * History.sol, to enforce a max upper bound on the number of entries in a voting
  * power history array preventing history poisoning attacks.
+ *
+ * Once a user makes their initial stake, the voting power for any future stakes will
+ * need to be delegated to the same address as the initial stake. To assign a
+ * different delegate, users are required to use the changeDelegate() function.
  *
  * A user's voting power is determined by the quantity of ARCD/WETH pair tokens
  * they have staked. To calculate this voting power, an ARCD/WETH to ARCD
@@ -510,7 +515,13 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
         uint256 reward = _processWithdrawal(userStake, amount, depositId);
 
         arcdWethLP.safeTransfer(msg.sender, amount);
-        _transferRewards(msg.sender, depositId, reward);
+
+        if (reward > 0) {
+            userStake.rewards = 0;
+            rewardsToken.safeTransfer(msg.sender, reward);
+
+            emit RewardPaid(msg.sender, reward, depositId);
+        }
     }
 
     /**
@@ -519,9 +530,14 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
      * @param depositId                        The specified deposit to get the reward for.
      */
     function claimReward(uint256 depositId) public nonReentrant updateReward {
-        uint256 reward = _claimReward(depositId);
+        UserStake storage userStake = stakes[msg.sender][depositId];
+        if (userStake.amount == 0) return;
+
+        uint256 reward = getPendingRewards(msg.sender, depositId);
+        userStake.rewardPerTokenPaid = rewardPerTokenStored;
 
         if (reward > 0) {
+            userStake.rewards = 0;
             rewardsToken.safeTransfer(msg.sender, reward);
 
             emit RewardPaid(msg.sender, reward, depositId);
@@ -536,10 +552,17 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
         uint256 totalReward = 0;
 
         for (uint256 i = 0; i < userStakes.length; ++i) {
-            uint256 reward = _claimReward(i);
+            uint256 reward = getPendingRewards(msg.sender, i);
+            stakes[msg.sender][i].rewardPerTokenPaid = rewardPerTokenStored;
+
             totalReward += reward;
 
-            emit RewardPaid(msg.sender, reward, i);
+            if (reward > 0) {
+                stakes[msg.sender][i].rewards = 0;
+
+                emit RewardPaid(msg.sender, reward, i);
+            }
+
         }
 
         if (totalReward > 0) {
@@ -561,13 +584,12 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
         uint256 reward = _processWithdrawal(userStake, amount, depositId);
 
         arcdWethLP.safeTransfer(msg.sender, amount);
-        _transferRewards(msg.sender, depositId, reward);
 
-        // reset userStake struct
-        if (userStake.amount == 0 && userStake.rewards == 0) {
-            userStake.lock = Lock.Short;
-            userStake.unlockTimestamp = 0;
-            userStake.rewardPerTokenPaid = 0;
+        if (reward > 0) {
+            userStake.rewards = 0;
+            rewardsToken.safeTransfer(msg.sender, reward);
+
+            emit RewardPaid(msg.sender, reward, depositId);
         }
     }
 
@@ -579,27 +601,35 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
         UserStake[] storage userStakes = stakes[msg.sender];
         uint256 totalWithdrawAmount = 0;
         uint256 totalRewardAmount = 0;
+        uint256 totalVotingPower = 0;
 
         for (uint256 i = 0; i < userStakes.length; ++i) {
             UserStake storage userStake = userStakes[i];
             uint256 amount = userStake.amount;
             if (amount == 0 || block.timestamp < userStake.unlockTimestamp) continue;
 
-            uint256 reward = _processWithdrawal(userStake, amount, i);
+            (uint256 amountWithBonus, ) = _calculateBonus(amount, userStake.lock);
+            uint256 votePowerToSubtract = convertLPToArcd(amountWithBonus);
 
+            uint256 reward = getPendingRewards(msg.sender, i);
+            userStake.rewardPerTokenPaid = rewardPerTokenStored;
+
+            userStake.amount -= amount;
+
+            totalDeposits -= amount;
+            totalDepositsWithBonus -= amountWithBonus;
+
+            totalVotingPower += votePowerToSubtract;
             totalWithdrawAmount += amount;
             totalRewardAmount += reward;
 
             if (reward > 0) {
                 emit RewardPaid(msg.sender, reward, i);
             }
+        }
 
-            // reset userStake struct
-            if (userStake.amount == 0 && userStake.rewards == 0) {
-                userStakes[i].lock = Lock.Short;
-                userStakes[i].unlockTimestamp = 0;
-                userStakes[i].rewardPerTokenPaid = 0;
-            }
+        if (totalVotingPower > 0) {
+            _subtractVotingPower(totalVotingPower, msg.sender);
         }
 
         if (totalWithdrawAmount > 0) {
@@ -721,20 +751,38 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
     /**
      * @notice Claim accumulated rewards.
      *
-     * @param depositId                        The specified deposit to get the reward for.
-     *
-     * @return reward                          The reward amount claimed.
+     * @param amount                            The amount of tokens the user stakes.
+     * @param lock                              The amount of time to lock the stake for.
+     * @param firstDelegation                   The address to delegate voting power to.
      */
-    function _claimReward(uint256 depositId) internal returns (uint256 reward) {
-        UserStake storage userStake = stakes[msg.sender][depositId];
-        if (userStake.amount == 0) return 0;
+    function _stake(uint256 amount, Lock lock, address firstDelegation) internal updateReward {
+        if (amount == 0) revert ASR_ZeroAmount();
 
-        reward = getPendingRewards(msg.sender, depositId);
-        userStake.rewardPerTokenPaid = rewardPerTokenStored;
+        if ((stakes[msg.sender].length + 1) > MAX_DEPOSITS) revert ASR_DepositCountExceeded();
 
-        if (reward > 0) {
-            userStake.rewards = 0;
-        }
+        (uint256 amountWithBonus, uint256 lockDuration)  = _calculateBonus(amount, lock);
+
+        uint256 votingPowerToAdd = convertLPToArcd(amountWithBonus);
+        // update the vote power to equal the amount staked with bonus
+        _addVotingPower(msg.sender, votingPowerToAdd, firstDelegation);
+
+        // populate user stake information
+        stakes[msg.sender].push(
+            UserStake({
+                amount: amount,
+                unlockTimestamp: uint32(block.timestamp + lockDuration),
+                rewardPerTokenPaid: rewardPerTokenStored,
+                rewards: 0,
+                lock: lock
+            })
+        );
+
+        totalDeposits += amount;
+        totalDepositsWithBonus += amountWithBonus;
+
+        arcdWethLP.safeTransferFrom(msg.sender, address(this), amount);
+
+        emit Staked(msg.sender, stakes[msg.sender].length - 1, amount);
     }
 
     /**
@@ -757,7 +805,8 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
 
         _subtractVotingPower(votePowerToSubtract, msg.sender);
 
-        reward = _claimReward(depositId);
+        reward = getPendingRewards(msg.sender, depositId);
+        userStake.rewardPerTokenPaid = rewardPerTokenStored;
 
         userStake.amount -= amount;
 
@@ -765,20 +814,6 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
         totalDepositsWithBonus -= amountWithBonus;
 
         emit Withdrawn(msg.sender, amount);
-    }
-
-    /**
-     * @notice Internal function to transfer rewards to the user.
-     *
-     * @param user                              The account to transfer the rewards to.
-     * @param depositId                         The id of the user's stake.
-     * @param reward                            The amount of reward to transfer.
-     */
-    function _transferRewards(address user, uint256 depositId, uint256 reward) internal {
-        if (reward > 0) {
-            rewardsToken.safeTransfer(user, reward);
-            emit RewardPaid(user, reward, depositId);
-        }
     }
 
     /**
@@ -841,20 +876,21 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
 
     /**
      * @notice This internal function is adapted from the external deposit function from the LockingVault
-     *         contract, with a key modification: it omits the token transfer transaction.
-     *         It was also modified to use BoundedHistory.sol.
+     *         contract, with 3 key modification: it omits the token transfer transaction, it was modified
+     *         to use BoundedHistory.sol, and reverts if the specified delegation address does not align with
+     *         the user's previously designated delegate.
      *
      * @param fundedAccount                    The address to credit this deposit to.
      * @param amount                           The amount of token which is deposited.
-     * @param firstDelegation                  First delegation address.
+     * @param delegation                       Delegation address.
      */
     function _addVotingPower(
         address fundedAccount,
         uint256 amount,
-        address firstDelegation
+        address delegation
     ) internal {
         // No delegating to zero
-        require(firstDelegation != address(0), "Zero addr delegation");
+        if (delegation == address(0)) revert ASR_ZeroAddress("delegation");
 
         // Load our deposits storage
         Storage.AddressUint storage userData = _deposits()[fundedAccount];
@@ -863,16 +899,15 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
 
         if (delegate == address(0)) {
             // If the user is un-delegated we delegate to their indicated address
-            delegate = firstDelegation;
+            delegate = delegation;
             // Set the delegation
             userData.who = delegate;
-            // Now we increase the user's balance
-            userData.amount += uint96(amount);
-        } else {
-            // In this case we make no change to the user's delegation
-            // Now we increase the user's balance
-            userData.amount += uint96(amount);
+        } if (delegation != delegate) {
+            revert ASR_InvalidDelegationAddress();
         }
+        // Now we increase the user's balance
+        userData.amount += uint96(amount);
+
         // Next we increase the delegation to their delegate
         // Get the storage pointer
         BoundedHistory.HistoricalBalances memory votingPower = _votingPower();
@@ -991,6 +1026,7 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
         emit VoteChange(msg.sender, oldDelegate, -1 * int256(userBalance));
         // Get the new delegate's votes
         uint256 newDelegateVotes = votingPower.loadTop(newDelegate);
+
         // Store the increase in power
         votingPower.push(newDelegate, newDelegateVotes + userBalance, MAX_HISTORY_LENGTH);
         // Emit an event tracking this voting power change
