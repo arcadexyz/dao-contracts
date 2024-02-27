@@ -136,12 +136,12 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
     IERC20 public immutable rewardsToken;
     IERC20 public immutable arcdWethLP;
 
-    uint32 public periodFinish = 0;
+    uint32 public periodFinish;
     uint32 public lastUpdateTime;
     uint32 public rewardsDuration = ONE_DAY * 30 * 6; // six months
     uint256 public notifiedRewardAmount;
     uint256 public rewardPerTokenStored;
-    uint256 public rewardRate = 0;
+    uint256 public rewardRate;
 
     mapping(address => UserStake[]) public stakes;
 
@@ -179,7 +179,6 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
         rewardsToken = IERC20(_rewardsToken);
         arcdWethLP = IERC20(_arcdWethLP);
         rewardsDistribution = _rewardsDistribution;
-
         STALE_BLOCK_LAG = _staleBlockLag;
         LP_TO_ARCD_RATE = _lpToArcdRate;
     }
@@ -262,12 +261,7 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
         UserStake[] storage userStakes = stakes[account];
         UserStake storage userStake = userStakes[depositId];
 
-        uint256 stakeAmountWithBonus = getAmountWithBonus(account, depositId);
-
-        uint256 userRewardPerTokenPaid = userStake.rewardPerTokenPaid;
-        uint256 userRewards = userStake.rewards;
-
-        rewards = ((stakeAmountWithBonus * (rewardPerToken() - userRewardPerTokenPaid)) / ONE + userRewards);
+        rewards = _getPendingRewards(userStake);
     }
 
     /**
@@ -291,7 +285,13 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
      * @return rewardPerTokenPaid               Reward per token accounted for.
      * @return rewards                          Amount of rewards accrued.
      */
-    function getUserStake(address account, uint256 depositId) external view returns (uint8 lock, uint32 unlockTimestamp, uint256 amount, uint256 rewardPerTokenPaid, uint256 rewards) {
+    function getUserStake(address account, uint256 depositId) external view returns (
+        uint8 lock,
+        uint32 unlockTimestamp,
+        uint256 amount,
+        uint256 rewardPerTokenPaid,
+        uint256 rewards)
+    {
         UserStake[] storage userStakes = stakes[account];
         UserStake storage userStake = userStakes[depositId];
 
@@ -361,10 +361,10 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
         uint256 rewarded = 0;
 
         for (uint256 i = 0; i < userStakes.length; ++i) {
-            uint256 stakeAmountWithBonus = getAmountWithBonus(account, i);
+            UserStake storage userStake = userStakes[i];
+            uint256 stakeAmountWithBonus = _getAmountWithBonus(userStake);
             if (stakeAmountWithBonus == 0) continue;
 
-            UserStake storage userStake = userStakes[i];
             uint256 userRewardPerTokenPaid = userStake.rewardPerTokenPaid;
             uint256 userRewards = userStake.rewards;
 
@@ -402,12 +402,10 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
      */
     function getAmountWithBonus(address account, uint256 depositId) public view returns (uint256 amountWithBonus) {
         UserStake[] storage userStakes = stakes[account];
-
         UserStake storage userStake = userStakes[depositId];
-        uint256 amount = userStake.amount;
-        Lock lock = userStake.lock;
 
-        (amountWithBonus, ) = _calculateBonus(amount, lock);
+        amountWithBonus = _getAmountWithBonus(userStake);
+
     }
 
     /**
@@ -421,7 +419,8 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
         UserStake[] storage userStakes = stakes[account];
 
         for (uint256 i = 0; i < userStakes.length; ++i) {
-            totalRewards += getPendingRewards(account, i);
+            UserStake storage userStake = userStakes[i];
+            totalRewards += _getPendingRewards(userStake);
         }
     }
 
@@ -436,7 +435,8 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
         UserStake[] storage userStakes = stakes[account];
 
         for (uint256 i = 0; i < userStakes.length; ++i) {
-            totalDepositsWithBonuses += getAmountWithBonus(account, i);
+            UserStake storage userStake = userStakes[i];
+            totalDepositsWithBonuses += _getAmountWithBonus(userStake);
         }
     }
 
@@ -512,7 +512,7 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
         UserStake storage userStake = stakes[msg.sender][depositId];
         if (userStake.amount == 0) return;
 
-        uint256 reward = getPendingRewards(msg.sender, depositId);
+        uint256 reward = _getPendingRewards(userStake);
 
         _processReward(userStake, reward);
     }
@@ -525,13 +525,14 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
         uint256 totalReward = 0;
 
         for (uint256 i = 0; i < userStakes.length; ++i) {
-            uint256 reward = getPendingRewards(msg.sender, i);
-            stakes[msg.sender][i].rewardPerTokenPaid = rewardPerTokenStored;
+            UserStake storage userStake = userStakes[i];
+            uint256 reward = _getPendingRewards(userStake);
+            userStake.rewardPerTokenPaid = rewardPerTokenStored;
 
             totalReward += reward;
 
             if (reward > 0) {
-                stakes[msg.sender][i].rewards = 0;
+                userStake.rewards = 0;
 
                 emit RewardPaid(msg.sender, reward, i);
             }
@@ -592,7 +593,7 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
             (uint256 amountWithBonus, ) = _calculateBonus(amount, userStake.lock);
             uint256 votePowerToSubtract = convertLPToArcd(amountWithBonus);
 
-            uint256 reward = getPendingRewards(msg.sender, i);
+            uint256 reward = _getPendingRewards(userStake);
             userStake.rewardPerTokenPaid = rewardPerTokenStored;
 
             userStake.amount -= amount;
@@ -788,7 +789,7 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
 
         _subtractVotingPower(votePowerToSubtract, msg.sender);
 
-        reward = getPendingRewards(msg.sender, depositId);
+        reward = _getPendingRewards(userStake);
 
         if (amount <= userStake.amount) userStake.amount -= amount;
 
@@ -814,6 +815,38 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
 
             emit RewardPaid(msg.sender, reward, stakes[msg.sender].length - 1);
         }
+    }
+
+    /**
+     * @notice Calculates the total amount for a user's stake including the bonus based on
+     *         the stake's lock period.
+     *
+     * @param userStake                         The user's stake object.
+     *
+     * @return amountWithBonus                  The total amount including the bonus.
+     */
+    function _getAmountWithBonus(UserStake storage userStake) internal view returns (uint256 amountWithBonus) {
+        uint256 amount = userStake.amount;
+        Lock lock = userStake.lock;
+
+        (amountWithBonus, ) = _calculateBonus(amount, lock);
+    }
+
+
+    /**
+     * @notice Calculates the pending rewards of a user's stake.
+     *
+     * @param userStake                         The user's stake object.
+     *
+     * @return rewards                          The amount of user rewards.
+     */
+    function _getPendingRewards(UserStake storage userStake) internal view returns (uint256 rewards) {
+        uint256 stakeAmountWithBonus = _getAmountWithBonus(userStake);
+
+        uint256 userRewardPerTokenPaid = userStake.rewardPerTokenPaid;
+        uint256 userRewards = userStake.rewards;
+
+        rewards = ((stakeAmountWithBonus * (rewardPerToken() - userRewardPerTokenPaid)) / ONE + userRewards);
     }
 
     /**
