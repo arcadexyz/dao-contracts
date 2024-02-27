@@ -1737,10 +1737,8 @@ contract ArcadeStakingRewardsTest is Test {
         stakingRewards.deposit(userStake, userC, IArcadeStakingRewards.Lock.Medium);
         vm.stopPrank();
 
-
         uint256 userVotingPower = stakingRewards.queryVotePowerView(userB, currentBlock);
-        uint256 votePowerWithBonus = (stakingRewards.getAmountWithBonus(userA, 0) * LP_TO_ARCD_RATE) / LP_TO_ARCD_DENOMINATOR;
-        assertEq(userVotingPower, votePowerWithBonus);
+        assertEq(userVotingPower, stakingRewards.convertLPToArcd(userStake));
     }
 }
 

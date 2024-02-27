@@ -356,7 +356,6 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
      */
     function getDepositIndicesWithRewards(address account) public view returns (uint256[] memory, uint256[] memory) {
        uint256[] memory rewards = new uint256[](stakes[account].length);
-
         UserStake[] storage userStakes = stakes[account];
         uint256 rewarded = 0;
 
@@ -458,16 +457,16 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
      *         supply of staked tokens and individual user balances are updated accordingly.
      *
      * @param amount                           The amount of tokens the user wishes to deposit and stake.
-     * @param firstDelegation                  The address to which the user's voting power will be delegated.
+     * @param delegation                       The address to which the user's voting power will be delegated.
      * @param lock                             The locking period for the staked tokens.
      */
     function deposit(
         uint256 amount,
-        address firstDelegation,
+        address delegation,
         Lock lock
     ) external nonReentrant whenNotPaused updateReward {
         if (amount == 0) revert ASR_ZeroAmount();
-        if (firstDelegation == address(0)) revert ASR_ZeroAddress("delegation");
+        if (delegation == address(0)) revert ASR_ZeroAddress("delegation");
 
         uint256 userStakeCount = stakes[msg.sender].length;
         if (userStakeCount >= MAX_DEPOSITS) revert ASR_DepositCountExceeded();
@@ -476,7 +475,7 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
 
         uint256 votingPowerToAdd = convertLPToArcd(amount);
         // update the vote power to equal the amount staked with bonus
-        _addVotingPower(msg.sender, votingPowerToAdd, firstDelegation);
+        _addVotingPower(msg.sender, votingPowerToAdd, delegation);
 
         // populate user stake information
         stakes[msg.sender].push(
@@ -534,10 +533,8 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
 
             if (reward > 0) {
                 userStake.rewards = 0;
-
                 emit RewardPaid(msg.sender, reward, i);
             }
-
         }
 
         if (totalReward > 0) {
@@ -557,7 +554,7 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
         if (userStake.amount == 0) revert ASR_BalanceAmount();
         if (amount > userStake.amount) amount = userStake.amount;
 
-        uint256 reward = _processWithdrawal(userStake, amount, depositId);
+        uint256 reward = _processWithdrawal(userStake, amount);
 
         _processReward(userStake, reward);
 
@@ -592,7 +589,7 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
             if (amount == 0 || block.timestamp < userStake.unlockTimestamp) continue;
 
             (uint256 amountWithBonus, ) = _calculateBonus(amount, userStake.lock);
-            uint256 votePowerToSubtract = convertLPToArcd(amountWithBonus);
+            uint256 votePowerToSubtract = convertLPToArcd(amount);
 
             uint256 reward = _getPendingRewards(userStake);
             userStake.rewardPerTokenPaid = rewardPerTokenStored;
@@ -777,11 +774,10 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
      *
      * @param userStake                         The user's stake object.
      * @param amount                            The stake amount.
-     * @param depositId                         The id of the stake.
      *
      * @return reward                           The stake reward amount.
      */
-    function _processWithdrawal(UserStake storage userStake, uint256 amount, uint256 depositId) internal returns (uint256 reward) {
+    function _processWithdrawal(UserStake storage userStake, uint256 amount) internal returns (uint256 reward) {
         if (amount == 0) revert ASR_ZeroAmount();
         if (block.timestamp < userStake.unlockTimestamp) revert ASR_Locked();
 
