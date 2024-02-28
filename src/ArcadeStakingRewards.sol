@@ -609,9 +609,9 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
 
         if (totalDeposits > 0) {
             _startRewardEmission(reward);
+        } else {
+            notifiedRewardAmount = reward;
         }
-
-        notifiedRewardAmount = reward;
 
         emit RewardAdded(reward);
     }
@@ -739,9 +739,12 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
 
         // if this is the first stake and if there is a reward amount notified begin
         // reward emissions
-        if (totalDeposits > 0 && notifiedRewardAmount > 0 && rewardRate == 0) {
-            _startRewardEmission(notifiedRewardAmount);
-            notifiedRewardAmount = 0;
+        if (totalDeposits > 0 && notifiedRewardAmount > 0) {
+            // start reward emissions if the reward rate is currently zero
+            if (rewardRate == 0) {
+                _startRewardEmission(notifiedRewardAmount);
+                notifiedRewardAmount = 0;
+            }
         }
 
         emit Staked(msg.sender, stakes[msg.sender].length - 1, amount);
