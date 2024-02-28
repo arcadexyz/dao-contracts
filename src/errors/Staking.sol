@@ -82,7 +82,12 @@ error ASR_UpperLimitBlock(uint256);
  */
  error ASR_InvalidDelegationAddress();
 
-  /**
+/**
  * @notice The reward amount in notifyRewardAmount is less than the allowed minimum.
  */
  error ASR_MinimumRewardAmount();
+
+/**
+ * @notice The reward rate cannot be zero.
+ */
+ error ASR_ZeroRewardRate();

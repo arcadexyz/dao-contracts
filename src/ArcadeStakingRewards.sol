@@ -27,7 +27,8 @@ import {
     ASR_ZeroConversionRate,
     ASR_UpperLimitBlock,
     ASR_InvalidDelegationAddress,
-    ASR_MinimumRewardAmount
+    ASR_MinimumRewardAmount,
+    ASR_ZeroRewardRate
 } from "../src/errors/Staking.sol";
 
 /**
@@ -682,6 +683,19 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
         } else {
             notifiedRewardAmount = reward;
         }
+
+        if (rewardRate == 0) revert ASR_ZeroRewardRate();
+
+        // Ensure the provided reward amount is not more than the balance in the contract.
+        // This keeps the reward rate in the right range, preventing overflows due to
+        // very high values of rewardRate in the earned and rewardsPerToken functions;
+        // Reward + leftover must be less than 2^256 / 10^18 to avoid overflow.
+        uint256 balance = rewardsToken.balanceOf(address(this));
+
+        if (rewardRate > (balance / rewardsDuration)) revert ASR_RewardTooHigh();
+
+        lastUpdateTime = uint32(block.timestamp);
+        periodFinish = uint32(block.timestamp) + rewardsDuration;
 
         emit RewardAdded(reward);
     }
