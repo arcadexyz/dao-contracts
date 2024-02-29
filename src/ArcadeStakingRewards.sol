@@ -515,7 +515,7 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
      *
      * @param depositId                        The specified deposit to get the reward for.
      */
-    function claimReward(uint256 depositId) public nonReentrant updateReward {
+    function claimReward(uint256 depositId) external nonReentrant updateReward {
         UserStake storage userStake = stakes[msg.sender][depositId];
         if (userStake.amount == 0) return;
 
@@ -598,7 +598,7 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
      * @notice Allows users to withdraw all their staked tokens and claim their reward
      *         tokens all in one transaction. Lock period needs to have ended.
      */
-    function exitAll() public nonReentrant updateReward {
+    function exitAll() external nonReentrant updateReward {
         UserStake[] storage userStakes = stakes[msg.sender];
         uint256 totalWithdrawAmount = 0;
         uint256 totalRewardAmount = 0;
