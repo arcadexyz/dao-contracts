@@ -35,8 +35,8 @@ import {
  * @title ArcadeStakingRewards
  * @author Non-Fungible Technologies, Inc.
  *
- * @notice To optimize gas usage, all time-related variables are stored in uint32
- *         format. This limits timestamp support to dates before 03:14:07 UTC on
+ * @notice To optimize gas usage, unlockTimeStamp in struct UserStake is stored in
+ *         uint32 format. This limits timestamp support to dates before 03:14:07 UTC on
  *         19 January 2038. Any time beyond this point will cause an overflow.
  *
  * The ArcadeStakingRewards contract is a fork of the Synthetix StakingRewards
@@ -116,7 +116,7 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
     // ============================================ STATE ==============================================
     // ============== Constants ==============
     uint256 public constant ONE = 1e18;
-    uint32 public constant ONE_DAY = 1 days;
+    uint256 public constant ONE_DAY = 1 days;
     uint256 public constant MAX_DEPOSITS = 20;
     uint256 public constant LP_TO_ARCD_DENOMINATOR = 1e3;
     // Max length of any voting history. Prevents gas exhaustion
@@ -127,9 +127,9 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
     uint256 public constant MEDIUM_BONUS = 13e17;
     uint256 public constant LONG_BONUS = 15e17;
 
-    uint32 public constant SHORT_LOCK_TIME = ONE_DAY * 30; // one month
-    uint32 public constant MEDIUM_LOCK_TIME = ONE_DAY * 60; // two months
-    uint32 public constant LONG_LOCK_TIME = ONE_DAY * 90; // three months
+    uint256 public constant SHORT_LOCK_TIME = ONE_DAY * 30; // one month
+    uint256 public constant MEDIUM_LOCK_TIME = ONE_DAY * 60; // two months
+    uint256 public constant LONG_LOCK_TIME = ONE_DAY * 90; // three months
 
     // ============ Global State =============
     uint256 public immutable LP_TO_ARCD_RATE;
@@ -138,10 +138,10 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
     IERC20 public immutable rewardsToken;
     IERC20 public immutable arcdWethLP;
 
-    uint32 public periodFinish;
-    uint32 public lastUpdateTime;
-    uint32 public rewardsDuration = ONE_DAY * 30 * 6; // six months
     uint256 public notifiedRewardAmount;
+    uint256 public periodFinish;
+    uint256 public lastUpdateTime;
+    uint256 public rewardsDuration = ONE_DAY * 30 * 6; // six months
     uint256 public rewardPerTokenStored;
     uint256 public rewardRate;
 
@@ -228,17 +228,17 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
      * @notice Returns the last timestamp at which rewards can be calculated and
      *         be accounted for.
      *
-     * @return uint32                        The timestamp record after which rewards
+     * @return uint256                       The timestamp record after which rewards
      *                                       can no longer be calculated.
      */
-    function lastTimeRewardApplicable() public view returns (uint32) {
-        return uint32(block.timestamp) < periodFinish ? uint32(block.timestamp) : periodFinish;
+    function lastTimeRewardApplicable() public view returns (uint256) {
+        return block.timestamp < periodFinish ? block.timestamp : periodFinish;
     }
 
     /**
      * @notice Returns the amount of reward token earned per staked token.
      *
-     * @return uint256                        The reward token amount per staked token.
+     * @return uint256                         The reward token amount per staked token.
      */
     function rewardPerToken() public view returns (uint256) {
         if (totalDepositsWithBonus == 0) {
@@ -364,7 +364,7 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
         uint256[] memory rewards = new uint256[](numUserStakes);
         uint256 rewarded = 0;
 
-        uint256 rewardPertoken = rewardPerToken();
+        uint256 rewardPerToken = rewardPerToken();
 
         for (uint256 i = 0; i < numUserStakes; ++i) {
             UserStake storage userStake = userStakes[i];
@@ -374,7 +374,7 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
             uint256 userRewardPerTokenPaid = userStake.rewardPerTokenPaid;
             uint256 userRewards = userStake.rewards;
 
-            rewards[i] = ((stakeAmountWithBonus * (rewardPertoken - userRewardPerTokenPaid)) / ONE + userRewards);
+            rewards[i] = ((stakeAmountWithBonus * (rewardPerToken - userRewardPerTokenPaid)) / ONE + userRewards);
 
             if (rewards[i] > 0) {
                 rewarded++;
@@ -517,7 +517,7 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
      */
     function claimReward(uint256 depositId) external nonReentrant updateReward {
         UserStake storage userStake = stakes[msg.sender][depositId];
-        if (userStake.amount == 0) return;
+        if (userStake.amount == 0) revert ASR_BalanceAmount();
 
         uint256 reward = _getPendingRewards(userStake);
 
@@ -625,6 +625,7 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
             totalRewardAmount += reward;
 
             if (reward > 0) {
+                userStake.rewards = 0;
                 emit RewardPaid(msg.sender, reward, i);
             }
         }
@@ -668,15 +669,11 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
         // to avoid rounding errors
         uint256 remainder = reward % rewardsDuration;
 
-        uint256 adjustedReward;
         if (remainder == 0) {
-            adjustedReward = reward;
+            reward;
         } else {
-            // adjust the reward to make it divisible by rewardsDuration
-            adjustedReward = reward - remainder;
+            reward -= remainder;
         }
-        // set the reward to the adjusted reward
-        reward = adjustedReward;
 
         if (block.timestamp >= periodFinish) {
             rewardRate = reward / uint256(rewardsDuration);
@@ -694,8 +691,8 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
 
         if (rewardRate > (balance / rewardsDuration)) revert ASR_RewardTooHigh();
 
-        lastUpdateTime = uint32(block.timestamp);
-        periodFinish = uint32(block.timestamp) + rewardsDuration;
+        lastUpdateTime = block.timestamp;
+        periodFinish = block.timestamp + rewardsDuration;
 
         emit RewardAdded(reward);
     }
@@ -724,12 +721,12 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
      *
      * @param _rewardsDuration                    The amount of time the rewards period will be.
      */
-    function setRewardsDuration(uint32 _rewardsDuration) external whenNotPaused onlyOwner {
+    function setRewardsDuration(uint256 _rewardsDuration) external whenNotPaused onlyOwner {
         if (block.timestamp <= periodFinish) revert ASR_RewardsPeriod();
 
         rewardsDuration = _rewardsDuration;
 
-        emit RewardsDurationUpdated(uint256(rewardsDuration));
+        emit RewardsDurationUpdated(rewardsDuration);
     }
 
     /**
@@ -764,9 +761,9 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
      * @param reward                            The reward amount.
      */
     function _processReward(UserStake storage userStake, uint256 reward) internal {
-        userStake.rewardPerTokenPaid = rewardPerTokenStored;
 
         if (reward > 0) {
+            userStake.rewardPerTokenPaid = rewardPerTokenStored;
             userStake.rewards = 0;
             rewardsToken.safeTransfer(msg.sender, reward);
 
