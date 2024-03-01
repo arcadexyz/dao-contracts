@@ -134,6 +134,7 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
     uint32 public periodFinish = 0;
     uint32 public lastUpdateTime;
     uint32 public rewardsDuration = ONE_DAY * 30 * 6; // six months
+    uint256 public notifiedRewardAmount;
     uint256 public rewardPerTokenStored;
     uint256 public rewardRate = 0;
 
@@ -488,6 +489,13 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
 
         arcdWethLP.safeTransferFrom(msg.sender, address(this), amount);
 
+        // if this is the first stake and if there is a reward amount notified begin
+        // reward emissions
+        if (totalDeposits > 0 && notifiedRewardAmount > 0 && rewardRate == 0) {
+            _startRewardEmission(notifiedRewardAmount);
+            notifiedRewardAmount = 0;
+        }
+
         emit Staked(msg.sender, userStakeCount, amount);
     }
 
@@ -590,32 +598,20 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
 
     // ======================================== RESTRICTED FUNCTIONS =========================================
     /**
-     * @notice Notifies the contract of new rewards available for distribution and adjusts the
-     *         rewardRate rate at which rewards will be distributed to the users to over the remaining
-     *         duration of the reward period.
+     * @notice Notifies the contract of new rewards available for distribution. Reward emissions is delayed
+     *         until the first user stakes.
      *         Can only be called by the rewardsDistribution address.
      *
      * @param reward                            The amount of new reward tokens.
      */
     function notifyRewardAmount(uint256 reward) external override whenNotPaused onlyRewardsDistribution updateReward {
-        if (block.timestamp >= periodFinish) {
-            rewardRate = reward / uint256(rewardsDuration);
-        } else {
-            uint256 remaining = periodFinish - block.timestamp;
-            uint256 leftover = remaining * rewardRate;
-            rewardRate = (reward + leftover) / uint256(rewardsDuration);
+        if (reward == 0) revert ASR_ZeroAmount();
+
+        if (totalDeposits > 0) {
+            _startRewardEmission(reward);
         }
 
-        // Ensure the provided reward amount is not more than the balance in the contract.
-        // This keeps the reward rate in the right range, preventing overflows due to
-        // very high values of rewardRate in the earned and rewardsPerToken functions;
-        // Reward + leftover must be less than 2^256 / 10^18 to avoid overflow.
-        uint256 balance = rewardsToken.balanceOf(address(this));
-
-        if (rewardRate > (balance / rewardsDuration)) revert ASR_RewardTooHigh();
-
-        lastUpdateTime = uint32(block.timestamp);
-        periodFinish = uint32(block.timestamp) + rewardsDuration;
+        notifiedRewardAmount = reward;
 
         emit RewardAdded(reward);
     }
@@ -674,6 +670,81 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
         rewardPerTokenStored = rewardPerToken();
         lastUpdateTime = lastTimeRewardApplicable();
         _;
+    }
+
+    /**
+     * @notice Triggers reward emissions when the first user stakes and if there is a reward amount.
+     *         adjusts the rewardRate rate at which rewards will be distributed to users to over the
+     *         emaining duration of the reward period.
+     *
+     * @param reward                            The amount of reward tokens to distribute.
+     */
+    function _startRewardEmission(uint256 reward) private {
+        if (block.timestamp >= periodFinish) {
+            rewardRate = reward / rewardsDuration;
+        } else {
+            uint256 remaining = periodFinish - block.timestamp;
+            uint256 leftover = remaining * rewardRate;
+            rewardRate = (reward + leftover) / rewardsDuration;
+        }
+
+        // Ensure the provided reward amount is not more than the balance in the contract.
+        // This keeps the reward rate in the right range, preventing overflows due to
+        // very high values of rewardRate in the earned and rewardsPerToken functions;
+        // Reward + leftover must be less than 2^256 / 10^18 to avoid overflow.
+        uint256 balance = rewardsToken.balanceOf(address(this));
+
+        if (rewardRate > (balance / rewardsDuration)) revert ASR_RewardTooHigh();
+
+        lastUpdateTime = uint32(block.timestamp);
+        periodFinish = uint32(block.timestamp) + rewardsDuration;
+
+        emit RewardEmissionActivated(reward, periodFinish);
+    }
+
+    /**
+     * @notice Allows users to stake their tokens, which are then tracked in the contract. The total
+     *         supply of staked tokens and individual user balances are updated accordingly.
+     *
+     * @param amount                            The amount of tokens the user stakes.
+     * @param lock                              The amount of time to lock the stake for.
+     * @param firstDelegation                   The address to delegate voting power to.
+     */
+    function _stake(uint256 amount, Lock lock, address firstDelegation) internal updateReward {
+        if (amount == 0) revert ASR_ZeroAmount();
+
+        if ((stakes[msg.sender].length + 1) > MAX_DEPOSITS) revert ASR_DepositCountExceeded();
+
+        (uint256 amountWithBonus, uint256 lockDuration)  = _calculateBonus(amount, lock);
+
+        uint256 votingPowerToAdd = convertLPToArcd(amountWithBonus);
+        // update the vote power to equal the amount staked with bonus
+        _addVotingPower(msg.sender, votingPowerToAdd, firstDelegation);
+
+        // populate user stake information
+        stakes[msg.sender].push(
+            UserStake({
+                amount: amount,
+                unlockTimestamp: uint32(block.timestamp + lockDuration),
+                rewardPerTokenPaid: rewardPerTokenStored,
+                rewards: 0,
+                lock: lock
+            })
+        );
+
+        totalDeposits += amount;
+        totalDepositsWithBonus += amountWithBonus;
+
+        arcdWethLP.safeTransferFrom(msg.sender, address(this), amount);
+
+        // if this is the first stake and if there is a reward amount notified begin
+        // reward emissions
+        if (totalDeposits > 0 && notifiedRewardAmount > 0 && rewardRate == 0) {
+            _startRewardEmission(notifiedRewardAmount);
+            notifiedRewardAmount = 0;
+        }
+
+        emit Staked(msg.sender, stakes[msg.sender].length - 1, amount);
     }
 
     /**

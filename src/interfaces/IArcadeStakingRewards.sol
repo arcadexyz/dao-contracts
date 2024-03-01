@@ -13,6 +13,7 @@ interface IArcadeStakingRewards {
     event RewardsDurationUpdated(uint256 newDuration);
     event Recovered(address token, uint256 amount);
     event VoteChange(address indexed from, address indexed to, int256 amount);
+    event RewardEmissionActivated(uint256 rewardAmount, uint256 rewardEnd);
 
     // ================================================= STRUCTS =================================================
     enum Lock {
