@@ -516,12 +516,21 @@ contract ArcadeStakingRewardsTest is Test {
     function testRewardTooHigh() public {
         setUp();
 
+        lpToken.mint(userA, 20e18);
+        uint256 userStakeAmount = lpToken.balanceOf(userA);
+
         bytes4 selector = bytes4(keccak256("ASR_RewardTooHigh()"));
-        vm.expectRevert(abi.encodeWithSelector(selector));
 
         // Admin calls notifyRewardAmount to set the reward rate
         vm.prank(admin);
         stakingRewards.notifyRewardAmount(1e18);
+
+        // userA approves stakingRewards contract to spend staking tokens
+        vm.startPrank(userA);
+        lpToken.approve(address(stakingRewards), userStakeAmount);
+
+        vm.expectRevert(abi.encodeWithSelector(selector));
+        stakingRewards.deposit(userStakeAmount, userB, IArcadeStakingRewards.Lock.Short);
     }
 
     function testCustomRevertRecoverERC20() public {
@@ -573,6 +582,9 @@ contract ArcadeStakingRewardsTest is Test {
     function testCustomRevertSetRewardsDuration() public {
         setUp();
 
+        lpToken.mint(userA, 20e18);
+        uint256 userStakeAmount = lpToken.balanceOf(userA);
+
         // mint rewardsTokens to stakingRewards contract
         rewardsToken.mint(address(stakingRewards), 100e18);
 
@@ -580,15 +592,18 @@ contract ArcadeStakingRewardsTest is Test {
         vm.prank(admin);
         stakingRewards.notifyRewardAmount(100e18);
 
+        // userA approves stakingRewards contract to spend staking tokens
+        vm.startPrank(userA);
+        lpToken.approve(address(stakingRewards), userStakeAmount);
+        stakingRewards.deposit(userStakeAmount, userB, IArcadeStakingRewards.Lock.Short);
+        vm.stopPrank();
+
+        // increase blockchain time but not to end of reward period
+        vm.warp(block.timestamp + 3 days);
+
         bytes4 selector = bytes4(keccak256("ASR_RewardsPeriod()"));
 
-        vm.expectRevert(abi.encodeWithSelector(selector));
-        vm.prank(owner);
-        stakingRewards.setRewardsDuration(7);
-
-        //increase blockchain time past 8 day rewards duration
-        vm.warp(block.timestamp + 8 days);
-
+        // owner tries to set the rewards duration before previous duration ends
         vm.expectRevert(abi.encodeWithSelector(selector));
         vm.prank(owner);
         stakingRewards.setRewardsDuration(7);
