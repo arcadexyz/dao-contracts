@@ -698,6 +698,7 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
 
         lastUpdateTime = uint32(block.timestamp);
         periodFinish = uint32(block.timestamp) + rewardsDuration;
+        notifiedRewardAmount = 0;
 
         emit RewardEmissionActivated(reward, periodFinish);
     }
@@ -737,14 +738,10 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
 
         arcdWethLP.safeTransferFrom(msg.sender, address(this), amount);
 
-        // if this is the first stake and if there is a reward amount notified begin
+        // if this is the first stake and the reward amount is notified, begin
         // reward emissions
-        if (totalDeposits > 0 && notifiedRewardAmount > 0) {
-            // start reward emissions if the reward rate is currently zero
-            if (rewardRate == 0) {
-                _startRewardEmission(notifiedRewardAmount);
-                notifiedRewardAmount = 0;
-            }
+        if (notifiedRewardAmount > 0) {
+            _startRewardEmission(notifiedRewardAmount);
         }
 
         emit Staked(msg.sender, stakes[msg.sender].length - 1, amount);
