@@ -694,7 +694,7 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
         // Reward + leftover must be less than 2^256 / 10^18 to avoid overflow.
         uint256 balance = rewardsToken.balanceOf(address(this));
 
-        if (rewardRate > (balance / rewardsDuration)) revert ASR_RewardTooHigh();
+        if (reward > balance) revert ASR_RewardTooHigh();
 
         lastUpdateTime = uint32(block.timestamp);
         periodFinish = uint32(block.timestamp) + rewardsDuration;
