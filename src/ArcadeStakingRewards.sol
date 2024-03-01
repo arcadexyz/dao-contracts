@@ -536,12 +536,13 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
             UserStake storage userStake = userStakes[i];
 
             uint256 reward = _getPendingRewards(userStake);
-            userStake.rewardPerTokenPaid = rewardPerTokenStored;
 
             totalReward += reward;
 
             if (reward > 0) {
+                userStake.rewardPerTokenPaid = rewardPerTokenStored;
                 userStake.rewards = 0;
+
                 emit RewardPaid(msg.sender, reward, i);
             }
         }
@@ -615,7 +616,6 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
             uint256 votePowerToSubtract = convertLPToArcd(amount);
 
             uint256 reward = _getPendingRewards(userStake);
-            userStake.rewardPerTokenPaid = rewardPerTokenStored;
 
             userStake.amount -= amount;
 
@@ -625,7 +625,9 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
             totalRewardAmount += reward;
 
             if (reward > 0) {
+                userStake.rewardPerTokenPaid = rewardPerTokenStored;
                 userStake.rewards = 0;
+
                 emit RewardPaid(msg.sender, reward, i);
             }
         }
@@ -663,22 +665,22 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
      * @param reward                            The amount of new reward tokens.
      */
     function notifyRewardAmount(uint256 reward) external override whenNotPaused onlyRewardsDistribution updateReward {
-        if (reward < 1e18) revert ASR_MinimumRewardAmount();
+        if (reward < ONE) revert ASR_MinimumRewardAmount();
 
         // check that the reward is divisible by the rewardsDuration
         // to avoid rounding errors
         uint256 remainder = reward % rewardsDuration;
 
-        if (remainder == 0) {
-            reward;
-        } else {
+        if (remainder > 0) {
             reward -= remainder;
         }
 
         if (block.timestamp >= periodFinish) {
-            rewardRate = reward / uint256(rewardsDuration);
+            rewardRate = reward / rewardsDuration;
         } else {
-            notifiedRewardAmount = reward;
+            uint256 remaining = periodFinish - block.timestamp;
+            uint256 leftover = remaining * rewardRate;
+            rewardRate = (reward + leftover) / rewardsDuration;
         }
 
         if (rewardRate == 0) revert ASR_ZeroRewardRate();
@@ -765,6 +767,7 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
         if (reward > 0) {
             userStake.rewardPerTokenPaid = rewardPerTokenStored;
             userStake.rewards = 0;
+
             rewardsToken.safeTransfer(msg.sender, reward);
 
             emit RewardPaid(msg.sender, reward, stakes[msg.sender].length - 1);
