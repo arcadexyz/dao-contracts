@@ -489,11 +489,10 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
 
         arcdWethLP.safeTransferFrom(msg.sender, address(this), amount);
 
-        // if this is the first stake and if there is a reward amount notified begin
+        // if this is the first stake and the reward amount is notified, begin
         // reward emissions
-        if (totalDeposits > 0 && notifiedRewardAmount > 0 && rewardRate == 0) {
+        if (notifiedRewardAmount > 0) {
             _startRewardEmission(notifiedRewardAmount);
-            notifiedRewardAmount = 0;
         }
 
         emit Staked(msg.sender, userStakeCount, amount);
@@ -701,50 +700,6 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
         notifiedRewardAmount = 0;
 
         emit RewardEmissionActivated(reward, periodFinish);
-    }
-
-    /**
-     * @notice Allows users to stake their tokens, which are then tracked in the contract. The total
-     *         supply of staked tokens and individual user balances are updated accordingly.
-     *
-     * @param amount                            The amount of tokens the user stakes.
-     * @param lock                              The amount of time to lock the stake for.
-     * @param firstDelegation                   The address to delegate voting power to.
-     */
-    function _stake(uint256 amount, Lock lock, address firstDelegation) internal updateReward {
-        if (amount == 0) revert ASR_ZeroAmount();
-
-        if ((stakes[msg.sender].length + 1) > MAX_DEPOSITS) revert ASR_DepositCountExceeded();
-
-        (uint256 amountWithBonus, uint256 lockDuration)  = _calculateBonus(amount, lock);
-
-        uint256 votingPowerToAdd = convertLPToArcd(amountWithBonus);
-        // update the vote power to equal the amount staked with bonus
-        _addVotingPower(msg.sender, votingPowerToAdd, firstDelegation);
-
-        // populate user stake information
-        stakes[msg.sender].push(
-            UserStake({
-                amount: amount,
-                unlockTimestamp: uint32(block.timestamp + lockDuration),
-                rewardPerTokenPaid: rewardPerTokenStored,
-                rewards: 0,
-                lock: lock
-            })
-        );
-
-        totalDeposits += amount;
-        totalDepositsWithBonus += amountWithBonus;
-
-        arcdWethLP.safeTransferFrom(msg.sender, address(this), amount);
-
-        // if this is the first stake and the reward amount is notified, begin
-        // reward emissions
-        if (notifiedRewardAmount > 0) {
-            _startRewardEmission(notifiedRewardAmount);
-        }
-
-        emit Staked(msg.sender, stakes[msg.sender].length - 1, amount);
     }
 
     /**

@@ -1704,7 +1704,5 @@ contract ArcadeStakingRewardsTest is Test {
         // Rewards for the second staking period is half of the first staking period
         assertEq(earnedA2, earnedA + earnedB);
     }
-
-
 }
 
