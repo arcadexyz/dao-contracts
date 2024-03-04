@@ -763,7 +763,6 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
      * @param reward                            The reward amount.
      */
     function _processReward(UserStake storage userStake, uint256 reward) internal {
-
         if (reward > 0) {
             userStake.rewardPerTokenPaid = rewardPerTokenStored;
             userStake.rewards = 0;
