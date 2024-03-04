@@ -138,10 +138,10 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
     IERC20 public immutable rewardsToken;
     IERC20 public immutable arcdWethLP;
 
-    uint256 public notifiedRewardAmount;
     uint256 public periodFinish;
     uint256 public lastUpdateTime;
     uint256 public rewardsDuration = ONE_DAY * 30 * 6; // six months
+    uint256 public notifiedRewardAmount;
     uint256 public rewardPerTokenStored;
     uint256 public rewardRate;
 
@@ -238,7 +238,7 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
     /**
      * @notice Returns the amount of reward token earned per staked token.
      *
-     * @return uint256                         The reward token amount per staked token.
+     * @return uint256                        The reward token amount per staked token.
      */
     function rewardPerToken() public view returns (uint256) {
         if (totalDepositsWithBonus == 0) {
@@ -273,7 +273,7 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
      * @return uint256                         The amount of reward token that is distributable.
      */
     function getRewardForDuration() external view returns (uint256) {
-        return rewardRate * uint256(rewardsDuration);
+        return rewardRate * rewardsDuration;
     }
 
     /**
@@ -675,26 +675,11 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
             reward -= remainder;
         }
 
-        if (block.timestamp >= periodFinish) {
-            rewardRate = reward / rewardsDuration;
+        if (totalDeposits > 0) {
+            _startRewardEmission(reward);
         } else {
-            uint256 remaining = periodFinish - block.timestamp;
-            uint256 leftover = remaining * rewardRate;
-            rewardRate = (reward + leftover) / rewardsDuration;
+            notifiedRewardAmount = reward;
         }
-
-        if (rewardRate == 0) revert ASR_ZeroRewardRate();
-
-        // Ensure the provided reward amount is not more than the balance in the contract.
-        // This keeps the reward rate in the right range, preventing overflows due to
-        // very high values of rewardRate in the earned and rewardsPerToken functions;
-        // Reward + leftover must be less than 2^256 / 10^18 to avoid overflow.
-        uint256 balance = rewardsToken.balanceOf(address(this));
-
-        if (reward > balance) revert ASR_RewardTooHigh();
-
-        lastUpdateTime = block.timestamp;
-        periodFinish = block.timestamp + rewardsDuration;
 
         emit RewardAdded(reward);
     }
@@ -753,6 +738,37 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
         rewardPerTokenStored = rewardPerToken();
         lastUpdateTime = lastTimeRewardApplicable();
         _;
+    }
+
+    /**
+     * @notice Triggers reward emissions when the first user stakes and if there is a reward amount.
+     *         Adjusts the rewardRate rate at which rewards will be distributed to users to over the
+     *         remaining duration of the reward period.
+     *
+     * @param reward                            The amount of reward tokens to distribute.
+     */
+    function _startRewardEmission(uint256 reward) private {
+        if (block.timestamp >= periodFinish) {
+            rewardRate = reward / rewardsDuration;
+        } else {
+            uint256 remaining = periodFinish - block.timestamp;
+            uint256 leftover = remaining * rewardRate;
+            rewardRate = (reward + leftover) / rewardsDuration;
+        }
+
+        // Ensure the provided reward amount is not more than the balance in the contract.
+        // This keeps the reward rate in the right range, preventing overflows due to
+        // very high values of rewardRate in the earned and rewardsPerToken functions;
+        // Reward + leftover must be less than 2^256 / 10^18 to avoid overflow.
+        uint256 balance = rewardsToken.balanceOf(address(this));
+
+        if (reward > balance) revert ASR_RewardTooHigh();
+
+        lastUpdateTime = block.timestamp;
+        periodFinish = block.timestamp + rewardsDuration;
+        notifiedRewardAmount = 0;
+
+        emit RewardEmissionActivated(reward, periodFinish);
     }
 
     /**
