@@ -375,15 +375,19 @@ contract ArcadeStakingRewardsTest is Test {
         stakingRewards.deposit(userStake, userB, IArcadeStakingRewards.Lock.Short);
         vm.stopPrank();
 
+        // user balance is 0
+        assertEq(lpToken.balanceOf(userA), 0);
+
         // increase blockchain time by 2 days
-        vm.warp(block.timestamp + 2 days);
+        vm.warp(block.timestamp + ONE_MONTH);
 
-        bytes4 selector = bytes4(keccak256("ASR_BalanceAmount()"));
-
-        vm.expectRevert(abi.encodeWithSelector(selector));
+        // user tries to withdraw more than their stake
         vm.startPrank(userA);
         stakingRewards.withdraw(30e18, 0);
         vm.stopPrank();
+
+        // but only their stake amount is withdrawn
+        assertEq(lpToken.balanceOf(userA), userStake);
     }
 
     // Partial withdraw after lock period.
@@ -653,9 +657,9 @@ contract ArcadeStakingRewardsTest is Test {
         stakingRewards.withdraw(userStakeAmount, 0);
 
         bytes4 selector = bytes4(keccak256("ASR_BalanceAmount()"));
-        vm.expectRevert(abi.encodeWithSelector(selector));
 
         vm.startPrank(userA);
+        vm.expectRevert(abi.encodeWithSelector(selector));
         stakingRewards.withdraw(userStakeAmount, 0);
     }
 
@@ -981,8 +985,7 @@ contract ArcadeStakingRewardsTest is Test {
             userStake.lock,
             userStake.unlockTimestamp,
             userStake.amount,
-            userStake.rewardPerTokenPaid,
-            userStake.rewards
+            userStake.rewardPerTokenPaid
         ) = stakingRewards.stakes(userA, 0);
 
         uint256 rewardPerTokenAmount2 = stakingRewards.rewardPerToken();
@@ -1703,6 +1706,52 @@ contract ArcadeStakingRewardsTest is Test {
 
         // Rewards for the second staking period is half of the first staking period
         assertEq(earnedA2, earnedA + earnedB);
+    }
+
+    function testMultipleDelegateesRevert() public {
+       setUp();
+
+        lpToken.mint(userA, 20e18);
+        uint256 userStake = lpToken.balanceOf(userA) / 2;
+
+        // mint rewardsTokens to stakingRewards contract
+        rewardsToken.mint(address(stakingRewards), 100e18);
+        // Admin calls notifyRewardAmount to set the reward rate
+        vm.prank(admin);
+        stakingRewards.notifyRewardAmount(100e18);
+
+        // increase blockchain time by 2 days
+        vm.warp(block.timestamp + 2 days);
+
+        bytes4 selector = bytes4(keccak256("ASR_InvalidDelegationAddress()"));
+
+        // user approves stakingRewards contract to spend staking tokens
+        vm.startPrank(userA);
+        lpToken.approve(address(stakingRewards), userStake * 2);
+        // user stakes staking tokens
+        stakingRewards.deposit(userStake, userB, IArcadeStakingRewards.Lock.Medium);
+
+        // user stakes delegating to a different delegatee
+        vm.expectRevert(abi.encodeWithSelector(selector));
+        stakingRewards.deposit(userStake, userC, IArcadeStakingRewards.Lock.Medium);
+        vm.stopPrank();
+
+        uint256 userVotingPower = stakingRewards.queryVotePowerView(userB, currentBlock);
+        assertEq(userVotingPower, stakingRewards.convertLPToArcd(userStake));
+    }
+
+    function testMinRewardRevert() public {
+       setUp();
+
+        bytes4 selector = bytes4(keccak256("ASR_MinimumRewardAmount()"));
+
+        // mint rewardsTokens to stakingRewards contract
+        rewardsToken.mint(address(stakingRewards), 1e18);
+
+        vm.expectRevert(abi.encodeWithSelector(selector));
+        // Admin calls notifyRewardAmount to set the reward rate
+        vm.prank(admin);
+        stakingRewards.notifyRewardAmount(9e17);
     }
 }
 

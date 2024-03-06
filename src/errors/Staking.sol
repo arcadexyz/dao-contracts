@@ -76,3 +76,18 @@ error ASR_DepositCountExceeded();
  *
  */
 error ASR_UpperLimitBlock(uint256);
+
+/**
+ * @notice The provided delegate address does not match their initial delegate.
+ */
+ error ASR_InvalidDelegationAddress();
+
+/**
+ * @notice The reward amount in notifyRewardAmount is less than the allowed minimum.
+ */
+ error ASR_MinimumRewardAmount();
+
+/**
+ * @notice The reward rate cannot be zero.
+ */
+ error ASR_ZeroRewardRate();

@@ -27,7 +27,6 @@ interface IArcadeStakingRewards {
         uint32 unlockTimestamp;
         uint256 amount;
         uint256 rewardPerTokenPaid;
-        uint256 rewards;
     }
 
     // ============================================= VIEW FUNCTIONS ==============================================
@@ -37,7 +36,7 @@ interface IArcadeStakingRewards {
 
     function getRewardForDuration() external view returns (uint256);
 
-    function lastTimeRewardApplicable() external view returns (uint32);
+    function lastTimeRewardApplicable() external view returns (uint256);
 
     function rewardPerToken() external view returns (uint256);
 
@@ -76,7 +75,7 @@ interface IArcadeStakingRewards {
 
     function withdraw(uint256 amount, uint256 depositId) external;
 
-    function setRewardsDuration(uint32 _rewardsDuration) external;
+    function setRewardsDuration(uint256 _rewardsDuration) external;
 
     function recoverERC20(address tokenAddress, uint256 tokenAmount) external;
 
