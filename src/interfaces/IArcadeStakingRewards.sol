@@ -27,7 +27,6 @@ interface IArcadeStakingRewards {
         uint32 unlockTimestamp;
         uint256 amount;
         uint256 rewardPerTokenPaid;
-        uint256 rewards;
     }
 
     // ============================================= VIEW FUNCTIONS ==============================================

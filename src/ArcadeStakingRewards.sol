@@ -302,7 +302,6 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
         unlockTimestamp = userStake.unlockTimestamp;
         amount = userStake.amount;
         rewardPerTokenPaid = userStake.rewardPerTokenPaid;
-        rewards = userStake.rewards;
     }
 
     /**
@@ -372,9 +371,8 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
             if (stakeAmountWithBonus == 0) continue;
 
             uint256 userRewardPerTokenPaid = userStake.rewardPerTokenPaid;
-            uint256 userRewards = userStake.rewards;
 
-            rewards[i] = ((stakeAmountWithBonus * (rewardPerToken - userRewardPerTokenPaid)) / ONE + userRewards);
+            rewards[i] = ((stakeAmountWithBonus * (rewardPerToken - userRewardPerTokenPaid)) / ONE);
 
             if (rewards[i] > 0) {
                 rewarded++;
@@ -491,7 +489,6 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
                 amount: amount,
                 unlockTimestamp: uint32(block.timestamp + lockDuration),
                 rewardPerTokenPaid: rewardPerTokenStored,
-                rewards: 0,
                 lock: lock
             })
         );
@@ -520,7 +517,6 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
         if (userStake.amount == 0) revert ASR_BalanceAmount();
 
         uint256 reward = _getPendingRewards(userStake);
-        userStake.rewardPerTokenPaid = rewardPerTokenStored;
 
         _processReward(userStake, reward);
     }
@@ -537,12 +533,10 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
             UserStake storage userStake = userStakes[i];
 
             uint256 reward = _getPendingRewards(userStake);
-            userStake.rewardPerTokenPaid = rewardPerTokenStored;
-
             totalReward += reward;
 
             if (reward > 0) {
-                userStake.rewards = 0;
+                userStake.rewardPerTokenPaid = rewardPerTokenStored;
 
                 emit RewardPaid(msg.sender, reward, i);
             }
@@ -573,7 +567,6 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
         _subtractVotingPower(votePowerToSubtract, msg.sender);
 
         uint256 reward = _getPendingRewards(userStake);
-        userStake.rewardPerTokenPaid = rewardPerTokenStored;
 
         userStake.amount -= amount;
 
@@ -618,7 +611,6 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
             uint256 votePowerToSubtract = convertLPToArcd(amount);
 
             uint256 reward = _getPendingRewards(userStake);
-            userStake.rewardPerTokenPaid = rewardPerTokenStored;
 
             userStake.amount -= amount;
 
@@ -628,7 +620,7 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
             totalRewardAmount += reward;
 
             if (reward > 0) {
-                userStake.rewards = 0;
+                userStake.rewardPerTokenPaid = rewardPerTokenStored;
 
                 emit RewardPaid(msg.sender, reward, i);
             }
@@ -782,7 +774,7 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
      */
     function _processReward(UserStake storage userStake, uint256 reward) internal {
         if (reward > 0) {
-            userStake.rewards = 0;
+            userStake.rewardPerTokenPaid = rewardPerTokenStored;
             rewardsToken.safeTransfer(msg.sender, reward);
 
             emit RewardPaid(msg.sender, reward, stakes[msg.sender].length - 1);
@@ -816,9 +808,8 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
         uint256 stakeAmountWithBonus = _getAmountWithBonus(userStake);
 
         uint256 userRewardPerTokenPaid = userStake.rewardPerTokenPaid;
-        uint256 userRewards = userStake.rewards;
 
-        rewards = ((stakeAmountWithBonus * (rewardPerToken() - userRewardPerTokenPaid)) / ONE + userRewards);
+        rewards = ((stakeAmountWithBonus * (rewardPerToken() - userRewardPerTokenPaid)) / ONE);
     }
 
     /**

@@ -985,8 +985,7 @@ contract ArcadeStakingRewardsTest is Test {
             userStake.lock,
             userStake.unlockTimestamp,
             userStake.amount,
-            userStake.rewardPerTokenPaid,
-            userStake.rewards
+            userStake.rewardPerTokenPaid
         ) = stakingRewards.stakes(userA, 0);
 
         uint256 rewardPerTokenAmount2 = stakingRewards.rewardPerToken();
