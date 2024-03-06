@@ -261,8 +261,7 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
      * @return rewards                        Rewards amounts earned for each deposit.
      */
     function getPendingRewards(address account, uint256 depositId) external view returns (uint256 rewards) {
-        UserStake[] storage userStakes = stakes[account];
-        UserStake storage userStake = userStakes[depositId];
+        UserStake storage userStake = stakes[account][depositId];
 
         rewards = _getPendingRewards(userStake);
     }
@@ -295,13 +294,13 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
         uint256 rewardPerTokenPaid,
         uint256 rewards)
     {
-        UserStake[] storage userStakes = stakes[account];
-        UserStake storage userStake = userStakes[depositId];
+        UserStake storage userStake = stakes[account][depositId];
 
         lock = uint8(userStake.lock);
         unlockTimestamp = userStake.unlockTimestamp;
         amount = userStake.amount;
         rewardPerTokenPaid = userStake.rewardPerTokenPaid;
+        rewards = _getPendingRewards(userStake);
     }
 
     /**
