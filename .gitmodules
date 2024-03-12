@@ -7,3 +7,6 @@
 [submodule "lib/arcade-protocol"]
 	path = lib/arcade-protocol
 	url = https://github.com/arcadexyz/arcade-protocol
+[submodule "lib/v2-periphery"]
+	path = lib/v2-periphery
+	url = https://github.com/Uniswap/v2-periphery
