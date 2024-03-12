@@ -3,6 +3,11 @@ pragma solidity 0.8.20;
 
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
+import "v2-periphery/interfaces/IUniswapV2Router01.sol";
+
+import "arcade-protocol/interfaces/ILoanCore.sol";
+import "arcade-protocol/interfaces/IOriginationConfiguration.sol";
+
 contract FeeCollector {
     // ERC20 token addresses
     address public constant ARCD = 0x1337DEF16F9B486fAEd0293eb623Dc8395dFE46a;
@@ -22,34 +27,49 @@ contract FeeCollector {
     // Uniswap V3 Router address
     address public constant UNISWAP_V3_ROUTER = 0xE592427A0AEce92De3Edee1F18E0157C05861564;
 
+    // ARCD/ETH pair address
+    address public constant ARCD_WETH_PAIR = 0x0d4a11d5EEaaC28EC3F61d100daF4d40471f1852;
+
+    event BuyAnBurn(address feeToken, uint256 amountBurned, uint256 burnedAmount);
+
     /**
      * @notice Function to collect the fees from Loan Core and buy ARCD with the fees.
      *         After we recieve the ARCD, we will burn it.
      *
      * @dev This function is callable by anyone.
      */
-    function buyAndBurn() external returns (uint256 burnedAmount) {
-        // Get the fees from the Loan Core
-        uint256 fees = ILoanCore(LOAN_CORE).getFees();
+    function buyAndBurn(address feeToken) external returns (uint256 burnedAmount) {
+        // Withdraw the fees from the Loan Core
+        ILoanCore(LOAN_CORE).withdrawProtocolFees(feeToken, address(this));
 
-        // Get the ARCD/ETH pair address
-        address pair = IUniswapV2Factory(IUniswapV2Router(UNISWAP_V2_ROUTER).factory()).getPair(ARCD, WETH);
+        // get balance of this contract
+        uint256 fees = IERC20(feeToken).balanceOf(address(this));
 
-        // Get the ARCD/ETH reserves
+        // get pair of feeToken and WETH
+        address pair = IUniswapV2Factory(IUniswapV2Router01(UNISWAP_V2_ROUTER).factory()).getPair(feeToken, WETH);
+
+        // Get the reserves of the pair
         (uint256 reserve0, uint256 reserve1,) = IUniswapV2Pair(pair).getReserves();
 
-        // Get the ARCD/ETH price
-        uint256 price = IUniswapV2Router(UNISWAP_V2_ROUTER).getAmountOut(1e18, reserve0, reserve1);
+        // Get the amount of WETH for these fees
+        uint256 wethAmount = IUniswapV2Router01(UNISWAP_V2_ROUTER).getAmountOut(feeAmount, reserve0, reserve1);
 
-        // Get the amount of ARCD to buy
-        uint256 amount = fees / price;
+        // swap path
+        address[] memory path = new address[](3);
+        path[0] = feeToken;
+        path[1] = WETH;
+        path[2] = ARCD;
 
         // Swap the ETH for ARCD
-        IUniswapV2Router(UNISWAP_V2_ROUTER).swapExactETHForTokens{value: fees}(
-            amount, getPathForETHtoARCD(), address(this), block.timestamp
+        uint256[] memory amounts = IUniswapV2Router(UNISWAP_V2_ROUTER).swapTokensForExactTokens(
+            wethAmount, fees, path, address(this), block.timestamp
         );
 
         // Burn the ARCD
-        IERC20(ARCD).transfer(address(0));
+        IERC20(ARCD).transfer(address(0), amounts[2]);
+
+        emit BuyAnBurn(feeToken, fees, amounts[2]);
+
+        return amounts[2];
     }
 }

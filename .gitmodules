@@ -4,6 +4,7 @@
 [submodule "lib/openzeppelin-contracts"]
 	path = lib/openzeppelin-contracts
 	url = https://github.com/OpenZeppelin/openzeppelin-contracts
+	commit = 0c4de6721d9668d7b5b2c5a9400fd0b2a5e8de90
 [submodule "lib/arcade-protocol"]
 	path = lib/arcade-protocol
 	url = https://github.com/arcadexyz/arcade-protocol
