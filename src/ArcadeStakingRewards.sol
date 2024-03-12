@@ -171,8 +171,7 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
         address _arcdWethLP,
         uint256 _lpToArcdRate,
         uint256 _staleBlockLag
-    ) Ownable(_owner) {
-        if (address(_rewardsDistribution) == address(0)) revert ASR_ZeroAddress("rewardsDistribution");
+    ) Ownable(_owner) ArcadeRewardsRecipient(_rewardsDistribution) {
         if (address(_rewardsToken) == address(0)) revert ASR_ZeroAddress("rewardsToken");
         if (address(_arcdWethLP) == address(0)) revert ASR_ZeroAddress("arcdWethLP");
         if (_lpToArcdRate == 0) revert ASR_ZeroConversionRate();
@@ -180,7 +179,6 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
 
         rewardsToken = IERC20(_rewardsToken);
         arcdWethLP = IERC20(_arcdWethLP);
-        rewardsDistribution = _rewardsDistribution;
         STALE_BLOCK_LAG = _staleBlockLag;
         LP_TO_ARCD_RATE = _lpToArcdRate;
     }
