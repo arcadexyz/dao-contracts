@@ -11,3 +11,6 @@
 	path = lib/openzeppelin-contracts
 	url = https://github.com/openzeppelin/openzeppelin-contracts
 	commit = 0c4de6721d9668d7b5b2c5a9400fd0b2a5e8de90
+[submodule "lib/openzeppelin-contracts-v5"]
+	path = lib/openzeppelin-contracts-v5
+	url = https://github.com/openzeppelin/openzeppelin-contracts
