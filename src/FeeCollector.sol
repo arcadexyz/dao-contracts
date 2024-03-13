@@ -52,8 +52,8 @@ contract FeeCollector {
         ILoanCore(LOAN_CORE).withdrawProtocolFees(feeToken, address(this));
 
         // get balance of this contract
-        uint256 fees = IERC20(feeToken).balanceOf(address(this));
-        require(fees > 0, "FeeCollector: No fees to burn");
+        uint256 feeAmount = IERC20(feeToken).balanceOf(address(this));
+        require(feeAmount > 0, "FeeCollector: No fees to burn");
 
         // get pair of feeToken and WETH
         address pairFeeWeth = IUniswapV2Factory(UNISWAP_V2_FACTORY).getPair(feeToken, WETH);
@@ -77,14 +77,14 @@ contract FeeCollector {
         path[2] = ARCD;
 
         // Swap the ETH for ARCD
-        uint256[] memory amounts = IUniswapV2Router(UNISWAP_V2_ROUTER).swapTokensForExactTokens(
-            arcdAmount, fees, path, address(this), block.timestamp
+        uint256[] memory amounts = IUniswapV2Router01(UNISWAP_V2_ROUTER).swapTokensForExactTokens(
+            arcdAmount, feeAmount, path, address(this), block.timestamp
         );
 
         // Burn the ARCD
         IERC20(ARCD).transfer(address(0), amounts[2]);
 
-        emit BuyAnBurn(feeToken, fees, amounts[2]);
+        emit BuyAnBurn(feeToken, feeAmount, amounts[2]);
 
         return amounts[2];
     }
