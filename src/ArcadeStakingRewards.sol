@@ -2,10 +2,10 @@
 
 pragma solidity 0.8.20;
 
-import "@openzeppelin/contracts/utils/math/Math.sol";
-import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
-import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
-import "@openzeppelin/contracts/utils/Pausable.sol";
+import "openzeppelin-contracts-v5/contracts/utils/math/Math.sol";
+import "openzeppelin-contracts-v5/contracts/token/ERC20/utils/SafeERC20.sol";
+import "openzeppelin-contracts-v5/contracts/utils/ReentrancyGuard.sol";
+import "openzeppelin-contracts-v5/contracts/utils/Pausable.sol";
 
 import "./external/council/interfaces/IVotingVault.sol";
 import "./external/arcade-governance/BoundedHistory.sol";
@@ -105,8 +105,13 @@ import {
  * The resulting ARCD value is then enhanced by the lock bonus multiplier, the
  * user has selected at the time of their token deposit.
  */
-
-contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, IVotingVault, ReentrancyGuard, Pausable {
+contract ArcadeStakingRewards is
+    IArcadeStakingRewards,
+    ArcadeRewardsRecipient,
+    IVotingVault,
+    ReentrancyGuard,
+    Pausable
+{
     using SafeERC20 for IERC20;
     using Math for uint256;
 
@@ -277,7 +282,7 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
 
     /**
      * @notice Returns information about a deposit.
-
+     *
      * @param account                           The user whose stakes to get.
      * @param depositId                         The specified deposit to get.
      *
@@ -287,12 +292,10 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
      * @return rewardPerTokenPaid               Reward per token accounted for.
      * @return rewards                          Amount of rewards accrued.
      */
-    function getUserStake(address account, uint256 depositId) external view returns (
-        uint8 lock,
-        uint32 unlockTimestamp,
-        uint256 amount,
-        uint256 rewardPerTokenPaid,
-        uint256 rewards)
+    function getUserStake(address account, uint256 depositId)
+        external
+        view
+        returns (uint8 lock, uint32 unlockTimestamp, uint256 amount, uint256 rewardPerTokenPaid, uint256 rewards)
     {
         UserStake storage userStake = stakes[account][depositId];
 
@@ -465,18 +468,14 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
      * @param delegation                       The address to which the user's voting power will be delegated.
      * @param lock                             The locking period for the staked tokens.
      */
-    function deposit(
-        uint256 amount,
-        address delegation,
-        Lock lock
-    ) external nonReentrant whenNotPaused updateReward {
+    function deposit(uint256 amount, address delegation, Lock lock) external nonReentrant whenNotPaused updateReward {
         if (amount == 0) revert ASR_ZeroAmount();
         if (delegation == address(0)) revert ASR_ZeroAddress("delegation");
 
         uint256 userStakeCount = stakes[msg.sender].length;
         if (userStakeCount >= MAX_DEPOSITS) revert ASR_DepositCountExceeded();
 
-        (uint256 amountWithBonus, uint256 lockDuration)  = _calculateBonus(amount, lock);
+        (uint256 amountWithBonus, uint256 lockDuration) = _calculateBonus(amount, lock);
 
         uint256 votingPowerToAdd = convertLPToArcd(amount);
         // update the vote power to equal the amount staked with bonus
@@ -560,7 +559,7 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
 
         if (amount > userStake.amount) amount = userStake.amount;
 
-        (uint256 amountWithBonus, ) = _calculateBonus(amount, userStake.lock);
+        (uint256 amountWithBonus,) = _calculateBonus(amount, userStake.lock);
         uint256 votePowerToSubtract = convertLPToArcd(amount);
 
         _subtractVotingPower(votePowerToSubtract, msg.sender);
@@ -606,7 +605,7 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
             uint256 amount = userStake.amount;
             if (amount == 0 || block.timestamp < userStake.unlockTimestamp) continue;
 
-            (uint256 amountWithBonus, ) = _calculateBonus(amount, userStake.lock);
+            (uint256 amountWithBonus,) = _calculateBonus(amount, userStake.lock);
             uint256 votePowerToSubtract = convertLPToArcd(amount);
 
             uint256 reward = _getPendingRewards(userStake);
@@ -727,7 +726,7 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
     /**
      * @notice Updates the global reward counter.
      */
-    modifier updateReward {
+    modifier updateReward() {
         rewardPerTokenStored = rewardPerToken();
         lastUpdateTime = lastTimeRewardApplicable();
         _;
@@ -792,9 +791,8 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
         uint256 amount = userStake.amount;
         Lock lock = userStake.lock;
 
-        (amountWithBonus, ) = _calculateBonus(amount, lock);
+        (amountWithBonus,) = _calculateBonus(amount, lock);
     }
-
 
     /**
      * @notice Calculates the pending rewards of a user's stake.
@@ -819,12 +817,16 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
      *
      * @return bonusAmount                      The bonus value of of the.
      */
-    function _calculateBonus(uint256 amount, Lock lock) internal pure returns (uint256 bonusAmount, uint256 lockDuration) {
+    function _calculateBonus(uint256 amount, Lock lock)
+        internal
+        pure
+        returns (uint256 bonusAmount, uint256 lockDuration)
+    {
         uint256 bonus;
 
         if (lock == Lock.Short) {
-           bonus = SHORT_BONUS;
-           lockDuration = SHORT_LOCK_TIME;
+            bonus = SHORT_BONUS;
+            lockDuration = SHORT_LOCK_TIME;
         } else if (lock == Lock.Medium) {
             bonus = MEDIUM_BONUS;
             lockDuration = MEDIUM_LOCK_TIME;
@@ -879,11 +881,7 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
      * @param amount                           The amount of token which is deposited.
      * @param delegation                       Delegation address.
      */
-    function _addVotingPower(
-        address fundedAccount,
-        uint256 amount,
-        address delegation
-    ) internal {
+    function _addVotingPower(address fundedAccount, uint256 amount, address delegation) internal {
         // No delegating to zero
         if (delegation == address(0)) revert ASR_ZeroAddress("delegation");
 
@@ -897,7 +895,8 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
             delegate = delegation;
             // Set the delegation
             userData.who = delegate;
-        } if (delegation != delegate) {
+        }
+        if (delegation != delegate) {
             revert ASR_InvalidDelegationAddress();
         }
         // Now we increase the user's balance
@@ -921,11 +920,7 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
      * @return                                  A storage mapping which can be used to look
      *                                          up deposit data.
      */
-    function _deposits()
-        internal
-        pure
-        returns (mapping(address => Storage.AddressUint) storage)
-    {
+    function _deposits() internal pure returns (mapping(address => Storage.AddressUint) storage) {
         // This call returns a storage mapping with a unique non overwrite-able storage location
         // which can be persisted through upgrades, even if they change storage layout
         return (Storage.mappingAddressToPackedAddressUint("deposits"));
@@ -939,11 +934,7 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
      * @return                                  A struct which can push to and find items in
      *                                          block indexed storage.
      */
-    function _votingPower()
-        internal
-        pure
-        returns (BoundedHistory.HistoricalBalances memory)
-    {
+    function _votingPower() internal pure returns (BoundedHistory.HistoricalBalances memory) {
         // This call returns a storage mapping with a unique non overwrite-able storage location
         // which can be persisted through upgrades, even if they change storage layout
         return (BoundedHistory.load("votingPower"));
@@ -958,20 +949,11 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
      *
      * @return                                  The number of votes.
      */
-    function queryVotePower(
-        address user,
-        uint256 blockNumber,
-        bytes calldata
-    ) external override returns (uint256) {
+    function queryVotePower(address user, uint256 blockNumber, bytes calldata) external override returns (uint256) {
         // Get our reference to historical data
         BoundedHistory.HistoricalBalances memory votingPower = _votingPower();
         // Find the historical data and clear everything more than 'staleBlockLag' into the past
-        return
-            votingPower.findAndClear(
-                user,
-                blockNumber,
-                block.number - STALE_BLOCK_LAG
-            );
+        return votingPower.findAndClear(user, blockNumber, block.number - STALE_BLOCK_LAG);
     }
 
     /**
@@ -983,11 +965,7 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
      *
      * @return                                  The number of votes.
      */
-    function queryVotePowerView(address user, uint256 blockNumber)
-        external
-        view
-        returns (uint256)
-    {
+    function queryVotePowerView(address user, uint256 blockNumber) external view returns (uint256) {
         // Get our reference to historical data
         BoundedHistory.HistoricalBalances memory votingPower = _votingPower();
         // Find the historical datum

@@ -2,7 +2,7 @@
 
 pragma solidity 0.8.20;
 
-import "@openzeppelin/contracts/access/Ownable.sol";
+import "openzeppelin-contracts-v5/contracts/access/Ownable.sol";
 
 abstract contract ArcadeRewardsRecipient is Ownable {
     address public rewardsDistribution;
