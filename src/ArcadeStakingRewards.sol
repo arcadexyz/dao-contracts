@@ -650,14 +650,6 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
     function notifyRewardAmount(uint256 reward) external override whenNotPaused onlyRewardsDistribution updateReward {
         if (reward < ONE) revert ASR_MinimumRewardAmount();
 
-        // check that the reward is divisible by the rewardsDuration
-        // to avoid rounding errors
-        uint256 remainder = reward % rewardsDuration;
-
-        if (remainder > 0) {
-            reward -= remainder;
-        }
-
         if (totalDeposits > 0) {
             _startRewardEmission(reward);
         } else {
@@ -734,6 +726,11 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
         uint256 leftover;
 
         if (block.timestamp >= periodFinish) {
+            // check that the reward is divisible by the rewardsDuration
+            // to avoid rounding errors
+            uint256 remainder = reward % rewardsDuration;
+            reward -= remainder;
+
             rewardRate = reward / rewardsDuration;
         } else {
             uint256 remaining = periodFinish - block.timestamp;
