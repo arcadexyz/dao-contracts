@@ -593,7 +593,7 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
      * @notice Allows users to withdraw all their staked tokens and claim their reward
      *         tokens all in one transaction. Lock period needs to have ended.
      */
-    function exitAll() external nonReentrant updateReward {
+    function exitAll() external whenNotPaused nonReentrant updateReward {
         UserStake[] storage userStakes = stakes[msg.sender];
         uint256 totalWithdrawAmount = 0;
         uint256 totalRewardAmount = 0;
