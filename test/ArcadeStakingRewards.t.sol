@@ -965,7 +965,7 @@ contract ArcadeStakingRewardsTest is Test {
         vm.prank(admin);
         stakingRewards.notifyRewardAmount(rewardAmount);
 
-        uint256 rewardPerTokenAmount = stakingRewards.rewardPerToken();
+        (uint256 rewardPerTokenAmount,) = stakingRewards.rewardPerToken();
         // since no user has deposited into contract, rewardPerToken should be 0
         assertEq(rewardPerTokenAmount, 0);
 
@@ -988,7 +988,7 @@ contract ArcadeStakingRewardsTest is Test {
             userStake.rewardPerTokenPaid
         ) = stakingRewards.stakes(userA, 0);
 
-        uint256 rewardPerTokenAmount2 = stakingRewards.rewardPerToken();
+        (uint256 rewardPerTokenAmount2,) = stakingRewards.rewardPerToken();
         uint256 rewardRate = rewardAmount / 8 days;
         uint256 amountStakedWithBonus = stakingRewards.getAmountWithBonus(userA, 0);
 
@@ -1752,6 +1752,78 @@ contract ArcadeStakingRewardsTest is Test {
         // Admin calls notifyRewardAmount to set the reward rate
         vm.prank(admin);
         stakingRewards.notifyRewardAmount(9e17);
+    }
+
+    function testUnclaimedRewards() public {
+        setUp();
+
+        lpToken.mint(userA, 20e18);
+        lpToken.mint(userB, 20e18);
+        lpToken.mint(userC, 20e18);
+
+        // mint rewardsTokens to stakingRewards contract
+        rewardsToken.mint(address(stakingRewards), 150e18);
+        // Admin calls notifyRewardAmount to set the reward rate
+        vm.prank(admin);
+        stakingRewards.notifyRewardAmount(100e18);
+
+        uint256 userStake = lpToken.balanceOf(userA);
+
+        // userA approves stakingRewards contract to spend staking tokens
+        vm.startPrank(userA);
+        lpToken.approve(address(stakingRewards), userStake);
+        // user stakes staking tokens
+        stakingRewards.deposit(userStake, userC, IArcadeStakingRewards.Lock.Medium);
+        vm.stopPrank();
+
+        // userB approves stakingRewards contract to spend staking tokens
+        vm.startPrank(userB);
+        lpToken.approve(address(stakingRewards), userStake);
+        // user stakes staking tokens
+        stakingRewards.deposit(userStake, userC, IArcadeStakingRewards.Lock.Medium);
+        vm.stopPrank();
+
+        uint256 afterLock = currentTime + TWO_MONTHS;
+        vm.warp(afterLock);
+
+        uint256 earnedB = stakingRewards.getPendingRewards(userB, 0);
+
+        // userA withdraws
+        vm.prank(userA);
+        stakingRewards.withdraw(userStake, 0);
+
+        uint256 tolerance = 1e2;
+        // unclaimed rewards should be only what is earned by userB
+        assertApproxEqAbs(earnedB, stakingRewards.unclaimedRewards(), tolerance);
+
+        vm.prank(admin);
+        stakingRewards.notifyRewardAmount(50e18);
+
+        // userC approves stakingRewards contract to spend staking tokens
+        vm.startPrank(userC);
+        lpToken.approve(address(stakingRewards), userStake);
+        // userC stakes
+        stakingRewards.deposit(userStake, userB, IArcadeStakingRewards.Lock.Medium);
+        vm.stopPrank();
+
+        uint256 afterLock2 = afterLock + TWO_MONTHS;
+        vm.warp(afterLock2);
+
+        uint256 earnedC = stakingRewards.getPendingRewards(userC, 0);
+
+        // userB withdraws
+        vm.prank(userB);
+        stakingRewards.withdraw(userStake, 0);
+
+        // unclaimed rewards should be only what is earned by userC
+        assertApproxEqAbs(earnedC, stakingRewards.unclaimedRewards(), tolerance);
+
+        // userC withdraws
+        vm.prank(userC);
+        stakingRewards.withdraw(userStake, 0);
+
+        // now that everyone has withdrawn, unclaimed rewards should be zero
+        assertApproxEqAbs(0, stakingRewards.unclaimedRewards(), tolerance);
     }
 }
 

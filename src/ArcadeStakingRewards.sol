@@ -149,6 +149,7 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
 
     uint256 public totalDeposits;
     uint256 public totalDepositsWithBonus;
+    uint256 public unclaimedRewards;
 
     // ========================================== CONSTRUCTOR ===========================================
     /**
@@ -237,17 +238,18 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
      * @notice Returns the amount of reward token earned per staked token.
      *
      * @return uint256                        The reward token amount per staked token.
+     * @return uint256                        Unclaimed rewards.
      */
-    function rewardPerToken() public view returns (uint256) {
+    function rewardPerToken() public view returns (uint256, uint256) {
         if (totalDepositsWithBonus == 0) {
-            return rewardPerTokenStored;
+            return (rewardPerTokenStored, unclaimedRewards);
         }
 
         uint256 timePassed = lastTimeRewardApplicable() - lastUpdateTime;
         uint256 durationRewards = timePassed * rewardRate;
         uint256 updatedRewardsPerToken = (durationRewards * ONE) / totalDepositsWithBonus;
 
-        return rewardPerTokenStored + updatedRewardsPerToken;
+        return (rewardPerTokenStored + updatedRewardsPerToken, unclaimedRewards + durationRewards);
     }
 
     /**
@@ -359,7 +361,7 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
         uint256[] memory rewards = new uint256[](numUserStakes);
         uint256 rewarded = 0;
 
-        uint256 rewardPerToken = rewardPerToken();
+        (uint256 updatedRewardPerToken,) = rewardPerToken();
 
         for (uint256 i = 0; i < numUserStakes; ++i) {
             UserStake storage userStake = userStakes[i];
@@ -368,7 +370,7 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
 
             uint256 userRewardPerTokenPaid = userStake.rewardPerTokenPaid;
 
-            rewards[i] = ((stakeAmountWithBonus * (rewardPerToken - userRewardPerTokenPaid)) / ONE);
+            rewards[i] = ((stakeAmountWithBonus * (updatedRewardPerToken - userRewardPerTokenPaid)) / ONE);
 
             if (rewards[i] > 0) {
                 rewarded++;
@@ -514,6 +516,8 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
 
         uint256 reward = _getPendingRewards(userStake);
 
+        unclaimedRewards -= reward;
+
         _processReward(userStake, reward);
     }
 
@@ -537,6 +541,8 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
                 emit RewardPaid(msg.sender, reward, i);
             }
         }
+
+        unclaimedRewards -= totalReward;
 
         if (totalReward > 0) {
             rewardsToken.safeTransfer(msg.sender, totalReward);
@@ -568,6 +574,7 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
 
         totalDeposits -= amount;
         totalDepositsWithBonus -= amountWithBonus;
+        unclaimedRewards -= reward;
 
         _processReward(userStake, reward);
 
@@ -636,6 +643,7 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
         }
 
         if (totalRewardAmount > 0) {
+            unclaimedRewards -= totalRewardAmount;
             rewardsToken.safeTransfer(msg.sender, totalRewardAmount);
         }
     }
@@ -725,7 +733,7 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
      * @notice Updates the global reward counter.
      */
     modifier updateReward {
-        rewardPerTokenStored = rewardPerToken();
+        (rewardPerTokenStored, unclaimedRewards) = rewardPerToken();
         lastUpdateTime = lastTimeRewardApplicable();
         _;
     }
@@ -738,11 +746,13 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
      * @param reward                            The amount of reward tokens to distribute.
      */
     function _startRewardEmission(uint256 reward) private {
+        uint256 leftover;
+
         if (block.timestamp >= periodFinish) {
             rewardRate = reward / rewardsDuration;
         } else {
             uint256 remaining = periodFinish - block.timestamp;
-            uint256 leftover = remaining * rewardRate;
+            leftover = remaining * rewardRate;
             rewardRate = (reward + leftover) / rewardsDuration;
         }
 
@@ -752,7 +762,7 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
         // Reward + leftover must be less than 2^256 / 10^18 to avoid overflow.
         uint256 balance = rewardsToken.balanceOf(address(this));
 
-        if (reward > balance) revert ASR_RewardTooHigh();
+        if (reward + leftover + unclaimedRewards > balance) revert ASR_RewardTooHigh();
 
         lastUpdateTime = block.timestamp;
         periodFinish = block.timestamp + rewardsDuration;
@@ -804,8 +814,9 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
         uint256 stakeAmountWithBonus = _getAmountWithBonus(userStake);
 
         uint256 userRewardPerTokenPaid = userStake.rewardPerTokenPaid;
+        (uint256 updatedRewardPerToken,) = rewardPerToken();
 
-        rewards = ((stakeAmountWithBonus * (rewardPerToken() - userRewardPerTokenPaid)) / ONE);
+        rewards = ((stakeAmountWithBonus * (updatedRewardPerToken - userRewardPerTokenPaid)) / ONE);
     }
 
     /**
