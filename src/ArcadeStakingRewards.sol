@@ -516,8 +516,6 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
 
         uint256 reward = _getPendingRewards(userStake);
 
-        unclaimedRewards -= reward;
-
         _processReward(userStake, reward);
     }
 
@@ -574,7 +572,6 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
 
         totalDeposits -= amount;
         totalDepositsWithBonus -= amountWithBonus;
-        unclaimedRewards -= reward;
 
         _processReward(userStake, reward);
 
@@ -780,6 +777,8 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
      */
     function _processReward(UserStake storage userStake, uint256 reward) internal {
         if (reward > 0) {
+            unclaimedRewards -= reward;
+
             userStake.rewardPerTokenPaid = rewardPerTokenStored;
             rewardsToken.safeTransfer(msg.sender, reward);
 
