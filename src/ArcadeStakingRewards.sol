@@ -6,7 +6,6 @@ import "@openzeppelin/contracts/utils/math/Math.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/utils/Pausable.sol";
-import "@openzeppelin/contracts/utils/math/SafeCast.sol";
 
 import "./external/council/interfaces/IVotingVault.sol";
 import "./external/arcade-governance/BoundedHistory.sol";
@@ -29,7 +28,8 @@ import {
     ASR_UpperLimitBlock,
     ASR_InvalidDelegationAddress,
     ASR_MinimumRewardAmount,
-    ASR_ZeroRewardRate
+    ASR_ZeroRewardRate,
+    ASR_AmountTooBig
 } from "../src/errors/Staking.sol";
 
 /**
@@ -858,14 +858,14 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
      * @param account                          The funded account for the withdrawal.
      */
     function _subtractVotingPower(uint256 amount, address account) internal {
-        uint96 castAmount = SafeCast.toUint96(amount);
+        if (amount > type(uint96).max) revert ASR_AmountTooBig();
 
         // Load our deposits storage
         Storage.AddressUint storage userData = _deposits()[account];
 
         // Reduce the user's stored balance
         // If properly optimized this block should result in 1 sload 1 store
-        userData.amount -= castAmount;
+        userData.amount -= uint96(amount);
         address delegate = userData.who;
 
         // Reduce the delegate voting power
@@ -894,8 +894,7 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
         uint256 amount,
         address delegation
     ) internal {
-        uint96 castAmount = SafeCast.toUint96(amount);
-
+        if (amount > type(uint96).max) revert ASR_AmountTooBig();
         // No delegating to zero
         if (delegation == address(0)) revert ASR_ZeroAddress("delegation");
 
@@ -913,7 +912,7 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
             revert ASR_InvalidDelegationAddress();
         }
         // Now we increase the user's balance
-        userData.amount += castAmount;
+        userData.amount += uint96(amount);
 
         // Next we increase the delegation to their delegate
         // Get the storage pointer

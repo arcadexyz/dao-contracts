@@ -91,3 +91,8 @@ error ASR_UpperLimitBlock(uint256);
  * @notice The reward rate cannot be zero.
  */
  error ASR_ZeroRewardRate();
+
+ /**
+ * @notice Amount cannot exceed the maximum value that can be held by a uint96.
+ */
+ error ASR_AmountTooBig();
