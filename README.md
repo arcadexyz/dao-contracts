@@ -2,9 +2,9 @@
 
 <br>
 
-## ArcadeStakingRewards Contract
+## ArcadeStakingRewards
 
-### Overview
+### Contract Overview
 
 ArcadeStakingRewards is inspired by the [Synthetix StakingRewards](https://github.com/Synthetixio/synthetix/blob/develop/contracts/StakingRewards.sol) system. The contract facilitates a staking mechanism where users can stake ERC20 tokens `stakingToken` to earn rewards over time in the form of another ERC20 token `rewardsToken`. The rewards depend on the amount staked and the duration of the stake.
 
