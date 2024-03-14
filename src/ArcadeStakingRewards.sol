@@ -540,9 +540,8 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
             }
         }
 
-        unclaimedRewards -= totalReward;
-
         if (totalReward > 0) {
+            unclaimedRewards -= totalReward;
             rewardsToken.safeTransfer(msg.sender, totalReward);
         }
     }
