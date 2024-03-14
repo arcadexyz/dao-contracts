@@ -961,7 +961,7 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
         uint256 blockNumber,
         bytes calldata
     ) external override returns (uint256) {
-        return this.queryVotePowerView(user, blockNumber);
+        return queryVotePowerView(user, blockNumber);
     }
 
     /**
@@ -974,7 +974,7 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
      * @return                                  The number of votes.
      */
     function queryVotePowerView(address user, uint256 blockNumber)
-        external
+        public
         view
         returns (uint256)
     {
