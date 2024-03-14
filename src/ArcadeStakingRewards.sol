@@ -668,7 +668,7 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
         if (totalDeposits > 0) {
             _startRewardEmission(reward);
         } else {
-            notifiedRewardAmount = reward;
+            notifiedRewardAmount += reward;
         }
 
         emit RewardAdded(reward);
