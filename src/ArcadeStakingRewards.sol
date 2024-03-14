@@ -336,8 +336,7 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
 
         for (uint256 i = 0; i < numUserStakes; ++i) {
             if (userStakes[i].amount > 0) {
-                activeStakes[activeIndex] = i;
-                activeIndex++;
+                activeStakes[activeIndex++] = i;
             }
         }
 
