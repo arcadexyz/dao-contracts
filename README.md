@@ -44,7 +44,7 @@ ArcadeStakingRewards is inspired by the [Synthetix StakingRewards](https://githu
 
 ## Development and Testing
 
-To build and test any of the contracts, use:
+To build and test, use:
 
 - **Build:** `$ forge build`
 - **Test:** `$ forge test`
