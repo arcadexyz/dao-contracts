@@ -128,8 +128,6 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
 
     // ============ Global State =============
     uint256 public immutable LP_TO_ARCD_RATE;
-    uint256 public immutable STALE_BLOCK_LAG;
-
     IERC20 public immutable rewardsToken;
     IERC20 public immutable arcdWethLP;
 
@@ -157,25 +155,20 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
      * @param _rewardsToken                The address of the rewards ERC20 token.
      * @param _arcdWethLP                  The address of the staking ERC20 token.
      * @param _lpToArcdRate                Immutable ARCD/WETH to ARCD conversion rate.
-     * @param _staleBlockLag               The number of blocks before which the delegation
-     *                                     history is forgotten.
      */
     constructor(
         address _owner,
         address _rewardsDistribution,
         address _rewardsToken,
         address _arcdWethLP,
-        uint256 _lpToArcdRate,
-        uint256 _staleBlockLag
+        uint256 _lpToArcdRate
     ) Ownable(_owner) ArcadeRewardsRecipient(_rewardsDistribution) {
         if (address(_rewardsToken) == address(0)) revert ASR_ZeroAddress("rewardsToken");
         if (address(_arcdWethLP) == address(0)) revert ASR_ZeroAddress("arcdWethLP");
         if (_lpToArcdRate == 0) revert ASR_ZeroConversionRate();
-        if (_staleBlockLag >= block.number) revert ASR_UpperLimitBlock(_staleBlockLag);
 
         rewardsToken = IERC20(_rewardsToken);
         arcdWethLP = IERC20(_arcdWethLP);
-        STALE_BLOCK_LAG = _staleBlockLag;
         LP_TO_ARCD_RATE = _lpToArcdRate;
     }
 
