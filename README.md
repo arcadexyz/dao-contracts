@@ -26,7 +26,8 @@ ArcadeStakingRewards is inspired by the [Synthetix StakingRewards](https://githu
 
 `ArcadeStakingRewards.sol` utilizes the [Council Kit](https://github.com/delvtech/council-kit/wiki/Voting-Vaults-Overview) LockingVault deployment [here](https://etherscan.io/address/0x7a58784063D41cb78FBd30d271F047F0b9156d6e#code) as its governance operations foundation.
 
-- **Voting Power:** Staking tokens in the locking pool grants users voting power in ArcadeDAO governance, proportional to their staked amount plus any bonuses. A user's voting power is determined by the quantity of ARCDWETH pair tokens they have staked. To calculate their voting power, an ARCD/WETH to ARCD conversion rate is set in the contract at deployment time and stored in an immutable state variable. The user's ARCD amount is the product of their deposited ARCD/WETH amount and the immutable conversion rate. The resulting voting power is amplified by the lock multiplier that users choose upon staking.
+- **Voting Power:** Staking tokens grant users voting power in ArcadeDAO governance. A user’s voting power is determined by the quantity of ARCDWETH tokens they have committed and its representation of the user’s ARCD holdings in the ARCDWETH UniswapV2Pair contract.  To calculate the user's voting power, a conversion rate is set in the locking pool at deployment time. The user’s voting power is the product of their deposited ARCDWETH stake amount and this conversion rate.
+
 - **Automatic Delegation:** Voting power is automatically accrued and delegated without additional transactions by the user.
 
 ## Development and Testing
@@ -36,4 +37,6 @@ To build and test ArcadeStakingRewards contract, use:
 - **Build:** `$ forge build`
 - **Test:** `$ forge test`
 
----
+## Known Gotchas
+
+- **Utilization of Unaccrued Reward Tokens:** Un-accrued reward tokens should be incorporated into new `reward` amounts specified in future `notifyRewardAmount()` calls. This is necessary because these tokens cannot be retrieved by `recoverERC20()` unless the contract's `totalSupply()` equals zero, a condition that may never be met given the likelihood of continuous stakeholder participation.
