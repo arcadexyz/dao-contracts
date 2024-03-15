@@ -8,7 +8,7 @@ import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/utils/Pausable.sol";
 
 import "./external/council/interfaces/IVotingVault.sol";
-import "./external/arcade-governance/BoundedHistory.sol";
+import "./external/council/libraries/History.sol";
 import "./external/council/libraries/Storage.sol";
 
 import "./interfaces/IArcadeStakingRewards.sol";
@@ -90,9 +90,6 @@ import {
  * The ArcadeStakingRewards contract governance functionality is adapted from the
  * LockingVault deployment at:
  * https://etherscan.io/address/0x7a58784063D41cb78FBd30d271F047F0b9156d6e#code
- * The contract also uses BoundedHistory.sol which is a modified version of Council's
- * History.sol, to enforce a max upper bound on the number of entries in a voting
- * power history array preventing history poisoning attacks.
  *
  * Once a user makes their initial stake, the voting power for any future stakes will
  * need to be delegated to the same address as the initial stake. To assign a
@@ -112,7 +109,7 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
     using Math for uint256;
 
     // Bring library into scope
-    using BoundedHistory for BoundedHistory.HistoricalBalances;
+    using History for History.HistoricalBalances;
 
     // ============================================ STATE ==============================================
     // ============== Constants ==============
@@ -120,9 +117,6 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
     uint256 public constant ONE_DAY = 1 days;
     uint256 public constant MAX_DEPOSITS = 20;
     uint256 public constant LP_TO_ARCD_DENOMINATOR = 1e3;
-    // Max length of any voting history. Prevents gas exhaustion
-    // attacks from having too-large history.
-    uint256 public constant MAX_HISTORY_LENGTH = 256;
 
     uint256 public constant SHORT_BONUS = 11e17;
     uint256 public constant MEDIUM_BONUS = 13e17;
@@ -134,8 +128,6 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
 
     // ============ Global State =============
     uint256 public immutable LP_TO_ARCD_RATE;
-    uint256 public immutable STALE_BLOCK_LAG;
-
     IERC20 public immutable rewardsToken;
     IERC20 public immutable arcdWethLP;
 
@@ -163,25 +155,20 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
      * @param _rewardsToken                The address of the rewards ERC20 token.
      * @param _arcdWethLP                  The address of the staking ERC20 token.
      * @param _lpToArcdRate                Immutable ARCD/WETH to ARCD conversion rate.
-     * @param _staleBlockLag               The number of blocks before which the delegation
-     *                                     history is forgotten.
      */
     constructor(
         address _owner,
         address _rewardsDistribution,
         address _rewardsToken,
         address _arcdWethLP,
-        uint256 _lpToArcdRate,
-        uint256 _staleBlockLag
+        uint256 _lpToArcdRate
     ) Ownable(_owner) ArcadeRewardsRecipient(_rewardsDistribution) {
         if (address(_rewardsToken) == address(0)) revert ASR_ZeroAddress("rewardsToken");
         if (address(_arcdWethLP) == address(0)) revert ASR_ZeroAddress("arcdWethLP");
         if (_lpToArcdRate == 0) revert ASR_ZeroConversionRate();
-        if (_staleBlockLag >= block.number) revert ASR_UpperLimitBlock(_staleBlockLag);
 
         rewardsToken = IERC20(_rewardsToken);
         arcdWethLP = IERC20(_arcdWethLP);
-        STALE_BLOCK_LAG = _staleBlockLag;
         LP_TO_ARCD_RATE = _lpToArcdRate;
     }
 
@@ -852,7 +839,6 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
      *         In the Locking Vault  msg.sender directly indicated the user, wheras in this
      *         context msg.sender refers to the contract itself. Therefore, we explicitly pass the
      *         user's address.
-     *         The function was also modified to use BoundedHistory.sol.
      *
      * @param amount                           The amount of token to withdraw.
      * @param account                          The funded account for the withdrawal.
@@ -870,20 +856,19 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
 
         // Reduce the delegate voting power
         // Get the storage pointer
-        BoundedHistory.HistoricalBalances memory votingPower = _votingPower();
+        History.HistoricalBalances memory votingPower = _votingPower();
         // Load the most recent voter power stamp
         uint256 delegateeVotes = votingPower.loadTop(delegate);
         // remove the votes from the delegate
-        votingPower.push(delegate, delegateeVotes - amount, MAX_HISTORY_LENGTH);
+        votingPower.push(delegate, delegateeVotes - amount);
         // Emit an event to track votes
         emit VoteChange(account, delegate, -1 * int256(amount));
     }
 
     /**
      * @notice This internal function is adapted from the external deposit function from the LockingVault
-     *         contract, with 3 key modification: it omits the token transfer transaction, it was modified
-     *         to use BoundedHistory.sol, and reverts if the specified delegation address does not align with
-     *         the user's previously designated delegate.
+     *         contract, with 2 key modification: it omits the token transfer transaction and reverts if the
+     *         specified delegation address does not align with the user's previously designated delegate.
      *
      * @param fundedAccount                    The address to credit this deposit to.
      * @param amount                           The amount of token which is deposited.
@@ -916,13 +901,13 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
 
         // Next we increase the delegation to their delegate
         // Get the storage pointer
-        BoundedHistory.HistoricalBalances memory votingPower = _votingPower();
+        History.HistoricalBalances memory votingPower = _votingPower();
         // Load the most recent voter power stamp
         uint256 delegateeVotes = votingPower.loadTop(delegate);
         // Emit an event to track votes
         emit VoteChange(fundedAccount, delegate, int256(amount));
         // Add the newly deposited votes to the delegate
-        votingPower.push(delegate, delegateeVotes + amount, MAX_HISTORY_LENGTH);
+        votingPower.push(delegate, delegateeVotes + amount);
     }
 
     /**
@@ -944,7 +929,7 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
 
     /**
      * @notice This function is taken from the LockingVault contract. Returns the historical
-     *         voting power tracker. It was modified to use BoundedHistory.sol.
+     *         voting power tracker.
      *
      *
      * @return                                  A struct which can push to and find items in
@@ -953,16 +938,18 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
     function _votingPower()
         internal
         pure
-        returns (BoundedHistory.HistoricalBalances memory)
+        returns (History.HistoricalBalances memory)
     {
         // This call returns a storage mapping with a unique non overwrite-able storage location
         // which can be persisted through upgrades, even if they change storage layout
-        return (BoundedHistory.load("votingPower"));
+        return (History.load("votingPower"));
     }
 
     /**
      * @notice This function is taken from the LockingVault contract. Attempts to load the voting
-     *         power of a user. It was modified to use BoundedHistory.sol.
+     *         power of a user.
+     *         It is revised to no longer remove stale blocks from the queue, to address the problem
+     *         of gas depletion encountered with overly long queues.
      *
      * @param user                              The address we want to load the voting power of.
      * @param blockNumber                       The block number we want the user's voting power at.
@@ -974,20 +961,12 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
         uint256 blockNumber,
         bytes calldata
     ) external override returns (uint256) {
-        // Get our reference to historical data
-        BoundedHistory.HistoricalBalances memory votingPower = _votingPower();
-        // Find the historical data and clear everything more than 'staleBlockLag' into the past
-        return
-            votingPower.findAndClear(
-                user,
-                blockNumber,
-                block.number - STALE_BLOCK_LAG
-            );
+        return queryVotePowerView(user, blockNumber);
     }
 
     /**
      * @notice This function is taken from the LockingVault contract. Loads the voting power of a
-     *         user without changing state. It was modified to use BoundedHistory.sol.
+     *         user without changing state.
      *
      * @param user                              The address we want to load the voting power of.
      * @param blockNumber                       The block number we want the user's voting power at.
@@ -995,19 +974,18 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
      * @return                                  The number of votes.
      */
     function queryVotePowerView(address user, uint256 blockNumber)
-        external
+        public
         view
         returns (uint256)
     {
         // Get our reference to historical data
-        BoundedHistory.HistoricalBalances memory votingPower = _votingPower();
+        History.HistoricalBalances memory votingPower = _votingPower();
         // Find the historical datum
         return votingPower.find(user, blockNumber);
     }
 
     /**
      * @notice This function is taken from the LockingVault contract, it changes a user's voting power.
-     *         It was modified to use BoundedHistory.sol.
      *
      * @param newDelegate                        The new address which gets voting power.
      */
@@ -1023,18 +1001,18 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
         userData.who = newDelegate;
         // Reduce the old voting power
         // Get the storage pointer
-        BoundedHistory.HistoricalBalances memory votingPower = _votingPower();
+        History.HistoricalBalances memory votingPower = _votingPower();
         // Load the old delegate's voting power
         uint256 oldDelegateVotes = votingPower.loadTop(oldDelegate);
         // Reduce the old voting power
-        votingPower.push(oldDelegate, oldDelegateVotes - userBalance, MAX_HISTORY_LENGTH);
+        votingPower.push(oldDelegate, oldDelegateVotes - userBalance);
         // Emit an event to track votes
         emit VoteChange(msg.sender, oldDelegate, -1 * int256(userBalance));
         // Get the new delegate's votes
         uint256 newDelegateVotes = votingPower.loadTop(newDelegate);
 
         // Store the increase in power
-        votingPower.push(newDelegate, newDelegateVotes + userBalance, MAX_HISTORY_LENGTH);
+        votingPower.push(newDelegate, newDelegateVotes + userBalance);
         // Emit an event tracking this voting power change
         emit VoteChange(msg.sender, newDelegate, int256(userBalance));
     }

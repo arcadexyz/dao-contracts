@@ -31,9 +31,6 @@ contract ArcadeStakingRewardsTest is Test {
     address userC = address(0x5);
     address userD = address(0x6);
 
-    // staleBlockNum has to be a number in the past, lower than the current block number.
-    // upon deployment, update staleBlockNum to be relevant in the realm of mainnet
-    uint256 STALE_BLOCK_LAG = 100;
     uint256 currentBlock = 101;
     uint256 currentTime;
 
@@ -42,9 +39,6 @@ contract ArcadeStakingRewardsTest is Test {
         otherToken = new MockERC20("Other Token", "OTHR");
         lpToken = new MockERC20("LP Token", "LPT");
 
-        // advance the block number to a number higher than the STALE_BLOCK_LAG
-        vm.roll(101);
-
         currentTime = block.timestamp;
 
         stakingRewards = new ArcadeStakingRewards(
@@ -52,8 +46,7 @@ contract ArcadeStakingRewardsTest is Test {
             admin,
             address(rewardsToken),
             address(lpToken),
-            LP_TO_ARCD_RATE,
-            STALE_BLOCK_LAG
+            LP_TO_ARCD_RATE
         );
 
         // set rewards to duration to an even number of days for easier testing
@@ -82,8 +75,7 @@ contract ArcadeStakingRewardsTest is Test {
             address(0),
             address(rewardsToken),
             address(lpToken),
-            LP_TO_ARCD_RATE,
-            STALE_BLOCK_LAG
+            LP_TO_ARCD_RATE
         );
 
         vm.expectRevert(abi.encodeWithSelector(selector, "rewardsToken"));
@@ -92,8 +84,7 @@ contract ArcadeStakingRewardsTest is Test {
             admin,
             address(0),
             address(lpToken),
-            LP_TO_ARCD_RATE,
-            STALE_BLOCK_LAG
+            LP_TO_ARCD_RATE
         );
 
         vm.expectRevert(abi.encodeWithSelector(selector, "arcdWethLP"));
@@ -102,8 +93,7 @@ contract ArcadeStakingRewardsTest is Test {
             admin,
             address(rewardsToken),
             address(0),
-            LP_TO_ARCD_RATE,
-            STALE_BLOCK_LAG
+            LP_TO_ARCD_RATE
         );
 
         vm.expectRevert(abi.encodeWithSelector(selector2));
@@ -112,23 +102,7 @@ contract ArcadeStakingRewardsTest is Test {
             admin,
             address(rewardsToken),
             address(lpToken),
-            0,
-            STALE_BLOCK_LAG
-        );
-    }
-
-    function testUpperLimitBlock() public {
-        bytes4 selector = bytes4(keccak256("ASR_UpperLimitBlock(uint256)"));
-        uint256 STALE_BLOCK_LAG2 = 105;
-
-        vm.expectRevert(abi.encodeWithSelector(selector, STALE_BLOCK_LAG2));
-        stakingRewards = new ArcadeStakingRewards(
-            owner,
-            admin,
-            address(rewardsToken),
-            address(lpToken),
-            LP_TO_ARCD_RATE,
-            STALE_BLOCK_LAG2
+            0
         );
     }
 
