@@ -100,8 +100,6 @@ import {
  * conversion rate is set in the contract at deployment and cannot be updated.
  * The user's ARCD amount is a product of their deposited ARCD/WETH amount and
  * the conversion rate.
- * The resulting ARCD value is then enhanced by the lock bonus multiplier, the
- * user has selected at the time of their token deposit.
  */
 
 contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, IVotingVault, ReentrancyGuard, Pausable {
