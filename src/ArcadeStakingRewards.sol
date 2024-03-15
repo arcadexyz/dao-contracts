@@ -28,7 +28,8 @@ import {
     ASR_UpperLimitBlock,
     ASR_InvalidDelegationAddress,
     ASR_MinimumRewardAmount,
-    ASR_ZeroRewardRate
+    ASR_ZeroRewardRate,
+    ASR_AmountTooBig
 } from "../src/errors/Staking.sol";
 
 /**
@@ -478,6 +479,7 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
         (uint256 amountWithBonus, uint256 lockDuration)  = _calculateBonus(amount, lock);
 
         uint256 votingPowerToAdd = convertLPToArcd(amount);
+
         // update the vote power to equal the amount staked with bonus
         _addVotingPower(msg.sender, votingPowerToAdd, delegation);
 
@@ -856,6 +858,8 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
      * @param account                          The funded account for the withdrawal.
      */
     function _subtractVotingPower(uint256 amount, address account) internal {
+        if (amount > type(uint96).max) revert ASR_AmountTooBig();
+
         // Load our deposits storage
         Storage.AddressUint storage userData = _deposits()[account];
 
@@ -890,6 +894,7 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
         uint256 amount,
         address delegation
     ) internal {
+        if (amount > type(uint96).max) revert ASR_AmountTooBig();
         // No delegating to zero
         if (delegation == address(0)) revert ASR_ZeroAddress("delegation");
 
