@@ -953,7 +953,7 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
         address user,
         uint256 blockNumber,
         bytes calldata
-    ) external override returns (uint256) {
+    ) external view override returns (uint256) {
         return queryVotePowerView(user, blockNumber);
     }
 
