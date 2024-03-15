@@ -4,7 +4,7 @@ pragma solidity 0.8.20;
 
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 
-interface IArcadeStakingRewards {
+interface IArcadeSingleSidedStaking {
     // ================================================= EVENTS ==================================================
     event RewardAdded(uint256 reward);
     event Deposited(address indexed user, uint256 depositId, uint256 amount);

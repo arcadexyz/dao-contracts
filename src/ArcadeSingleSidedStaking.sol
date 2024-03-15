@@ -6,13 +6,13 @@ import "@openzeppelin/contracts/utils/math/Math.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/utils/Pausable.sol";
+import "@openzeppelin/contracts/access/Ownable.sol";
 
 import "./external/council/interfaces/IVotingVault.sol";
 import "./external/council/libraries/History.sol";
 import "./external/council/libraries/Storage.sol";
 
-import "./interfaces/IArcadeStakingRewards.sol";
-import "./ArcadeRewardsRecipient.sol";
+import "./interfaces/IArcadeSingleSidedStaking.sol";
 
 import {
     ASR_ZeroAddress,
@@ -88,7 +88,7 @@ import {
  * A user's voting power is determined by the quantity of ARCD tokens they have deposited.
  */
 
-contract ArcadeSingleSidedStaking is IArcadeSingleSidedStaking, IVotingVault, ReentrancyGuard, Pausable {
+contract ArcadeSingleSidedStaking is IArcadeSingleSidedStaking, IVotingVault, ReentrancyGuard, Ownable, Pausable {
     using SafeERC20 for IERC20;
     using Math for uint256;
 
@@ -109,11 +109,7 @@ contract ArcadeSingleSidedStaking is IArcadeSingleSidedStaking, IVotingVault, Re
     IERC20 public immutable arcdToken;
 
     uint256 public periodFinish;
-    uint256 public lastUpdateTime;
     uint256 public pointsTrackingDuration = ONE_DAY * 30 * 6; // six months
-    uint256 public notifiedRewardAmount;
-    uint256 public rewardPerTokenStored;
-    uint256 public rewardRate;
 
     mapping(address => UserDeposit[]) public userDeposits;
 

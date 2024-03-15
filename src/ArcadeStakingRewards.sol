@@ -11,7 +11,7 @@ import "./external/council/interfaces/IVotingVault.sol";
 import "./external/arcade-governance/BoundedHistory.sol";
 import "./external/council/libraries/Storage.sol";
 
-import "./interfaces/IArcadeStakingRewards.sol";
+import "./interfaces/IArcadeSingleSidedStaking.sol";
 import "./ArcadeRewardsRecipient.sol";
 
 import {
