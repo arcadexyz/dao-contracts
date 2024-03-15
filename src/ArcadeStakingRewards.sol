@@ -510,7 +510,7 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
      *
      * @param depositId                        The specified deposit to get the reward for.
      */
-    function claimReward(uint256 depositId) external nonReentrant updateReward {
+    function claimReward(uint256 depositId) external whenNotPaused nonReentrant updateReward {
         UserStake storage userStake = stakes[msg.sender][depositId];
         if (userStake.amount == 0) revert ASR_BalanceAmount();
 
@@ -522,7 +522,7 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
     /**
      * @notice Enables the claim of all accumulated rewards in one transaction.
      */
-    function claimRewardAll() external nonReentrant updateReward {
+    function claimRewardAll() external whenNotPaused nonReentrant updateReward {
         UserStake[] storage userStakes = stakes[msg.sender];
         uint256 totalReward = 0;
 
@@ -593,7 +593,7 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
      * @notice Allows users to withdraw all their staked tokens and claim their reward
      *         tokens all in one transaction. Lock period needs to have ended.
      */
-    function exitAll() external nonReentrant updateReward {
+    function exitAll() external whenNotPaused nonReentrant updateReward {
         UserStake[] storage userStakes = stakes[msg.sender];
         uint256 totalWithdrawAmount = 0;
         uint256 totalRewardAmount = 0;
