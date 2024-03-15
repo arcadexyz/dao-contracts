@@ -725,18 +725,17 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
     function _startRewardEmission(uint256 reward) private {
         uint256 leftover;
 
-        if (block.timestamp >= periodFinish) {
-            // check that the reward is divisible by the rewardsDuration
-            // to avoid rounding errors
-            uint256 remainder = reward % rewardsDuration;
-            reward -= remainder;
-
-            rewardRate = reward / rewardsDuration;
-        } else {
+        if (block.timestamp < periodFinish) {
             uint256 remaining = periodFinish - block.timestamp;
             leftover = remaining * rewardRate;
-            rewardRate = (reward + leftover) / rewardsDuration;
+
+            reward += leftover;
         }
+
+        uint256 remainder = reward % rewardsDuration;
+        reward -= remainder;
+
+        rewardRate = reward / rewardsDuration;
 
         // Ensure the provided reward amount is not more than the balance in the contract.
         // This keeps the reward rate in the right range, preventing overflows due to
