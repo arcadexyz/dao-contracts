@@ -505,7 +505,14 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
 
         uint256 reward = _getPendingRewards(userStake);
 
-        _processReward(userStake, reward, depositId);
+        if (reward > 0) {
+            unclaimedRewards -= reward;
+
+            userStake.rewardPerTokenPaid = rewardPerTokenStored;
+            rewardsToken.safeTransfer(msg.sender, reward);
+
+            emit RewardPaid(msg.sender, reward, depositId);
+        }
     }
 
     /**
@@ -561,9 +568,17 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
         totalDeposits -= amount;
         totalDepositsWithBonus -= amountWithBonus;
 
-        _processReward(userStake, reward, depositId);
+        if (reward > 0) {
+            unclaimedRewards -= reward;
+
+            userStake.rewardPerTokenPaid = rewardPerTokenStored;
+            rewardsToken.safeTransfer(msg.sender, reward);
+
+            emit RewardPaid(msg.sender, reward, depositId);
+        }
 
         arcdWethLP.safeTransfer(msg.sender, amount);
+
         emit Withdrawn(msg.sender, amount);
     }
 
@@ -750,25 +765,6 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
         notifiedRewardAmount = 0;
 
         emit RewardEmissionActivated(reward, periodFinish);
-    }
-
-    /**
-     * @notice Handles the updating of the reward state of a specific stake and transfers
-     *         the reward amount to the staker.
-     *
-     * @param userStake                         The user's stake object.
-     * @param reward                            The reward amount.
-     * @param depositId                         The specified deposit to process the reward for.
-     */
-    function _processReward(UserStake storage userStake, uint256 reward, uint256 depositId) internal {
-        if (reward > 0) {
-            unclaimedRewards -= reward;
-
-            userStake.rewardPerTokenPaid = rewardPerTokenStored;
-            rewardsToken.safeTransfer(msg.sender, reward);
-
-            emit RewardPaid(msg.sender, reward, depositId);
-        }
     }
 
     /**
