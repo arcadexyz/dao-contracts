@@ -6,14 +6,11 @@ import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 
 interface IArcadeSingleSidedStaking {
     // ================================================= EVENTS ==================================================
-    event RewardAdded(uint256 reward);
     event Deposited(address indexed user, uint256 depositId, uint256 amount);
     event Withdrawn(address indexed user, uint256 amount);
-    event RewardPaid(address indexed user, uint256 reward, uint256 depositId);
-    event RewardsDurationUpdated(uint256 newDuration);
+    event PointsDurationUpdated(uint256 newDuration);
     event Recovered(address token, uint256 amount);
     event VoteChange(address indexed from, address indexed to, int256 amount);
-    event RewardEmissionActivated(uint256 rewardAmount, uint256 rewardEnd);
 
     // ================================================= STRUCTS =================================================
     enum Lock {
@@ -31,7 +28,7 @@ interface IArcadeSingleSidedStaking {
     // ============================================= VIEW FUNCTIONS ==============================================
     function getTotalUserDeposits(address account) external view returns (uint256);
 
-    function lastTimeRewardApplicable() external view returns (uint256);
+    function lastTimePointsApplicable() external view returns (uint256);
 
     function totalSupply() external view returns (uint256);
 
@@ -54,7 +51,7 @@ interface IArcadeSingleSidedStaking {
 
     function withdraw(uint256 amount, uint256 depositId) external;
 
-    function setRewardsDuration(uint256 _rewardsDuration) external;
+    function setPointsDuration(uint256 _rewardsDuration) external;
 
     function recoverERC20(address tokenAddress, uint256 tokenAmount) external;
 

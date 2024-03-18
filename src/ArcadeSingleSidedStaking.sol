@@ -37,21 +37,21 @@ import {
  *
  * The ArcadeSingleSidedStaking contract is set up like a traditional staking contract,
  * but with a twist: instead of earning tokens as rewards, users deposit their ARCD tokens
- * in the contract and get d’App points in return. These points are tallied up off-chain.
+ * in the contract and get d’App points in return. Earned points are tallied up off-chain.
  * It’s a straightforward way for users to lock their ARCD and earn points that count
  * towards the $ARCD Rewards program and its Levels.
  *
  * Users have the flexibility to make multiple deposits, each accruing points separately
  * until their lock period concludes. Upon depositing, users are required to commit to a
  * lock period where tokens are immovable, until the chosen lock period expires. Early
- * withdrawal is not permitted before the locking period is over.
+ * withdrawal is not permitted.
  *
- * Should users choose not to withdraw their tokens post the lock period, these
+ * Should users choose not to withdraw their tokens post the lock period, the
  * funds will seamlessly transition into a subsequent points tracking cycle if
  * one should start. Unlike the initial deposit, the funds in the consequent point
  * tracking cycles are not bound by a lock period and can be freely withdrawn anytime.
  *
- * The lock period gives users the opportunity to enhance their point earnings
+ * The lock period gives users the opportunity to enhance their points earnings
  * with a bonus multiplier that is contingent on the duration for which the user
  * chooses to lock their deposited tokens. The available lock durations are categorized
  * as short, medium, and long. Each category is associated with a progressively increasing
@@ -62,8 +62,8 @@ import {
  * their deposit bonus amount is calculated as:
  * (the user's deposited amount * multiplier for the chosen duration) + original
  * deposited amount.
- * This boosts the user's points in proportion to both the amount deposited and
- * the duration of the lock for the deposit.
+ * This boosts the user's points earnings in proportion to both the amount deposited
+ * and the duration of the lock for the deposit.
  *
  * In the exitAll() external function, it's necessary to limit the number of
  * processed transactions within the function's loops to prevent exceeding
@@ -104,11 +104,11 @@ contract ArcadeSingleSidedStaking is IArcadeSingleSidedStaking, IVotingVault, Re
 
     uint256 public constant SHORT_BONUS = 11e17;
     uint256 public constant MEDIUM_BONUS = 13e17;
-    uint256 public constant LONG_BONUS = 15e17;
+    uint256 public constant LONG_BONUS = 18e17;
 
     uint256 public constant SHORT_LOCK_TIME = ONE_DAY * 30; // one month
     uint256 public constant MEDIUM_LOCK_TIME = ONE_DAY * 60; // two months
-    uint256 public constant LONG_LOCK_TIME = ONE_DAY * 90; // three months
+    uint256 public constant LONG_LOCK_TIME = ONE_DAY * 150; // five months
 
     // ============ Global State =============
     IERC20 public immutable arcd;
@@ -122,11 +122,11 @@ contract ArcadeSingleSidedStaking is IArcadeSingleSidedStaking, IVotingVault, Re
 
     // ========================================== CONSTRUCTOR ===========================================
     /**
-     * @notice Sets up the contract by initializing the staking and rewards tokens,
-     *         and setting the owner and rewards distribution addresses.
+     * @notice Sets up the contract by initializing the deposit token,
+     *         and setting the owner.
      *
      * @param _owner                       The address of the contract owner.
-     * @param _arcd                        The address of the deposited ERC20 token.
+     * @param _arcd                        The address of the deposit ERC20 token.
      */
     constructor(
         address _owner,
@@ -176,14 +176,13 @@ contract ArcadeSingleSidedStaking is IArcadeSingleSidedStaking, IVotingVault, Re
         depositBalance = deposits[account][depositId].amount;
     }
 
-    /**
-     * @notice Returns the last timestamp at which rewards can be calculated and
-     *         be accounted for.
+    /** // TODO: is this NEEDED?
+     * @notice Returns the last timestamp at which point tracking can be accounted for.
      *
-     * @return uint256                       The timestamp record after which rewards
-     *                                       can no longer be calculated.
+     * @return uint256                       The timestamp record after which points
+     *                                       are no longer tracked.
      */
-    function lastTimeRewardApplicable() public view returns (uint256) {
+    function lastTimePointsApplicable() public view returns (uint256) {
         return block.timestamp < periodFinish ? block.timestamp : periodFinish;
     }
 
@@ -202,15 +201,15 @@ contract ArcadeSingleSidedStaking is IArcadeSingleSidedStaking, IVotingVault, Re
         uint32 unlockTimestamp,
         uint256 amount)
     {
-        UserDeposit storage accountDeposit = deposits[account][depositId];
+        UserDeposit storage userDeposit = deposits[account][depositId];
 
-        lock = uint8(accountDeposit.lock);
-        unlockTimestamp = accountDeposit.unlockTimestamp;
-        amount = accountDeposit.amount;
+        lock = uint8(userDeposit.lock);
+        unlockTimestamp = userDeposit.unlockTimestamp;
+        amount = userDeposit.amount;
     }
 
     /**
-     * @notice Gives the last depositId, equivalent to userDeposits.length.
+     * @notice Returns the last depositId, equivalent to userDeposits.length.
      *
      * @param account                           The user whose deposits to get.
      *
@@ -253,12 +252,12 @@ contract ArcadeSingleSidedStaking is IArcadeSingleSidedStaking, IVotingVault, Re
     }
 
     /**
-     * @notice Returns just the bonus amount for a deposit.
+     * @notice Returns the bonus amount for a deposit.
      *
      * @param account                           The user's account.
      * @param depositId                         The specified deposit to get the bonus amount for.
      *
-     * @return bonusAmount                      Value of user deposit bonus.
+     * @return bonusAmount                      Value of user deposit's bonus.
      */
     function getDepositBonus(address account, uint256 depositId) public view returns (uint256 bonusAmount) {
         UserDeposit storage userDeposit = deposits[account][depositId];
@@ -294,7 +293,7 @@ contract ArcadeSingleSidedStaking is IArcadeSingleSidedStaking, IVotingVault, Re
         // update the vote power
         _addVotingPower(msg.sender, amount, delegation);
 
-        // populate user stake information
+        // populate user deposit information
         deposits[msg.sender].push(
             UserDeposit({
                 amount: amount,
@@ -313,20 +312,20 @@ contract ArcadeSingleSidedStaking is IArcadeSingleSidedStaking, IVotingVault, Re
     /**
      * @notice Withdraws deposited tokens that are unlocked.  Allows for partial withdrawals.
      *
-     * @param depositId                        The specified deposit to get the reward for.
-     * @param amount                           The amount to be withdrawn from the user deposit.
+     * @param depositId                        The specified deposit to withdraw from.
+     * @param amount                           The amount to be withdrawn.
      */
     function withdraw(uint256 amount, uint256 depositId) public whenNotPaused nonReentrant {
         if (amount == 0) revert ASS_ZeroAmount();
-        UserDeposit storage accountDeposit = deposits[msg.sender][depositId];
-        if (accountDeposit.amount == 0) revert ASS_BalanceAmount();
-        if (block.timestamp < accountDeposit.unlockTimestamp) revert ASS_Locked();
+        UserDeposit storage userDeposit = deposits[msg.sender][depositId];
+        if (userDeposit.amount == 0) revert ASS_BalanceAmount();
+        if (block.timestamp < userDeposit.unlockTimestamp) revert ASS_Locked();
 
-        if (amount > accountDeposit.amount) amount = accountDeposit.amount;
+        if (amount > userDeposit.amount) amount = userDeposit.amount;
 
         _subtractVotingPower(amount, msg.sender);
 
-        accountDeposit.amount -= amount;
+        userDeposit.amount -= amount;
 
         totalDeposits -= amount;
 
@@ -335,9 +334,8 @@ contract ArcadeSingleSidedStaking is IArcadeSingleSidedStaking, IVotingVault, Re
     }
 
     /**
-     * @notice Allows users to withdraw deposited tokens and claim their rewards
-     *         for a specific deposit id, all in one transaction.
-     *         Lock period needs to have ended.
+     * @notice Allows users to withdraw deposited tokens for a specific deposit
+     *         deposit id. Lock period needs to have ended.
      *
      * @param depositId                        The specified deposit to exit.
      */
@@ -378,7 +376,8 @@ contract ArcadeSingleSidedStaking is IArcadeSingleSidedStaking, IVotingVault, Re
 
     // ======================================== RESTRICTED FUNCTIONS =========================================
     /**
-     * @notice Allows the contract owner to recover ERC20 tokens locked in the contract. TODO: rethink this
+     * @notice Allows the contract owner to recover ERC20 tokens locked in the contract.
+     *         Deposited ARCD tokens cannot be recovered. They can only with withdrawn.
      *
      * @param tokenAddress                       The address of the token to recover.
      * @param tokenAmount                        The amount of token to recover.
@@ -394,17 +393,17 @@ contract ArcadeSingleSidedStaking is IArcadeSingleSidedStaking, IVotingVault, Re
     }
 
     /**
-     * @notice An only owner function to set the duration of the tracking period. The previous
-     *         tracking period must be complete before a new duration can be set.
+     * @notice An only owner function to set the duration of the tracking period for points earnings.
+     *         The previous tracking period must be complete before a new duration can be set.
      *
      * @param _pointsTrackingDuration              The amount of time the tracking period will be.
      */
-    function setRewardsDuration(uint256 _pointsTrackingDuration) external whenNotPaused onlyOwner {
+    function setPointsDuration(uint256 _pointsTrackingDuration) external whenNotPaused onlyOwner {
         if (block.timestamp <= periodFinish) revert ASS_RewardsPeriod();
 
         pointsTrackingDuration = _pointsTrackingDuration;
 
-        emit RewardsDurationUpdated(pointsTrackingDuration);
+        emit PointsDurationUpdated(pointsTrackingDuration);
     }
 
     /**
@@ -423,12 +422,12 @@ contract ArcadeSingleSidedStaking is IArcadeSingleSidedStaking, IVotingVault, Re
 
     // ============================================== HELPERS ===============================================
     /**
-     * @notice Calculate the bonus for a user's deposit.
+     * @notice Calculate the bonus for a user's deposit based on the selected lock SHORT, MEDIUM or LONG.
      *
      * @param amount                            The deposit amount.
      * @param lock                              The lock period committed.
      *
-     * @return bonusAmount                      The bonus value of of the.
+     * @return bonusAmount                      The bonus value for the deposit.
      * @return lockDuration                     The period duration for the selected lock.
      */
     function _calculateBonus(uint256 amount, Lock lock) internal pure returns (uint256 bonusAmount, uint256 lockDuration) {
@@ -449,15 +448,15 @@ contract ArcadeSingleSidedStaking is IArcadeSingleSidedStaking, IVotingVault, Re
     }
 
     /**
-     * @notice This internal function adapted from the external withdraw function from the LockingVault
-     *         contract contract with 2 key modifications: it does not handle token transfers out of the
-     *         contract as these are handled by the withdraw and exit functions. The function also adds an
-     *         address account parameter to specify the user whose voting power needs updating.
-     *         In the Locking Vault  msg.sender directly indicated the user, wheras in this context
-     *         msg.sender refers to the contract itself. Therefore, we explicitly pass the user's address.
+      * @notice This internal function is adapted from the external withdraw function in Council's
+     *          LockingVault contract, with 2 key modifications: it omits the token transfer transaction
+     *          and adds an address account parameter to specify the user whose voting power needs updating.
+     *          In the Locking Vault, msg.sender directly indicated the user, whereas in this context,
+     *          msg.sender refers to the contract itself. Therefore, we explicitly pass the
+     *          user's address.
      *
-     * @param amount                           The amount of token to withdraw.
-     * @param account                          The funded account for the withdrawal.
+     * @param amount                           The amount of voting power to subtract.
+     * @param account                          The account whose voting power to subtract.
      */
     function _subtractVotingPower(uint256 amount, address account) internal {
         if (amount > type(uint96).max) revert ASS_AmountTooBig();
@@ -466,7 +465,6 @@ contract ArcadeSingleSidedStaking is IArcadeSingleSidedStaking, IVotingVault, Re
         Storage.AddressUint storage userData = _deposits()[account];
 
         // Reduce the user's stored balance
-        // If properly optimized this block should result in 1 sload 1 store
         userData.amount -= uint96(amount);
         address delegate = userData.who;
 
@@ -484,12 +482,12 @@ contract ArcadeSingleSidedStaking is IArcadeSingleSidedStaking, IVotingVault, Re
     /**
      * @notice This internal function is adapted from the external deposit function from the LockingVault
      *         contract with 2 key modification: it reverts if the specified delegation address does not
-     *         with the user's previously designated delegate, it does not handle token transfers into the
-     *         contract as these are handled by the deposit function.
+     *         with the user's previously designated delegate, and it does not handle token transfers into
+     *         the contract as these are handled by the deposit function.
      *
-     * @param fundedAccount                    The address to credit this deposit to.
-     * @param amount                           The amount of token which is deposited.
-     * @param delegation                       Delegation address.
+     * @param fundedAccount                    The address to credit the voting power to.
+     * @param amount                           The amount of voting power to add.
+     * @param delegation                       The user's delegatee address.
      */
     function _addVotingPower(
         address fundedAccount,
@@ -528,8 +526,8 @@ contract ArcadeSingleSidedStaking is IArcadeSingleSidedStaking, IVotingVault, Re
     }
 
     /**
-     * @notice This function is taken from the LockingVault contract. It is a single endpoint
-     *        for loading storage for deposits.
+     * @notice This function is taken from the Council LockingVault contract. It is a single
+     *         endpoint for loading storage for deposits.
      *
      * @return                                  A storage mapping which can be used to look
      *                                          up deposit data.
@@ -545,8 +543,8 @@ contract ArcadeSingleSidedStaking is IArcadeSingleSidedStaking, IVotingVault, Re
     }
 
     /**
-     * @notice This function is taken from the LockingVault contract. Returns the historical
-     *         voting power tracker.
+     * @notice This function is taken from the Council LockingVault contract. Returns the
+     *         historical voting power tracker.
      *
      *
      * @return                                  A struct which can push to and find items in
@@ -563,9 +561,9 @@ contract ArcadeSingleSidedStaking is IArcadeSingleSidedStaking, IVotingVault, Re
     }
 
     /**
-     * @notice This function is taken from the LockingVault contract. Attempts to load the voting
-     *         power of a user. It is revised to no longer remove stale blocks from the queue, to
-     *         address the problem of gas depletion encountered with overly long queues.
+     * @notice This function is taken from the Council LockingVault contract. Attempts to load the
+     *         voting power of a user. It is revised to no longer remove stale blocks from the queue
+     *         in order to avoid gas depletion encountered with overly long queues.
      *
      * @param user                              The address we want to load the voting power of.
      * @param blockNumber                       The block number we want the user's voting power at.
@@ -601,9 +599,10 @@ contract ArcadeSingleSidedStaking is IArcadeSingleSidedStaking, IVotingVault, Re
     }
 
     /**
-     * @notice This function is taken from the LockingVault contract, it changes a user's voting power.
+     * @notice This function is taken from the Council LockingVault contract, it changes a user's
+     *         voting power.
      *
-     * @param newDelegate                        The new address which gets voting power.
+     * @param newDelegate                        The new address which gets the voting power.
      */
     function changeDelegation(address newDelegate) external {
         // No delegating to zero
