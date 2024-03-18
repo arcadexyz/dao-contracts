@@ -96,17 +96,21 @@ contract ArcadeSingleSidedStaking is IArcadeSingleSidedStaking, IVotingVault, Re
     uint256 public constant ONE_DAY = 1 days;
     uint256 public constant MAX_DEPOSITS = 20;
 
+    uint256 public constant SHORT_BONUS = 11e17;
+    uint256 public constant MEDIUM_BONUS = 13e17;
+    uint256 public constant LONG_BONUS = 15e17;
+
     uint256 public constant SHORT_LOCK_TIME = ONE_DAY * 30; // one month
     uint256 public constant MEDIUM_LOCK_TIME = ONE_DAY * 60; // two months
     uint256 public constant LONG_LOCK_TIME = ONE_DAY * 90; // three months
 
     // ============ Global State =============
-    IERC20 public immutable arcdToken;
+    IERC20 public immutable arcd;
 
     uint256 public periodFinish;
     uint256 public pointsTrackingDuration = ONE_DAY * 30 * 6; // six months
 
-    mapping(address => UserDeposit[]) public userDeposits;
+    mapping(address => UserDeposit[]) public deposits;
 
     uint256 public totalDeposits;
 
@@ -116,15 +120,15 @@ contract ArcadeSingleSidedStaking is IArcadeSingleSidedStaking, IVotingVault, Re
      *         and setting the owner and rewards distribution addresses.
      *
      * @param _owner                       The address of the contract owner.
-     * @param _arcdToken                   The address of the deposited ERC20 token.
+     * @param _arcd                        The address of the deposited ERC20 token.
      */
     constructor(
         address _owner,
-        address _arcdToken
+        address _arcd
     ) Ownable(_owner) {
-        if (address(_arcdToken) == address(0)) revert ASS_ZeroAddress("arcdToken");
+        if (address(_arcd) == address(0)) revert ASS_ZeroAddress("arcd");
 
-        arcdToken = IERC20(_arcdToken);
+        arcd = IERC20(_arcd);
     }
 
     // ========================================== VIEW FUNCTIONS =========================================
@@ -145,11 +149,11 @@ contract ArcadeSingleSidedStaking is IArcadeSingleSidedStaking, IVotingVault, Re
      * @return userBalance                  The total amount that the user has deposited.
      */
     function getTotalUserDeposits(address account) external view returns (uint256 userBalance) {
-        UserDeposit[] storage accountDeposits = userDeposits[account];
+        UserDeposit[] storage userDeposits = deposits[account];
 
-        uint256 numUserDeposits = accountDeposits.length;
+        uint256 numUserDeposits = userDeposits.length;
         for (uint256 i = 0; i < numUserDeposits; ++i) {
-            UserDeposit storage userDeposit = accountDeposits[i];
+            UserDeposit storage userDeposit = userDeposits[i];
             userBalance += userDeposit.amount;
         }
     }
@@ -163,7 +167,7 @@ contract ArcadeSingleSidedStaking is IArcadeSingleSidedStaking, IVotingVault, Re
      * @return depositBalance               The total amount committed to the deposit.
      */
     function balanceOfDeposit(address account, uint256 depositId) external view returns (uint256 depositBalance) {
-        depositBalance = userDeposits[account][depositId].amount;
+        depositBalance = deposits[account][depositId].amount;
     }
 
     /**
@@ -192,7 +196,7 @@ contract ArcadeSingleSidedStaking is IArcadeSingleSidedStaking, IVotingVault, Re
         uint32 unlockTimestamp,
         uint256 amount)
     {
-        UserDeposit storage accountDeposit = userDeposits[account][depositId];
+        UserDeposit storage accountDeposit = deposits[account][depositId];
 
         lock = uint8(accountDeposit.lock);
         unlockTimestamp = accountDeposit.unlockTimestamp;
@@ -200,14 +204,14 @@ contract ArcadeSingleSidedStaking is IArcadeSingleSidedStaking, IVotingVault, Re
     }
 
     /**
-     * @notice Gives the last depositId, equivalent to accountDeposits.length.
+     * @notice Gives the last depositId, equivalent to userDeposits.length.
      *
      * @param account                           The user whose deposits to get.
      *
      * @return lastDepositId                    Id of the last deposit.
      */
     function getLastDepositId(address account) external view returns (uint256 lastDepositId) {
-        lastDepositId = userDeposits[account].length - 1;
+        lastDepositId = deposits[account].length - 1;
     }
 
     /**
@@ -218,10 +222,10 @@ contract ArcadeSingleSidedStaking is IArcadeSingleSidedStaking, IVotingVault, Re
      * @return activeDeposits                   Array of id's of user's active deposits.
      */
     function getActiveDeposits(address account) external view returns (uint256[] memory) {
-        UserDeposit[] storage accountDeposits = userDeposits[account];
+        UserDeposit[] storage userDeposits = deposits[account];
         uint256 activeCount = 0;
 
-        uint256 numUserDeposits = accountDeposits.length;
+        uint256 numUserDeposits = userDeposits.length;
         for (uint256 i = 0; i < numUserDeposits; ++i) {
             UserDeposit storage userDeposit = userDeposits[i];
             if (userDeposit.amount > 0) {
@@ -242,6 +246,23 @@ contract ArcadeSingleSidedStaking is IArcadeSingleSidedStaking, IVotingVault, Re
         return activeDeposits;
     }
 
+    /**
+     * @notice Returns just the bonus amount for a deposit.
+     *
+     * @param account                           The user's account.
+     * @param depositId                         The specified deposit to get the bonus amount for.
+     *
+     * @return bonusAmount                      Value of user deposit bonus.
+     */
+    function getDepositBonus(address account, uint256 depositId) public view returns (uint256 bonusAmount) {
+        UserDeposit storage userDeposit = deposits[account][depositId];
+
+        uint256 amount = userDeposit.amount;
+        Lock lock = userDeposit.lock;
+
+        (bonusAmount, ) = _calculateBonus(amount, lock);
+    }
+
     // ========================================= MUTATIVE FUNCTIONS ========================================
     /**
      * @notice Allows users to deposit their tokens, which are then tracked in the contract. The total
@@ -259,14 +280,16 @@ contract ArcadeSingleSidedStaking is IArcadeSingleSidedStaking, IVotingVault, Re
         if (amount == 0) revert ASS_ZeroAmount();
         if (delegation == address(0)) revert ASS_ZeroAddress("delegation");
 
-        uint256 userDepositCount = userDeposits[msg.sender].length;
+        uint256 userDepositCount = deposits[msg.sender].length;
         if (userDepositCount >= MAX_DEPOSITS) revert ASS_DepositCountExceeded();
+
+        (, uint256 lockDuration)  = _calculateBonus(amount, lock);
 
         // update the vote power
         _addVotingPower(msg.sender, amount, delegation);
 
         // populate user stake information
-        userDeposits[msg.sender].push(
+        deposits[msg.sender].push(
             UserDeposit({
                 amount: amount,
                 unlockTimestamp: uint32(block.timestamp + lockDuration),
@@ -276,7 +299,7 @@ contract ArcadeSingleSidedStaking is IArcadeSingleSidedStaking, IVotingVault, Re
 
         totalDeposits += amount;
 
-        arcdToken.safeTransferFrom(msg.sender, address(this), amount);
+        arcd.safeTransferFrom(msg.sender, address(this), amount);
 
         emit Deposited(msg.sender, userDepositCount, amount);
     }
@@ -289,7 +312,7 @@ contract ArcadeSingleSidedStaking is IArcadeSingleSidedStaking, IVotingVault, Re
      */
     function withdraw(uint256 amount, uint256 depositId) public whenNotPaused nonReentrant {
         if (amount == 0) revert ASS_ZeroAmount();
-        UserDeposit storage accountDeposit = userDeposits[msg.sender][depositId];
+        UserDeposit storage accountDeposit = deposits[msg.sender][depositId];
         if (accountDeposit.amount == 0) revert ASS_BalanceAmount();
         if (block.timestamp < accountDeposit.unlockTimestamp) revert ASS_Locked();
 
@@ -301,7 +324,7 @@ contract ArcadeSingleSidedStaking is IArcadeSingleSidedStaking, IVotingVault, Re
 
         totalDeposits -= amount;
 
-        arcdToken.safeTransfer(msg.sender, amount);
+        arcd.safeTransfer(msg.sender, amount);
         emit Withdrawn(msg.sender, amount);
     }
 
@@ -321,11 +344,9 @@ contract ArcadeSingleSidedStaking is IArcadeSingleSidedStaking, IVotingVault, Re
      *         Lock period needs to have ended.
      */
     function exitAll() external whenNotPaused nonReentrant {
-        UserDeposit[] storage accountDeposits = userDeposits[msg.sender];
+        UserDeposit[] storage userDeposits = deposits[msg.sender];
         uint256 totalWithdrawAmount = 0;
-        uint256 totalRewardAmount = 0;
         uint256 totalVotingPower = 0;
-        uint256 amountWithBonusToSubtract = 0;
         uint256 numUserDeposits = userDeposits.length;
 
         for (uint256 i = 0; i < numUserDeposits; ++i) {
@@ -345,7 +366,7 @@ contract ArcadeSingleSidedStaking is IArcadeSingleSidedStaking, IVotingVault, Re
 
         if (totalWithdrawAmount > 0) {
             totalDeposits -= totalWithdrawAmount;
-            arcdToken.safeTransfer(msg.sender, totalWithdrawAmount);
+            arcd.safeTransfer(msg.sender, totalWithdrawAmount);
         }
     }
 
@@ -357,7 +378,7 @@ contract ArcadeSingleSidedStaking is IArcadeSingleSidedStaking, IVotingVault, Re
      * @param tokenAmount                        The amount of token to recover.
      */
     function recoverERC20(address tokenAddress, uint256 tokenAmount) external onlyOwner {
-        if (tokenAddress == address(arcdToken)) revert ASS_DepositToken();
+        if (tokenAddress == address(arcd)) revert ASS_DepositToken();
         if (tokenAddress == address(0)) revert ASS_ZeroAddress("token");
         if (tokenAmount == 0) revert ASS_ZeroAmount();
 
@@ -395,6 +416,33 @@ contract ArcadeSingleSidedStaking is IArcadeSingleSidedStaking, IVotingVault, Re
     }
 
     // ============================================== HELPERS ===============================================
+    /**
+     * @notice Calculate the bonus for a user's deposit.
+     *
+     * @param amount                            The deposit amount.
+     * @param lock                              The lock period committed.
+     *
+     * @return bonusAmount                      The bonus value of of the.
+     * @return lockDuration                     The period duration for the selected lock.
+     */
+    function _calculateBonus(uint256 amount, Lock lock) internal pure returns (uint256 bonusAmount, uint256 lockDuration) {
+        uint256 bonus;
+
+        if (lock == Lock.Short) {
+           bonus = SHORT_BONUS;
+           lockDuration = SHORT_LOCK_TIME;
+        } else if (lock == Lock.Medium) {
+            bonus = MEDIUM_BONUS;
+            lockDuration = MEDIUM_LOCK_TIME;
+        } else if (lock == Lock.Long) {
+            bonus = LONG_BONUS;
+            lockDuration = LONG_LOCK_TIME;
+        }
+
+        bonusAmount = amount + (amount * bonus) / ONE;
+    }
+
+    // TODO: add getBonus view function for the FE
 
     /**
      * @notice This internal function adapted from the external withdraw function from the LockingVault
@@ -524,7 +572,7 @@ contract ArcadeSingleSidedStaking is IArcadeSingleSidedStaking, IVotingVault, Re
         address user,
         uint256 blockNumber,
         bytes calldata
-    ) external override returns (uint256) {
+    ) external view override returns (uint256) {
         return queryVotePowerView(user, blockNumber);
     }
 
