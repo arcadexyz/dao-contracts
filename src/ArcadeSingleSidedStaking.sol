@@ -49,17 +49,17 @@ import {
  * Should users choose not to withdraw their tokens post the lock period, these
  * funds will seamlessly transition into a subsequent points tracking cycle if
  * one should start. Unlike the initial deposit, the funds in the consequent point
- * tracking periods are not bound by a lock period and can be freely withdrawn anytime.
+ * tracking cycles are not bound by a lock period and can be freely withdrawn anytime.
  *
  * The lock period gives users the opportunity to enhance their point earnings
  * with a bonus multiplier that is contingent on the duration for which the user
- * chooses to lock their ARCD tokens. The available lock durations are categorized
- * as short, medium, and long. Each category is associated with a progressively
- * number of point rewards accounted for in the d'App, with the short duration offering
- * and the long duration offering the largest.
+ * chooses to lock their deposited tokens. The available lock durations are categorized
+ * as short, medium, and long. Each category is associated with a progressively increasing
+ * mulitplier that enhances the number of point rewards accrued in the d'App, with the short
+ * duration offering the smallest and the long duration offering the largest.
  *
  * When a user decides to lock their ARCD tokens for one of these durations,
- * their deposit bonus is calculated as:
+ * their deposit bonus amount is calculated as:
  * (the user's deposited amount * multiplier for the chosen duration) + original
  * deposited amount.
  * This boosts the user's points in proportion to both the amount deposited and
@@ -76,7 +76,7 @@ import {
  *
  * The contract gives users governance capabilities by also serving as a voting
  * vault. When users deposit, they gain voting power which they can use in
- * ArcadeDAO governance. The voting power is automatically accrued to their account
+ * ArcadeDAO governance. Users' voting power is automatically accrued to their account
  * and is delegated to their chosen delegatee's address on their behalf without the
  * need for them to call any additional transaction.
  * The ArcadeSingleSidedStaking contract governance functionality is adapted from the
