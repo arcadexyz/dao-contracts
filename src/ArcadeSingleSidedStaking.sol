@@ -124,7 +124,7 @@ contract ArcadeSingleSidedStaking is IArcadeSingleSidedStaking, IVotingVault, Re
     ) Ownable(_owner) {
         if (address(_arcdToken) == address(0)) revert ASS_ZeroAddress("arcdToken");
 
-        arcdToken = IERC20(_rewardsToken);
+        arcdToken = IERC20(_arcdToken);
     }
 
     // ========================================== VIEW FUNCTIONS =========================================
@@ -194,9 +194,9 @@ contract ArcadeSingleSidedStaking is IArcadeSingleSidedStaking, IVotingVault, Re
     {
         UserDeposit storage accountDeposit = userDeposits[account][depositId];
 
-        lock = uint8(userDeposit.lock);
-        unlockTimestamp = userDeposit.unlockTimestamp;
-        amount = userDeposit.amount;
+        lock = uint8(accountDeposit.lock);
+        unlockTimestamp = accountDeposit.unlockTimestamp;
+        amount = accountDeposit.amount;
     }
 
     /**
@@ -259,11 +259,11 @@ contract ArcadeSingleSidedStaking is IArcadeSingleSidedStaking, IVotingVault, Re
         if (amount == 0) revert ASS_ZeroAmount();
         if (delegation == address(0)) revert ASS_ZeroAddress("delegation");
 
-        uint256 userDepositCount = stakes[msg.sender].length;
+        uint256 userDepositCount = userDeposits[msg.sender].length;
         if (userDepositCount >= MAX_DEPOSITS) revert ASS_DepositCountExceeded();
 
         // update the vote power
-        _addVotingPower(msg.sender, votingPowerToAdd, delegation);
+        _addVotingPower(msg.sender, amount, delegation);
 
         // populate user stake information
         userDeposits[msg.sender].push(
@@ -333,11 +333,9 @@ contract ArcadeSingleSidedStaking is IArcadeSingleSidedStaking, IVotingVault, Re
             uint256 amount = userDeposit.amount;
             if (amount == 0 || block.timestamp < userDeposit.unlockTimestamp) continue;
 
-            uint256 reward = _getPendingRewards(userDeposit);
-
             userDeposit.amount -= amount;
 
-            totalVotingPower += votePowerToSubtract;
+            totalVotingPower += amount;
             totalWithdrawAmount += amount;
         }
 
@@ -347,7 +345,7 @@ contract ArcadeSingleSidedStaking is IArcadeSingleSidedStaking, IVotingVault, Re
 
         if (totalWithdrawAmount > 0) {
             totalDeposits -= totalWithdrawAmount;
-            arcdWethLP.safeTransfer(msg.sender, totalWithdrawAmount);
+            arcdToken.safeTransfer(msg.sender, totalWithdrawAmount);
         }
     }
 
@@ -450,8 +448,6 @@ contract ArcadeSingleSidedStaking is IArcadeSingleSidedStaking, IVotingVault, Re
         // No delegating to zero
         if (delegation == address(0)) revert ASS_ZeroAddress("delegation");
 
-        uint96 castAmount = SafeCast.toUint96(amount);
-
         // Load our deposits storage
         Storage.AddressUint storage userData = _deposits()[fundedAccount];
         // Load who has the user's votes
@@ -516,7 +512,8 @@ contract ArcadeSingleSidedStaking is IArcadeSingleSidedStaking, IVotingVault, Re
 
     /**
      * @notice This function is taken from the LockingVault contract. Attempts to load the voting
-     *         power of a user.
+     *         power of a user. It is revised to no longer remove stale blocks from the queue, to
+     *         address the problem of gas depletion encountered with overly long queues.
      *
      * @param user                              The address we want to load the voting power of.
      * @param blockNumber                       The block number we want the user's voting power at.
@@ -528,7 +525,7 @@ contract ArcadeSingleSidedStaking is IArcadeSingleSidedStaking, IVotingVault, Re
         uint256 blockNumber,
         bytes calldata
     ) external override returns (uint256) {
-        return this.queryVotePowerView(user, blockNumber);
+        return queryVotePowerView(user, blockNumber);
     }
 
     /**
@@ -541,7 +538,7 @@ contract ArcadeSingleSidedStaking is IArcadeSingleSidedStaking, IVotingVault, Re
      * @return                                  The number of votes.
      */
     function queryVotePowerView(address user, uint256 blockNumber)
-        external
+        public
         view
         returns (uint256)
     {

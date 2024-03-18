@@ -34,7 +34,7 @@ error ASS_RewardsPeriod();
 /**
  * @notice Deposit token cannot be ERC20 recovered.
  */
-error ASR_DepositToken();
+error ASS_DepositToken();
 
 /**
  * @notice User tries to withdraw an amount greater than
