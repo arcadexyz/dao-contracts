@@ -15,22 +15,17 @@ import "./external/council/libraries/Storage.sol";
 import "./interfaces/IArcadeSingleSidedStaking.sol";
 
 import {
-    ASR_ZeroAddress,
-    ASR_ZeroAmount,
-    ASR_RewardsPeriod,
-    ASR_StakingToken,
-    ASR_RewardTooHigh,
-    ASR_BalanceAmount,
-    ASR_Locked,
-    ASR_RewardsToken,
-    ASR_DepositCountExceeded,
-    ASR_ZeroConversionRate,
-    ASR_UpperLimitBlock,
-    ASR_InvalidDelegationAddress,
-    ASR_MinimumRewardAmount,
-    ASR_ZeroRewardRate,
-    ASR_AmountTooBig
-} from "../src/errors/Staking.sol";
+    ASS_ZeroAddress,
+    ASS_ZeroAmount,
+    ASS_RewardsPeriod,
+    ASS_DepositToken,
+    ASS_BalanceAmount,
+    ASS_Locked,
+    ASS_DepositCountExceeded,
+    ASS_UpperLimitBlock,
+    ASS_InvalidDelegationAddress,
+    ASS_AmountTooBig
+} from "../src/errors/SingleSidedStaking.sol";
 
 /**
  * @title ArcadeSingleSidedStaking
@@ -127,7 +122,7 @@ contract ArcadeSingleSidedStaking is IArcadeSingleSidedStaking, IVotingVault, Re
         address _owner,
         address _arcdToken
     ) Ownable(_owner) {
-        if (address(_arcdToken) == address(0)) revert ASR_ZeroAddress("arcdToken");
+        if (address(_arcdToken) == address(0)) revert ASS_ZeroAddress("arcdToken");
 
         arcdToken = IERC20(_rewardsToken);
     }
@@ -171,16 +166,16 @@ contract ArcadeSingleSidedStaking is IArcadeSingleSidedStaking, IVotingVault, Re
         depositBalance = userDeposits[account][depositId].amount;
     }
 
-    // /**
-    //  * @notice Returns the last timestamp at which rewards can be calculated and
-    //  *         be accounted for.
-    //  *
-    //  * @return uint256                       The timestamp record after which rewards
-    //  *                                       can no longer be calculated.
-    //  */
-    // function lastTimeRewardApplicable() public view returns (uint256) {
-    //     return block.timestamp < periodFinish ? block.timestamp : periodFinish;
-    // }
+    /**
+     * @notice Returns the last timestamp at which rewards can be calculated and
+     *         be accounted for.
+     *
+     * @return uint256                       The timestamp record after which rewards
+     *                                       can no longer be calculated.
+     */
+    function lastTimeRewardApplicable() public view returns (uint256) {
+        return block.timestamp < periodFinish ? block.timestamp : periodFinish;
+    }
 
     /**
      * @notice Returns information about a deposit.
@@ -261,11 +256,11 @@ contract ArcadeSingleSidedStaking is IArcadeSingleSidedStaking, IVotingVault, Re
         address delegation,
         Lock lock
     ) external nonReentrant whenNotPaused {
-        if (amount == 0) revert ASR_ZeroAmount();
-        if (delegation == address(0)) revert ASR_ZeroAddress("delegation");
+        if (amount == 0) revert ASS_ZeroAmount();
+        if (delegation == address(0)) revert ASS_ZeroAddress("delegation");
 
         uint256 userDepositCount = stakes[msg.sender].length;
-        if (userDepositCount >= MAX_DEPOSITS) revert ASR_DepositCountExceeded();
+        if (userDepositCount >= MAX_DEPOSITS) revert ASS_DepositCountExceeded();
 
         // update the vote power
         _addVotingPower(msg.sender, votingPowerToAdd, delegation);
@@ -293,10 +288,10 @@ contract ArcadeSingleSidedStaking is IArcadeSingleSidedStaking, IVotingVault, Re
      * @param amount                           The amount to be withdrawn from the user deposit.
      */
     function withdraw(uint256 amount, uint256 depositId) public whenNotPaused nonReentrant {
-        if (amount == 0) revert ASR_ZeroAmount();
+        if (amount == 0) revert ASS_ZeroAmount();
         UserDeposit storage accountDeposit = userDeposits[msg.sender][depositId];
-        if (accountDeposit.amount == 0) revert ASR_BalanceAmount();
-        if (block.timestamp < accountDeposit.unlockTimestamp) revert ASR_Locked();
+        if (accountDeposit.amount == 0) revert ASS_BalanceAmount();
+        if (block.timestamp < accountDeposit.unlockTimestamp) revert ASS_Locked();
 
         if (amount > accountDeposit.amount) amount = accountDeposit.amount;
 
@@ -325,53 +320,34 @@ contract ArcadeSingleSidedStaking is IArcadeSingleSidedStaking, IVotingVault, Re
      * @notice Allows users to withdraw all their deposited tokens in one transaction.
      *         Lock period needs to have ended.
      */
-    function exitAll() external nonReentrant {
-        UserStake[] storage userStakes = stakes[msg.sender];
+    function exitAll() external whenNotPaused nonReentrant {
+        UserDeposit[] storage accountDeposits = userDeposits[msg.sender];
         uint256 totalWithdrawAmount = 0;
         uint256 totalRewardAmount = 0;
         uint256 totalVotingPower = 0;
         uint256 amountWithBonusToSubtract = 0;
-        uint256 numUserStakes = userStakes.length;
+        uint256 numUserDeposits = userDeposits.length;
 
-        for (uint256 i = 0; i < numUserStakes; ++i) {
-            UserStake storage userStake = userStakes[i];
-            uint256 amount = userStake.amount;
-            if (amount == 0 || block.timestamp < userStake.unlockTimestamp) continue;
+        for (uint256 i = 0; i < numUserDeposits; ++i) {
+            UserDeposit storage userDeposit = userDeposits[i];
+            uint256 amount = userDeposit.amount;
+            if (amount == 0 || block.timestamp < userDeposit.unlockTimestamp) continue;
 
-            (uint256 amountWithBonus, ) = _calculateBonus(amount, userStake.lock);
-            uint256 votePowerToSubtract = convertLPToArcd(amount);
+            uint256 reward = _getPendingRewards(userDeposit);
 
-            uint256 reward = _getPendingRewards(userStake);
+            userDeposit.amount -= amount;
 
-            userStake.amount -= amount;
-
-            amountWithBonusToSubtract += amountWithBonus;
             totalVotingPower += votePowerToSubtract;
             totalWithdrawAmount += amount;
-            totalRewardAmount += reward;
-
-            if (reward > 0) {
-                userStake.rewardPerTokenPaid = rewardPerTokenStored;
-
-                emit RewardPaid(msg.sender, reward, i);
-            }
         }
 
         if (totalVotingPower > 0) {
             _subtractVotingPower(totalVotingPower, msg.sender);
         }
 
-        if (amountWithBonusToSubtract > 0) {
-            totalDepositsWithBonus -= amountWithBonusToSubtract;
-        }
-
         if (totalWithdrawAmount > 0) {
             totalDeposits -= totalWithdrawAmount;
             arcdWethLP.safeTransfer(msg.sender, totalWithdrawAmount);
-        }
-
-        if (totalRewardAmount > 0) {
-            rewardsToken.safeTransfer(msg.sender, totalRewardAmount);
         }
     }
 
@@ -383,10 +359,9 @@ contract ArcadeSingleSidedStaking is IArcadeSingleSidedStaking, IVotingVault, Re
      * @param tokenAmount                        The amount of token to recover.
      */
     function recoverERC20(address tokenAddress, uint256 tokenAmount) external onlyOwner {
-        if (tokenAddress == address(arcdWethLP)) revert ASR_StakingToken();
-        if (tokenAddress == address(rewardsToken) && totalDeposits != 0) revert ASR_RewardsToken();
-        if (tokenAddress == address(0)) revert ASR_ZeroAddress("token");
-        if (tokenAmount == 0) revert ASR_ZeroAmount();
+        if (tokenAddress == address(arcdToken)) revert ASS_DepositToken();
+        if (tokenAddress == address(0)) revert ASS_ZeroAddress("token");
+        if (tokenAmount == 0) revert ASS_ZeroAmount();
 
         IERC20(tokenAddress).safeTransfer(msg.sender, tokenAmount);
 
@@ -400,7 +375,7 @@ contract ArcadeSingleSidedStaking is IArcadeSingleSidedStaking, IVotingVault, Re
      * @param _pointsTrackingDuration              The amount of time the tracking period will be.
      */
     function setRewardsDuration(uint256 _pointsTrackingDuration) external whenNotPaused onlyOwner {
-        if (block.timestamp <= periodFinish) revert ASR_RewardsPeriod();
+        if (block.timestamp <= periodFinish) revert ASS_RewardsPeriod();
 
         pointsTrackingDuration = _pointsTrackingDuration;
 
@@ -423,21 +398,19 @@ contract ArcadeSingleSidedStaking is IArcadeSingleSidedStaking, IVotingVault, Re
 
     // ============================================== HELPERS ===============================================
 
-    // TODO: getVotingPower() function is needed
-
     /**
      * @notice This internal function adapted from the external withdraw function from the LockingVault
-     *         contract. The function adds an address account parameter to specify the user whose voting
-     *         power needs updating.
-     *         In the Locking Vault  msg.sender directly indicated the user, wheras in this
-     *         context msg.sender refers to the contract itself. Therefore, we explicitly pass the
-     *         user's address.
+     *         contract contract with 2 key modifications: it does not handle token transfers out of the
+     *         contract as these are handled by the withdraw and exit functions. The function also adds an
+     *         address account parameter to specify the user whose voting power needs updating.
+     *         In the Locking Vault  msg.sender directly indicated the user, wheras in this context
+     *         msg.sender refers to the contract itself. Therefore, we explicitly pass the user's address.
      *
      * @param amount                           The amount of token to withdraw.
      * @param account                          The funded account for the withdrawal.
      */
     function _subtractVotingPower(uint256 amount, address account) internal {
-        if (amount > type(uint96).max) revert ASR_AmountTooBig();
+        if (amount > type(uint96).max) revert ASS_AmountTooBig();
 
         // Load our deposits storage
         Storage.AddressUint storage userData = _deposits()[account];
@@ -456,14 +429,13 @@ contract ArcadeSingleSidedStaking is IArcadeSingleSidedStaking, IVotingVault, Re
         votingPower.push(delegate, delegateeVotes - amount);
         // Emit an event to track votes
         emit VoteChange(account, delegate, -1 * int256(amount));
-        // Transfers the result to the sender
-        token.transfer(account, amount);
     }
 
     /**
      * @notice This internal function is adapted from the external deposit function from the LockingVault
-     *         contract with 1 key modification: it reverts if the specified delegation address does not
-     *         with the user's previously designated delegate.
+     *         contract with 2 key modification: it reverts if the specified delegation address does not
+     *         with the user's previously designated delegate, it does not handle token transfers into the
+     *         contract as these are handled by the deposit function.
      *
      * @param fundedAccount                    The address to credit this deposit to.
      * @param amount                           The amount of token which is deposited.
@@ -474,14 +446,11 @@ contract ArcadeSingleSidedStaking is IArcadeSingleSidedStaking, IVotingVault, Re
         uint256 amount,
         address delegation
     ) internal {
-        if (amount > type(uint96).max) revert ASR_AmountTooBig();
+        if (amount > type(uint96).max) revert ASS_AmountTooBig();
         // No delegating to zero
-        if (delegation == address(0)) revert ASR_ZeroAddress("delegation");
+        if (delegation == address(0)) revert ASS_ZeroAddress("delegation");
 
         uint96 castAmount = SafeCast.toUint96(amount);
-
-        // Move the tokens into this contract
-        token.transferFrom(msg.sender, address(this), amount);
 
         // Load our deposits storage
         Storage.AddressUint storage userData = _deposits()[fundedAccount];
@@ -494,7 +463,7 @@ contract ArcadeSingleSidedStaking is IArcadeSingleSidedStaking, IVotingVault, Re
             // Set the delegation
             userData.who = delegate;
         } if (delegation != delegate) {
-            revert ASR_InvalidDelegationAddress();
+            revert ASS_InvalidDelegationAddress();
         }
         // Now we increase the user's balance
         userData.amount += uint96(amount);
@@ -589,7 +558,7 @@ contract ArcadeSingleSidedStaking is IArcadeSingleSidedStaking, IVotingVault, Re
      */
     function changeDelegation(address newDelegate) external {
         // No delegating to zero
-        if (newDelegate == address(0)) revert ASR_ZeroAddress("delegation");
+        if (newDelegate == address(0)) revert ASS_ZeroAddress("delegation");
         // Get the stored user data
         Storage.AddressUint storage userData = _deposits()[msg.sender];
         // Get the user balance
