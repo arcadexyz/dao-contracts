@@ -35,11 +35,11 @@ import {
  *         uint32 format. This limits timestamp support to dates before 03:14:07 UTC on
  *         19 January 2038. Any time beyond this point will cause an overflow.
  *
- * The ArcadeSingleSidedStaking contract works much like a traditional staking setup, but
- * with a twist: instead of earning ARCD tokens as rewards, users stash their ARCD tokens
+ * The ArcadeSingleSidedStaking contract is set up like a traditional staking contract,
+ * but with a twist: instead of earning tokens as rewards, users deposit their ARCD tokens
  * in the contract and get d’App points in return. These points are tallied up off-chain.
  * It’s a straightforward way for users to lock their ARCD and earn points that count
- * towards something different, such as airdrops and unlocking d'App privileges.
+ * towards the $ARCD Rewards program and its Levels.
  *
  * Users have the flexibility to make multiple deposits, each accruing points separately
  * until their lock period concludes. Upon depositing, users are required to commit to a
@@ -52,12 +52,18 @@ import {
  * tracking periods are not bound by a lock period and can be freely withdrawn anytime.
  *
  * The lock period gives users the opportunity to enhance their point earnings
- * with bonuses that are calcualted off-chain. These off-chain bonuses are
- * contingent on the duration for which the user chooses to lock their deposits.
- * The available lock durations are categorized as short, medium, and long.
- * Each category is associated with a progressively increasing number of point
- * rewards accounted for in the d'App, with the short duration offering the
- * smallest and the long duration offering the largest.
+ * with a bonus multiplier that is contingent on the duration for which the user
+ * chooses to lock their ARCD tokens. The available lock durations are categorized
+ * as short, medium, and long. Each category is associated with a progressively
+ * number of point rewards accounted for in the d'App, with the short duration offering
+ * and the long duration offering the largest.
+ *
+ * When a user decides to lock their ARCD tokens for one of these durations,
+ * their deposit bonus is calculated as:
+ * (the user's deposited amount * multiplier for the chosen duration) + original
+ * deposited amount.
+ * This boosts the user's points in proportion to both the amount deposited and
+ * the duration of the lock for the deposit.
  *
  * In the exitAll() external function, it's necessary to limit the number of
  * processed transactions within the function's loops to prevent exceeding
@@ -441,8 +447,6 @@ contract ArcadeSingleSidedStaking is IArcadeSingleSidedStaking, IVotingVault, Re
 
         bonusAmount = amount + (amount * bonus) / ONE;
     }
-
-    // TODO: add getBonus view function for the FE
 
     /**
      * @notice This internal function adapted from the external withdraw function from the LockingVault
