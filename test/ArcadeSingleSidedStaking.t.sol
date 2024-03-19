@@ -39,6 +39,7 @@ contract ArcadeSingleSidedStakingTest is Test {
 
         singleSidedStaking = new ArcadeSingleSidedStaking(
             owner,
+            admin,
             address(arcd)
         );
 
@@ -53,7 +54,15 @@ contract ArcadeSingleSidedStakingTest is Test {
         vm.expectRevert(abi.encodeWithSelector(selector, "arcd"));
         singleSidedStaking = new ArcadeSingleSidedStaking(
             owner,
+            admin,
             address(0)
+        );
+
+        vm.expectRevert(abi.encodeWithSelector(selector, "admin"));
+        singleSidedStaking = new ArcadeSingleSidedStaking(
+            owner,
+            address(0),
+            address(arcd)
         );
     }
 

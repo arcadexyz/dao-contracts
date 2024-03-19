@@ -68,3 +68,8 @@ error ASS_UpperLimitBlock(uint256);
  * @notice Amount cannot exceed the maximum value that can be held by a uint96.
  */
  error ASS_AmountTooBig();
+
+  /**
+ * @notice Function can only be called by the contract admin.
+ */
+ error ASS_AdminNotCaller(address);

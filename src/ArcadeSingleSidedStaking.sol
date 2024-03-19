@@ -24,7 +24,8 @@ import {
     ASS_DepositCountExceeded,
     ASS_UpperLimitBlock,
     ASS_InvalidDelegationAddress,
-    ASS_AmountTooBig
+    ASS_AmountTooBig,
+    ASS_AdminNotCaller
 } from "../src/errors/SingleSidedStaking.sol";
 
 /**
@@ -112,8 +113,9 @@ contract ArcadeSingleSidedStaking is IArcadeSingleSidedStaking, IVotingVault, Re
     // ============ Global State =============
     IERC20 public immutable arcd;
 
+    address public admin;
+
     uint256 public periodFinish;
-    uint256 public lastUpdateTime;
     uint256 public pointsTrackingDuration = ONE_DAY * 30 * 6; // six months
 
     mapping(address => UserDeposit[]) public deposits;
@@ -126,14 +128,18 @@ contract ArcadeSingleSidedStaking is IArcadeSingleSidedStaking, IVotingVault, Re
      *         and setting the owner.
      *
      * @param _owner                       The address of the contract owner.
+     * @param _admin                       The address of the contract admin.
      * @param _arcd                        The address of the deposit ERC20 token.
      */
     constructor(
         address _owner,
+        address _admin,
         address _arcd
     ) Ownable(_owner) {
+        if (address(_admin) == address(0)) revert ASS_ZeroAddress("admin");
         if (address(_arcd) == address(0)) revert ASS_ZeroAddress("arcd");
 
+        admin = _admin;
         arcd = IERC20(_arcd);
     }
 
@@ -338,6 +344,10 @@ contract ArcadeSingleSidedStaking is IArcadeSingleSidedStaking, IVotingVault, Re
 
         arcd.safeTransferFrom(msg.sender, address(this), amount);
 
+        if (!isPointsTrackingActive()) {
+            _startPointsTracking();
+        }
+
         emit Deposited(msg.sender, userDepositCount, amount);
     }
 
@@ -439,6 +449,27 @@ contract ArcadeSingleSidedStaking is IArcadeSingleSidedStaking, IVotingVault, Re
     }
 
     /**
+     * @notice Initiates points tracking if total deposits are above 0 and points tracking is not
+     *         already active.
+     *         Requires the caller to be the admin.
+     */
+    function startPointsTracking() external whenNotPaused onlyAdmin {
+        if (totalDeposits > 0 && !isPointsTrackingActive()) _startPointsTracking();
+
+        emit ActivatedTracking();
+    }
+
+    /**
+     * @notice Determines if points tracking is currently active.
+     *
+     * @return bool                                True if the tracking period is currently active,
+     *                                             false otherwise.
+     */
+    function isPointsTrackingActive() public view returns (bool) {
+        return block.timestamp <= periodFinish;
+    }
+
+    /**
      * @notice Pauses the contract, callable by only the owner. Reversible.
      */
     function pause() external onlyOwner {
@@ -492,6 +523,16 @@ contract ArcadeSingleSidedStaking is IArcadeSingleSidedStaking, IVotingVault, Re
         }
 
         bonusAmount = amount + (amount * bonus) / ONE;
+    }
+
+    /**
+     * @notice Starts the points tracking period.
+     *
+     */
+    function _startPointsTracking() private {
+        periodFinish = block.timestamp + pointsTrackingDuration;
+
+        emit TrackingIsActive(periodFinish);
     }
 
     /**
@@ -676,5 +717,13 @@ contract ArcadeSingleSidedStaking is IArcadeSingleSidedStaking, IVotingVault, Re
         votingPower.push(newDelegate, newDelegateVotes + userBalance);
         // Emit an event tracking this voting power change
         emit VoteChange(msg.sender, newDelegate, int256(userBalance));
+    }
+
+    /**
+     * @notice Modifier to check that the caller is the admin.
+     */
+    modifier onlyAdmin() {
+        if (msg.sender != admin) revert ASS_AdminNotCaller(admin);
+        _;
     }
 }

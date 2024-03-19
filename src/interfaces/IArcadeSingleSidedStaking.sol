@@ -11,6 +11,8 @@ interface IArcadeSingleSidedStaking {
     event PointsDurationUpdated(uint256 newDuration);
     event Recovered(address token, uint256 amount);
     event VoteChange(address indexed from, address indexed to, int256 amount);
+    event ActivatedTracking();
+    event TrackingIsActive(uint256 periodFinish);
 
     // ================================================= STRUCTS =================================================
     enum Lock {
