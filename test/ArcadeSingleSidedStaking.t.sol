@@ -79,7 +79,7 @@ contract ArcadeSingleSidedStakingTest is Test {
         vm.startPrank(userA);
         arcd.approve(address(singleSidedStaking), depositAmount);
 
-        // user deposits deposited tokens
+        // user deposits tokens
         singleSidedStaking.deposit(depositAmount, userB, IArcadeSingleSidedStaking.Lock.Medium);
         vm.stopPrank();
 
@@ -93,7 +93,6 @@ contract ArcadeSingleSidedStakingTest is Test {
     function testDepositZeroToken() public {
         setUp();
 
-        // LP pool mints LP tokens to userA
         arcd.mint(userA, 20e18);
         uint256 depositAmount = arcd.balanceOf(userA);
 
@@ -414,7 +413,7 @@ contract ArcadeSingleSidedStakingTest is Test {
         // userA approves singleSidedStaking contract to spend deposited tokens
         vm.startPrank(userA);
         arcd.approve(address(singleSidedStaking), userDepositAmount);
-        // userA deposits deposited tokens
+        // userA deposits tokens
         singleSidedStaking.deposit(userDepositAmount, userB, IArcadeSingleSidedStaking.Lock.Medium);
         vm.stopPrank();
 
@@ -490,7 +489,6 @@ contract ArcadeSingleSidedStakingTest is Test {
     function testGetActiveDeposits() public {
         setUp();
 
-        // LP pool mints LP tokens to userA
         arcd.mint(userA, 20e18);
         uint256 userDepositAmount = arcd.balanceOf(userA) / 3;
 
@@ -526,14 +524,13 @@ contract ArcadeSingleSidedStakingTest is Test {
     function testGetAmountWithBonus() public {
         setUp();
 
-        // LP pool mints LP tokens to userA
         arcd.mint(userA, 20e18);
         uint256 userDepositAmount = arcd.balanceOf(userA);
 
         // userA approves singleSidedStaking contract to spend deposited tokens
         vm.startPrank(userA);
         arcd.approve(address(singleSidedStaking), userDepositAmount);
-        // userA deposits deposited tokens
+        // userA deposits tokens
         singleSidedStaking.deposit(userDepositAmount, userB, IArcadeSingleSidedStaking.Lock.Medium);
         vm.stopPrank();
 
@@ -544,14 +541,13 @@ contract ArcadeSingleSidedStakingTest is Test {
     function testGetTotalUserDepositsWithBonus() public {
         setUp();
 
-        // LP pool mints LP tokens to userA
         arcd.mint(userA, 20e18);
         uint256 userDepositAmount = arcd.balanceOf(userA) / 3;
 
         // userA approves singleSidedStaking contract to spend deposited tokens
         vm.startPrank(userA);
         arcd.approve(address(singleSidedStaking), userDepositAmount * 3);
-        // userA deposits deposited tokens
+        // userA deposits tokens
         singleSidedStaking.deposit(userDepositAmount, userB, IArcadeSingleSidedStaking.Lock.Medium);
         singleSidedStaking.deposit(userDepositAmount, userB, IArcadeSingleSidedStaking.Lock.Long);
         singleSidedStaking.deposit(userDepositAmount, userB, IArcadeSingleSidedStaking.Lock.Short);
@@ -568,14 +564,13 @@ contract ArcadeSingleSidedStakingTest is Test {
     function testGetLastDepositId() public {
         setUp();
 
-        // LP pool mints LP tokens to userA
         arcd.mint(userA, 20e18);
         uint256 userDepositAmount = arcd.balanceOf(userA) / 3;
 
         // userA approves singleSidedStaking contract to spend deposited tokens
         vm.startPrank(userA);
         arcd.approve(address(singleSidedStaking), userDepositAmount * 3);
-        // userA deposits deposited tokens
+        // userA deposits tokens
         singleSidedStaking.deposit(userDepositAmount, userB, IArcadeSingleSidedStaking.Lock.Medium);
         singleSidedStaking.deposit(userDepositAmount, userB, IArcadeSingleSidedStaking.Lock.Long);
         singleSidedStaking.deposit(userDepositAmount, userB, IArcadeSingleSidedStaking.Lock.Short);
@@ -594,7 +589,7 @@ contract ArcadeSingleSidedStakingTest is Test {
         // userA approves singleSidedStaking contract to spend deposited tokens
         vm.startPrank(userA);
         arcd.approve(address(singleSidedStaking), depositAmount);
-        // userA deposits deposited tokens
+        // userA deposits tokens
         singleSidedStaking.deposit(depositAmount, userB, IArcadeSingleSidedStaking.Lock.Medium);
         vm.stopPrank();
 
@@ -602,289 +597,42 @@ contract ArcadeSingleSidedStakingTest is Test {
         assertEq(depositBalance, depositAmount);
     }
 
-    /** TODO: Fix this test
-    * 2 users deposit the same amount, one starts halfway into the pointstracking period.
-    */
-    // function testScenario1() public {
-    //     // deploy and initialize contracts, set rewards duration to 8 days
-    //     setUp();
-
-    //     arcd.mint(userA, 20e18);
-    //     arcd.mint(userB, 20e18);
-
-    //     uint256 depositAmount = arcd.balanceOf(userA);
-
-    //     // userA approves singleSidedStaking contract to spend deposited tokens
-    //     vm.startPrank(userA);
-    //     arcd.approve(address(singleSidedStaking), depositAmount);
-    //     // user deposits deposited tokens
-    //     singleSidedStaking.deposit(depositAmount, userC, IArcadeSingleSidedStaking.Lock.Medium);
-    //     vm.stopPrank();
-
-    //     // increase blockchain time by 1/2 of the rewards period
-    //     vm.warp(block.timestamp + 4 days);
-
-    //     // userB approves singleSidedStaking contract to spend deposited tokens
-    //     vm.startPrank(userB);
-    //     arcd.approve(address(singleSidedStaking), depositAmount);
-    //     // user deposits deposited tokens
-    //     singleSidedStaking.deposit(depositAmount, userC, IArcadeSingleSidedStaking.Lock.Medium);
-    //     vm.stopPrank();
-
-    //     // increase blockchain time to end the rewards period
-    //     vm.warp(block.timestamp + 4 days);
-
-    //     uint256 tolerance = 1e3;
-    //     // user B should earn 25% of total rewards
-    //     assertApproxEqAbs(rewardB, rewardForDuration / 4, tolerance);
-    //     // user A should earn 75% of total rewards
-    //     assertApproxEqAbs(rewardA, (rewardForDuration * 3) / 4, tolerance);
-    // }
-
-    /** TODO: Fix this test
-    * 1 user deposits, second user deposits halfway through the rewards period.
-    */
-    // function testScenario3() public {
-    //     setUp();
-
-    //     arcd.mint(userA, 20e18);
-    //     arcd.mint(userB, 20e18);
-    //     uint256 depositAmount = arcd.balanceOf(userA);
-
-    //     // userA approves singleSidedStaking contract to spend deposited tokens
-    //     vm.startPrank(userA);
-    //     arcd.approve(address(singleSidedStaking), depositAmount);
-    //     // user deposits deposited tokens
-    //     singleSidedStaking.deposit(depositAmount, userC, IArcadeSingleSidedStaking.Lock.Medium);
-    //     vm.stopPrank();
-
-    //     // increase blockchain time to half of reward period
-    //     vm.warp(block.timestamp + 4 days);
-
-    //     // userB approves singleSidedStaking contract to spend deposited tokens
-    //     vm.startPrank(userB);
-    //     arcd.approve(address(singleSidedStaking), depositAmount);
-    //     // user deposits deposited tokens
-    //     singleSidedStaking.deposit(depositAmount, userC, IArcadeSingleSidedStaking.Lock.Medium);
-    //     vm.stopPrank();
-
-    //     // userA undeposits
-    //     vm.startPrank(userA);
-
-    //     bytes4 selector = bytes4(keccak256("ASS_Locked()"));
-    //     vm.expectRevert(abi.encodeWithSelector(selector));
-
-    //     // user withdraws deposited tokens
-    //     singleSidedStaking.withdraw(depositAmount, 0);
-    //     vm.stopPrank();
-
-    //     // increase blockchain time to end the rewards period
-    //     vm.warp(block.timestamp + 4 days);
-
-    //     assertApproxEqAbs(rewardA, (((rewardForDuration / 8) * 4) + ((rewardForDuration / 8) * 4) / 2), 1e5);
-    //     assertApproxEqAbs(rewardB, ((rewardForDuration / 8) * 4) / 2, 1e3);
-    //     assertApproxEqAbs(rewardA, rewardB * 3, 1e3);
-    // }
-
-    /** TODO: Fix this test
-    * 1 user deposits, halfway through the pointstracking period, notifyRewardAmount is called
-    * with a reward amount that is half of the original. (period is extended but reward
-    * amount is halved)
-    */
-    // function testScenario4() public {
-    //     setUp();
-
-    //     arcd.mint(userA, 20e18);
-    //     uint256 depositAmount = arcd.balanceOf(userA);
-
-    //     // userA approves singleSidedStaking contract to spend deposited tokens
-    //     vm.startPrank(userA);
-    //     arcd.approve(address(singleSidedStaking), depositAmount);
-    //     // user deposits deposited tokens
-    //     singleSidedStaking.deposit(depositAmount, userB, IArcadeSingleSidedStaking.Lock.Medium);
-    //     vm.stopPrank();
-
-    //     // increase blockchain time to end of day 4
-    //     vm.warp(block.timestamp + 4 days);
-
-    //     // increase blockchain time to half of the new rewards period
-    //     vm.warp(block.timestamp + 4 days);
-
-
-    //     // increase blockchain time to the end the rewards period
-    //     vm.warp(block.timestamp + 4 days);
-
-    //     // user A earns equal amounts for both reward periods
-    //     assertEq(earnedA, earnedA2);
-    // }
-
-    /** TODO: Fix this test
-    * 1 user deposits. After the end of the pointstracking period, notifyRewardAmount is called again
-    * with an reward amount that is half of the previous one.
-    */
-    // function testScenario5() public {
-    //     setUp();
-
-    //     arcd.mint(userA, 20e18);
-    //     uint256 depositAmount = arcd.balanceOf(userA);
-
-    //     // userA approves singleSidedStaking contract to spend deposited tokens
-    //     vm.startPrank(userA);
-    //     arcd.approve(address(singleSidedStaking), depositAmount);
-    //     // user deposits deposited tokens
-    //     singleSidedStaking.deposit(depositAmount, userB, IArcadeSingleSidedStaking.Lock.Medium);
-    //     vm.stopPrank();
-
-    //     // increase blockchain time to end rewards period
-    //     vm.warp(block.timestamp + 8 days);
-
-    //     // increase blockchain time for 5 days in between 2 reward periods
-    //     vm.warp(block.timestamp + 5 days);
-
-    //     // increase blockchain time to end of the new rewards period
-    //     vm.warp(block.timestamp + 8 days);
-
-    //     uint256 tolerance = 1e10;
-    //     assertApproxEqAbs(earnedA2, earnedA + rewardForDuration2, tolerance);
-    // }
-
-    /** TODO: Fix this test
+    /**
     * 1 user makes multiple deposits. Each deposit has a different lock period and is a different
     * amount. After the lock period, the user calls exit().
     */
-    // function testMultipleDeposits_Exit() public {
-    //     setUp();
+    function testMultipleDeposits_Exit() public {
+        setUp();
 
-    //     arcd.mint(userA, 20e18);
-    //     uint256 userDepositAmount = arcd.balanceOf(userA);
-    //     arcd.mint(userA, 50e18);
-    //     uint256 userDepositAmount2 = arcd.balanceOf(userA) - userDepositAmount;
+        arcd.mint(userA, 20e18);
+        uint256 userDepositAmount = arcd.balanceOf(userA);
+        arcd.mint(userA, 50e18);
+        uint256 userDepositAmount2 = arcd.balanceOf(userA) - userDepositAmount;
 
-    //     // userA approves singleSidedStaking contract to spend deposited tokens
-    //     vm.startPrank(userA);
-    //     arcd.approve(address(singleSidedStaking), userDepositAmount);
-    //     singleSidedStaking.deposit(userDepositAmount, userB, IArcadeSingleSidedStaking.Lock.Medium);
-    //     arcd.approve(address(singleSidedStaking), userDepositAmount2);
-    //     singleSidedStaking.deposit(userDepositAmount2, userB, IArcadeSingleSidedStaking.Lock.Long);
-    //     vm.stopPrank();
+        // userA approves singleSidedStaking contract to spend deposited tokens
+        vm.startPrank(userA);
+        arcd.approve(address(singleSidedStaking), userDepositAmount);
+        singleSidedStaking.deposit(userDepositAmount, userB, IArcadeSingleSidedStaking.Lock.Medium);
+        arcd.approve(address(singleSidedStaking), userDepositAmount2);
+        singleSidedStaking.deposit(userDepositAmount2, userB, IArcadeSingleSidedStaking.Lock.Long);
+        vm.stopPrank();
 
-    //     // increase blockchain time to end of pointstracking period
-    //     vm.warp(block.timestamp + 8 days);
+        uint256 balanceOfA = singleSidedStaking.getTotalUserDeposits(userA);
+        assertEq(balanceOfA, userDepositAmount + userDepositAmount2);
 
-    //     uint256 userVotingPower = singleSidedStaking.queryVotePowerView(userB, currentBlock);
+        uint256 lastStakeId = singleSidedStaking.getLastDepositId(userA);
+        assertEq(lastStakeId, 1);
 
-    //     uint256 balanceOfA = singleSidedStaking.getTotalUserDeposits(userA);
-    //     assertEq(balanceOfA, userDepositAmount + userDepositAmount2);
+        // increase blockchain time to end long lock period
+        vm.warp(block.timestamp + FIVE_MONTHS);
 
-    //     uint256 lastStakeId = singleSidedStaking.getLastDepositId(userA);
-    //     assertEq(lastStakeId, 1);
+        // userA withdraws
+        vm.startPrank(userA);
+        singleSidedStaking.exitAll();
+        vm.stopPrank();
 
-    //     // rewards earned by userA
-    //     uint256 rewards = singleSidedStaking.getPendingRewards(userA, lastStakeId - 1);
-    //     uint256 rewards1 = singleSidedStaking.getPendingRewards(userA, lastStakeId);
-    //     assertEq(
-    //         singleSidedStaking.convertLPToArcd(userDepositAmount)
-    //         +
-    //         singleSidedStaking.convertLPToArcd(userDepositAmount2),
-    //         userVotingPower
-    //     );
-
-    //     // increase blocckhain to end long lock period
-    //     vm.warp(block.timestamp + FIVE_MONTHS);
-
-    //     // userA withdraws
-    //     vm.startPrank(userA);
-    //     singleSidedStaking.exitAll();
-    //     vm.stopPrank();
-
-    //     assertEq(userDepositAmount + userDepositAmount2, arcd.balanceOf(userA));
-    // }
-
-    /** TODO: Fix this test
-    * 2 users makes multiple deposits with 4 days in between (half the reward period). After the
-    * lock period, userB partially withdraws 1/2 of their second deposit. notifyRewardAmount() is
-    * is called a second time. After the reward period, userA and userB withdraw.
-    */
-    // function testMultipleDeposits_PartialWithdraw() public {
-    //     setUp();
-
-    //     arcd.mint(userA, 20e18);
-    //     uint256 userDepositAmount = arcd.balanceOf(userA);
-    //     arcd.mint(userA, 50e18);
-    //     uint256 userDepositAmount2 = arcd.balanceOf(userA) - userDepositAmount;
-
-    //     // userA approves singleSidedStaking contract to spend deposited tokens
-    //     vm.startPrank(userA);
-    //     arcd.approve(address(singleSidedStaking), userDepositAmount + userDepositAmount2);
-    //     singleSidedStaking.deposit(userDepositAmount, userC, IArcadeSingleSidedStaking.Lock.Medium);
-    //     singleSidedStaking.deposit(userDepositAmount2, userC, IArcadeSingleSidedStaking.Lock.Short);
-    //     vm.stopPrank();
-
-    //     uint256 fourDaysLater = currentTime + 4 days;
-    //     // increase blockchain time to half of the rewards period
-    //     vm.warp(fourDaysLater);
-
-    //     arcd.mint(userB, 20e18);
-    //     uint256 userDepositAmountB = arcd.balanceOf(userB);
-    //     arcd.mint(userB, 50e18);
-    //     uint256 userDepositAmountB2 = arcd.balanceOf(userB) - userDepositAmountB;
-
-    //     // userA approves singleSidedStaking contract to spend deposited tokens
-    //     vm.startPrank(userB);
-    //     arcd.approve(address(singleSidedStaking), userDepositAmountB + userDepositAmountB2);
-    //     // userA deposits deposited tokens
-    //     singleSidedStaking.deposit(userDepositAmountB, userD, IArcadeSingleSidedStaking.Lock.Medium);
-    //     // userB deposits deposited tokens
-    //     singleSidedStaking.deposit(userDepositAmountB2, userD, IArcadeSingleSidedStaking.Lock.Short);
-    //     vm.stopPrank();
-
-    //     uint256 afterLock = currentTime + FIVE_MONTHS;
-    //     // increase blockchain time to end long lock cycle
-    //     vm.warp(afterLock);
-
-    //     // check that the rewards of userA are double of those of user B
-    //     uint256 rewardsA = singleSidedStaking.getPendingRewards(userA, 0);
-    //     uint256 rewardsA1 = singleSidedStaking.getPendingRewards(userA, 1);
-    //     uint256 rewardsB = singleSidedStaking.getPendingRewards(userB, 0);
-    //     uint256 rewardsB1 = singleSidedStaking.getPendingRewards(userB, 1);
-
-    //     uint256 tolerance = 1e3;
-    //     assertApproxEqAbs(rewardsA / 3, rewardsB, tolerance);
-    //     assertApproxEqAbs(rewardsA1 / 3, rewardsB1, tolerance);
-
-    //     uint256 currentTime2 = block.timestamp;
-
-    //     // userB withdraws 1/2 of their second deposit
-    //     vm.startPrank(userB);
-    //     singleSidedStaking.withdraw(userDepositAmountB2 / 2, 1);
-    //     vm.stopPrank();
-
-    //     // increase blockchain time to end long pointstracking period
-    //     uint256 eightDaysLater = currentTime2 + 8 days;
-    //     vm.warp(eightDaysLater);
-
-    //     uint256 rewardsA_ = singleSidedStaking.getPendingRewards(userA, 0);
-    //     uint256 rewardsA1_ = singleSidedStaking.getPendingRewards(userA, 1);
-    //     uint256 rewardsB_ = singleSidedStaking.getPendingRewards(userB, 0);
-    //     uint256 rewardsB1_ = singleSidedStaking.getPendingRewards(userB, 1);
-
-    //     uint256 tolerance2 = 1e4;
-    //     assertApproxEqAbs(rewardsA_ - rewardsA , rewardsB_ - rewardsB, tolerance2);
-
-    //     // userB withdraws
-    //     vm.startPrank(userB);
-    //     singleSidedStaking.exitAll();
-    //     vm.stopPrank();
-    //     assertEq(userDepositAmountB + userDepositAmountB2, arcd.balanceOf(userB));
-
-    //     // userA withdraws
-    //     vm.startPrank(userA);
-    //     singleSidedStaking.exitAll();
-    //     vm.stopPrank();
-    //     assertEq(userDepositAmount + userDepositAmount2, arcd.balanceOf(userA));
-
-    //     assertEq(0, arcd.balanceOf(address(singleSidedStaking)));
-    // }
+        assertEq(userDepositAmount + userDepositAmount2, arcd.balanceOf(userA));
+    }
 
     function testMaxDepositsRevert() public {
         setUp();
@@ -921,7 +669,7 @@ contract ArcadeSingleSidedStakingTest is Test {
         vm.startPrank(userA);
         arcd.approve(address(singleSidedStaking), depositAmount);
 
-        // user deposits deposited tokens
+        // user deposits tokens
         singleSidedStaking.deposit(depositAmount, userB, IArcadeSingleSidedStaking.Lock.Medium);
         vm.stopPrank();
 
@@ -1117,14 +865,14 @@ contract ArcadeSingleSidedStakingTest is Test {
         // userA approves singleSidedStaking contract to spend deposited tokens
         vm.startPrank(userA);
         arcd.approve(address(singleSidedStaking), depositAmount);
-        // user deposits deposited tokens
+        // user deposits tokens
         singleSidedStaking.deposit(depositAmount, userC, IArcadeSingleSidedStaking.Lock.Medium);
         vm.stopPrank();
 
         // userB approves singleSidedStaking contract to spend deposited tokens
         vm.startPrank(userB);
         arcd.approve(address(singleSidedStaking), depositAmount / 2);
-        // user deposits deposited tokens
+        // user deposits tokens
         singleSidedStaking.deposit(depositAmount / 2, userC, IArcadeSingleSidedStaking.Lock.Medium);
         vm.stopPrank();
 
@@ -1149,7 +897,7 @@ contract ArcadeSingleSidedStakingTest is Test {
         // userA approves singleSidedStaking contract to spend deposited tokens
         vm.startPrank(userA);
         arcd.approve(address(singleSidedStaking), depositAmount);
-        // user deposits deposited tokens
+        // user deposits tokens
         singleSidedStaking.deposit(depositAmount, userC, IArcadeSingleSidedStaking.Lock.Medium);
         vm.stopPrank();
 
@@ -1165,7 +913,7 @@ contract ArcadeSingleSidedStakingTest is Test {
         // userB approves singleSidedStaking contract to spend deposited tokens
         vm.startPrank(userB);
         arcd.approve(address(singleSidedStaking), depositAmount / 2);
-        // user deposits deposited tokens
+        // user deposits tokens
         singleSidedStaking.deposit(depositAmount / 2, userC, IArcadeSingleSidedStaking.Lock.Medium);
         vm.stopPrank();
 
@@ -1177,30 +925,32 @@ contract ArcadeSingleSidedStakingTest is Test {
     }
 
     /**
-    * 2 users deposits. at the end of the tracking period, the admin calls
-    * startPointsTracking. isPointsTrackingActive returns true. the second
+    * 2 users make multiple deposits. at the end of the tracking period, the admin
+    * calls startPointsTracking. isPointsTrackingActive returns true. the second
     * user withdraws half their deposit.
     */
     function testScenario3() public {
         setUp();
 
-        arcd.mint(userA, 20e18);
-        arcd.mint(userB, 10e18);
+        arcd.mint(userA, 40e18);
+        arcd.mint(userB, 20e18);
 
         uint256 depositAmount = arcd.balanceOf(userA);
 
         // userA approves singleSidedStaking contract to spend deposited tokens
         vm.startPrank(userA);
         arcd.approve(address(singleSidedStaking), depositAmount);
-        // user deposits deposited tokens
-        singleSidedStaking.deposit(depositAmount, userC, IArcadeSingleSidedStaking.Lock.Medium);
+        // user deposits tokens
+        singleSidedStaking.deposit(depositAmount / 2, userC, IArcadeSingleSidedStaking.Lock.Medium);
+        singleSidedStaking.deposit(depositAmount / 2, userC, IArcadeSingleSidedStaking.Lock.Short);
         vm.stopPrank();
 
         // userB approves singleSidedStaking contract to spend deposited tokens
         vm.startPrank(userB);
         arcd.approve(address(singleSidedStaking), depositAmount / 2);
-        // user deposits deposited tokens
-        singleSidedStaking.deposit(depositAmount / 2, userC, IArcadeSingleSidedStaking.Lock.Medium);
+        // user deposits tokens
+        singleSidedStaking.deposit(depositAmount / 4, userC, IArcadeSingleSidedStaking.Lock.Medium);
+        singleSidedStaking.deposit(depositAmount / 4, userC, IArcadeSingleSidedStaking.Lock.Short);
         vm.stopPrank();
 
         // increase blockchain to after lock period
