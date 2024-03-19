@@ -26,10 +26,10 @@ error ASS_ZeroAddress(string addressType);
 error ASS_ZeroAmount();
 
 /**
- * @notice Previous rewards period must be complete
- *         to update rewards duration.
+ * @notice Previous points tracking period must be complete
+ *         to update to a new duration.
  */
-error ASS_RewardsPeriod();
+error ASS_PointsTrackingPeriod();
 
 /**
  * @notice Deposit token cannot be ERC20 recovered.

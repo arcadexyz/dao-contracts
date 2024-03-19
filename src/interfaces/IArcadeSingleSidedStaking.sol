@@ -42,6 +42,9 @@ interface IArcadeSingleSidedStaking {
 
     function balanceOfDeposit(address account, uint256 depositId) external view returns (uint256);
 
+    function getAmountWithBonus(address account, uint256 depositId) external view returns (uint256 amountWithBonus);
+
+    function getTotalUserDepositsWithBonus(address account) external view returns (uint256 totalDepositsWithBonuses);
     // =========================================== MUTATIVE FUNCTIONS ============================================
     function exitAll() external;
 

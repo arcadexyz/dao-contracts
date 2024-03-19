@@ -17,7 +17,7 @@ import "./interfaces/IArcadeSingleSidedStaking.sol";
 import {
     ASS_ZeroAddress,
     ASS_ZeroAmount,
-    ASS_RewardsPeriod,
+    ASS_PointsTrackingPeriod,
     ASS_DepositToken,
     ASS_BalanceAmount,
     ASS_Locked,
@@ -37,9 +37,8 @@ import {
  *
  * The ArcadeSingleSidedStaking contract is set up like a traditional staking contract,
  * but with a twist: instead of earning tokens as rewards, users deposit their ARCD tokens
- * in the contract and get d’App points in return. Earned points are tallied up off-chain.
- * It’s a straightforward way for users to lock their ARCD and earn points that count
- * towards the $ARCD Rewards program and its Levels.
+ * in the contract and get d’App points in return. Earned points are tallied up off-chain
+ * and account towards the $ARCD Rewards program and its Levels.
  *
  * Users have the flexibility to make multiple deposits, each accruing points separately
  * until their lock period concludes. Upon depositing, users are required to commit to a
@@ -55,7 +54,7 @@ import {
  * with a bonus multiplier that is contingent on the duration for which the user
  * chooses to lock their deposited tokens. The available lock durations are categorized
  * as short, medium, and long. Each category is associated with a progressively increasing
- * mulitplier that enhances the number of point rewards accrued in the d'App, with the short
+ * multiplier that enhances the number of point rewards accrued in the d'App, with the short
  * duration offering the smallest and the long duration offering the largest.
  *
  * When a user decides to lock their ARCD tokens for one of these durations,
@@ -114,6 +113,7 @@ contract ArcadeSingleSidedStaking is IArcadeSingleSidedStaking, IVotingVault, Re
     IERC20 public immutable arcd;
 
     uint256 public periodFinish;
+    uint256 public lastUpdateTime;
     uint256 public pointsTrackingDuration = ONE_DAY * 30 * 6; // six months
 
     mapping(address => UserDeposit[]) public deposits;
@@ -176,7 +176,7 @@ contract ArcadeSingleSidedStaking is IArcadeSingleSidedStaking, IVotingVault, Re
         depositBalance = deposits[account][depositId].amount;
     }
 
-    /** // TODO: is this NEEDED?
+    /**
      * @notice Returns the last timestamp at which point tracking can be accounted for.
      *
      * @return uint256                       The timestamp record after which points
@@ -266,6 +266,38 @@ contract ArcadeSingleSidedStaking is IArcadeSingleSidedStaking, IVotingVault, Re
         Lock lock = userDeposit.lock;
 
         (bonusAmount, ) = _calculateBonus(amount, lock);
+    }
+
+    /**
+     * @notice Get all user's deposits with their bonuses.
+     *
+     * @param account                           The user's account.
+     *
+     * @return totalDepositsWithBonuses         Value of a user's deposits with bonuses across all deposits.
+     */
+    function getTotalUserDepositsWithBonus(address account) external view returns (uint256 totalDepositsWithBonuses) {
+        UserDeposit[] storage userDeposits = deposits[account];
+
+        uint256 numUserDeposits = userDeposits.length;
+        for (uint256 i = 0; i < numUserDeposits; ++i) {
+            UserDeposit storage userDeposit = userDeposits[i];
+            totalDepositsWithBonuses += _getAmountWithBonus(userDeposit);
+        }
+    }
+
+    /**
+     * @notice Returns just the "amount with bonus" for a deposit.
+     *
+     * @param account                           The user's account.
+     * @param depositId                         The specified deposit to get the amount
+     *                                          with bonus for.
+     *
+     * @return amountWithBonus                  Value of user deposit with bonus.
+     */
+    function getAmountWithBonus(address account, uint256 depositId) external view returns (uint256 amountWithBonus) {
+        UserDeposit storage userDeposit = deposits[account][depositId];
+
+        amountWithBonus = _getAmountWithBonus(userDeposit);
     }
 
     // ========================================= MUTATIVE FUNCTIONS ========================================
@@ -399,7 +431,7 @@ contract ArcadeSingleSidedStaking is IArcadeSingleSidedStaking, IVotingVault, Re
      * @param _pointsTrackingDuration              The amount of time the tracking period will be.
      */
     function setPointsDuration(uint256 _pointsTrackingDuration) external whenNotPaused onlyOwner {
-        if (block.timestamp <= periodFinish) revert ASS_RewardsPeriod();
+        if (block.timestamp <= periodFinish) revert ASS_PointsTrackingPeriod();
 
         pointsTrackingDuration = _pointsTrackingDuration;
 
@@ -421,6 +453,21 @@ contract ArcadeSingleSidedStaking is IArcadeSingleSidedStaking, IVotingVault, Re
     }
 
     // ============================================== HELPERS ===============================================
+    /**
+     * @notice Calculates the total amount for a user's deposit including the bonus based on
+     *         the deposit's lock period.
+     *
+     * @param userDeposit                       The user's deposit object.
+     *
+     * @return amountWithBonus                  The total amount including the bonus.
+     */
+    function _getAmountWithBonus(UserDeposit storage userDeposit) internal view returns (uint256 amountWithBonus) {
+        uint256 amount = userDeposit.amount;
+        Lock lock = userDeposit.lock;
+
+        (amountWithBonus, ) = _calculateBonus(amount, lock);
+    }
+
     /**
      * @notice Calculate the bonus for a user's deposit based on the selected lock SHORT, MEDIUM or LONG.
      *
