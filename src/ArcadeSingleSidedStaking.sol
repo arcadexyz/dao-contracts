@@ -116,7 +116,7 @@ contract ArcadeSingleSidedStaking is IArcadeSingleSidedStaking, IVotingVault, Re
     address public admin;
 
     uint256 public periodFinish;
-    uint256 public pointsTrackingDuration = ONE_DAY * 30 * 6; // six months
+    uint256 public trackingDuration = ONE_DAY * 30 * 6; // six months
 
     mapping(address => UserDeposit[]) public deposits;
 
@@ -340,13 +340,13 @@ contract ArcadeSingleSidedStaking is IArcadeSingleSidedStaking, IVotingVault, Re
             })
         );
 
+        if (totalDeposits == 0 && !isPointsTrackingActive()) {
+            _startPointsTracking();
+        }
+
         totalDeposits += amount;
 
         arcd.safeTransferFrom(msg.sender, address(this), amount);
-
-        if (!isPointsTrackingActive()) {
-            _startPointsTracking();
-        }
 
         emit Deposited(msg.sender, userDepositCount, amount);
     }
@@ -435,17 +435,17 @@ contract ArcadeSingleSidedStaking is IArcadeSingleSidedStaking, IVotingVault, Re
     }
 
     /**
-     * @notice An only owner function to set the duration of the tracking period for points earnings.
-     *         The previous tracking period must be complete before a new duration can be set.
+     * @notice An only owner function to set the duration of the points tracking period.
+     *         The previous tracking period must be complete before a new duration is set.
      *
-     * @param _pointsTrackingDuration              The amount of time the tracking period will be.
+     * @param _trackingDuration                 The amount of time the tracking period will be.
      */
-    function setPointsDuration(uint256 _pointsTrackingDuration) external whenNotPaused onlyOwner {
+    function setTrackingDuration(uint256 _trackingDuration) external whenNotPaused onlyOwner {
         if (block.timestamp <= periodFinish) revert ASS_PointsTrackingPeriod();
 
-        pointsTrackingDuration = _pointsTrackingDuration;
+        trackingDuration = _trackingDuration;
 
-        emit PointsDurationUpdated(pointsTrackingDuration);
+        emit PointsDurationUpdated(trackingDuration);
     }
 
     /**
@@ -530,7 +530,7 @@ contract ArcadeSingleSidedStaking is IArcadeSingleSidedStaking, IVotingVault, Re
      *
      */
     function _startPointsTracking() private {
-        periodFinish = block.timestamp + pointsTrackingDuration;
+        periodFinish = block.timestamp + trackingDuration;
 
         emit TrackingIsActive(periodFinish);
     }

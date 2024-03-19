@@ -45,7 +45,7 @@ contract ArcadeSingleSidedStakingTest is Test {
 
         // set points tracking duration to a small + even number of days for easy testing
         vm.prank(owner);
-        singleSidedStaking.setPointsDuration(8 days);
+        singleSidedStaking.setTrackingDuration(8 days);
     }
 
     function testConstructorZeroAddress() public {
@@ -391,7 +391,7 @@ contract ArcadeSingleSidedStakingTest is Test {
         // owner tries to set the rewards duration before previous duration ends
         vm.expectRevert(abi.encodeWithSelector(selector));
         vm.prank(owner);
-        singleSidedStaking.setPointsDuration(7);
+        singleSidedStaking.setTrackingDuration(7);
     }
 
     function testInvalidDepositId() public {
@@ -1062,6 +1062,102 @@ contract ArcadeSingleSidedStakingTest is Test {
 
         uint256 userVotingPower = singleSidedStaking.queryVotePowerView(userB, currentBlock);
         assertEq(userVotingPower, depositAmount);
+    }
+
+    function testStartPointsTracking() public {
+        setUp();
+
+        arcd.mint(userA, 20e18);
+        uint256 depositAmount = arcd.balanceOf(userA);
+
+        // user approves singleSidedStaking contract to spend arcd tokens
+        vm.startPrank(userA);
+        arcd.approve(address(singleSidedStaking), depositAmount);
+        // user deposits tokens
+        singleSidedStaking.deposit(depositAmount, userB, IArcadeSingleSidedStaking.Lock.Medium);
+        vm.stopPrank();
+
+        // increase blockchain to end of tracking period
+        vm.warp(currentTime + (FIVE_MONTHS + ONE_MONTH));
+
+        bool isPointsTrackingActive = singleSidedStaking.isPointsTrackingActive();
+        assertEq(isPointsTrackingActive, false);
+
+        bytes4 selector = bytes4(keccak256("ASS_AdminNotCaller(address)"));
+
+        vm.startPrank(userA);
+        vm.expectRevert(abi.encodeWithSelector(selector, admin));
+        singleSidedStaking.startPointsTracking();
+        vm.stopPrank();
+
+        vm.startPrank(admin);
+        singleSidedStaking.startPointsTracking();
+        vm.stopPrank();
+
+        bool isPointsTrackingActive2 = singleSidedStaking.isPointsTrackingActive();
+        assertEq(isPointsTrackingActive2, true);
+    }
+
+    function testStartPointsTrackingNoGo() public {
+        setUp();
+
+        bool isPointsTrackingActive = singleSidedStaking.isPointsTrackingActive();
+        assertEq(isPointsTrackingActive, false);
+
+        vm.startPrank(admin);
+        singleSidedStaking.startPointsTracking();
+        vm.stopPrank();
+
+        bool isPointsTrackingActive2 = singleSidedStaking.isPointsTrackingActive();
+        assertEq(isPointsTrackingActive2, false);
+    }
+
+    function testDepositStartsPointsTracking() public {
+        setUp();
+
+        uint256 totalSupply = singleSidedStaking.totalSupply();
+        assertEq(totalSupply, 0);
+
+        bool isPointsTrackingActive = singleSidedStaking.isPointsTrackingActive();
+        assertEq(isPointsTrackingActive, false);
+
+        arcd.mint(userA, 20e18);
+        uint256 depositAmount = arcd.balanceOf(userA);
+
+        // user approves singleSidedStaking contract to spend arcd tokens
+        vm.startPrank(userA);
+        arcd.approve(address(singleSidedStaking), depositAmount);
+        // user deposits tokens
+        singleSidedStaking.deposit(depositAmount, userB, IArcadeSingleSidedStaking.Lock.Medium);
+        vm.stopPrank();
+
+        bool isPointsTrackingActive2 = singleSidedStaking.isPointsTrackingActive();
+        assertEq(isPointsTrackingActive2, true);
+
+        uint256 totalSupply2 = singleSidedStaking.totalSupply();
+        assertEq(totalSupply2, depositAmount);
+    }
+
+    function testScenario1() public {
+        // 2 users deposit at the same time, user 2 deposits half the amount of user 1.
+        // the contact totalSupply shows the right amount
+        // and the user's voting power is the same as their deposit amounts
+    }
+
+    function testScenario2() public {
+        // 1 user deposits,
+        // halfway through the tracking perid, user 2 deposits
+        // the contact totalSupply shows the right amount
+        // and the user's voting power is the same as their deposit amounts
+    }
+
+    function testScenario3() public {
+        // 2 users deposit at the same time
+        // at the end of the tracking period, startPointsTracking is called again,
+        // one user withdrwas half of their deposit mid second tracking period
+        // the contact totalSupply shows the right amount
+        // and the first user's voting power is the same as their deposit amounts
+        // the second user has half of their deposit amount as voting power
     }
 }
 

@@ -56,7 +56,7 @@ interface IArcadeSingleSidedStaking {
 
     function withdraw(uint256 amount, uint256 depositId) external;
 
-    function setPointsDuration(uint256 _rewardsDuration) external;
+    function setTrackingDuration(uint256 _rewardsDuration) external;
 
     function recoverERC20(address tokenAddress, uint256 tokenAmount) external;
 
