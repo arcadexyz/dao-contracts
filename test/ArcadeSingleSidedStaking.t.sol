@@ -75,7 +75,7 @@ contract ArcadeSingleSidedStakingTest is Test {
         // increase blockchain time by 2 days
         vm.warp(block.timestamp + 2 days);
 
-        // user approves singleSidedStaking contract to spend deposited tokens
+        // user approves singleSidedStaking contract to spend tokens
         vm.startPrank(userA);
         arcd.approve(address(singleSidedStaking), depositAmount);
 
@@ -101,7 +101,7 @@ contract ArcadeSingleSidedStakingTest is Test {
 
         bytes4 selector = bytes4(keccak256("ASS_ZeroAmount()"));
 
-        // user approves singleSidedStaking contract to spend deposited tokens
+        // user approves singleSidedStaking contract to spend tokens
         vm.startPrank(userA);
         arcd.approve(address(singleSidedStaking), depositAmount);
 
@@ -118,7 +118,7 @@ contract ArcadeSingleSidedStakingTest is Test {
         // increase blockchain time by 2 days
         vm.warp(block.timestamp + 2 days);
 
-        // user approves singleSidedStaking contract to spend deposited tokens
+        // user approves singleSidedStaking contract to spend tokens
         vm.startPrank(userA);
         arcd.approve(address(singleSidedStaking), depositAmount);
         singleSidedStaking.deposit(depositAmount, userB, IArcadeSingleSidedStaking.Lock.Medium);
@@ -157,7 +157,7 @@ contract ArcadeSingleSidedStakingTest is Test {
         // increase blockchain time by 2 days
         vm.warp(block.timestamp + 2 days);
 
-        // user approves singleSidedStaking contract to spend deposited tokens
+        // user approves singleSidedStaking contract to spend tokens
         vm.startPrank(userA);
         arcd.approve(address(singleSidedStaking), depositAmount);
         singleSidedStaking.deposit(depositAmount / 3, userB, IArcadeSingleSidedStaking.Lock.Medium);
@@ -195,7 +195,7 @@ contract ArcadeSingleSidedStakingTest is Test {
         arcd.mint(userA, 20e18);
         uint256 depositAmount = arcd.balanceOf(userA);
 
-        // user approves singleSidedStaking contract to spend deposited tokens
+        // user approves singleSidedStaking contract to spend tokens
         vm.startPrank(userA);
         arcd.approve(address(singleSidedStaking), depositAmount);
         singleSidedStaking.deposit(depositAmount, userB, IArcadeSingleSidedStaking.Lock.Medium);
@@ -237,7 +237,7 @@ contract ArcadeSingleSidedStakingTest is Test {
         // increase blockchain time by 2 days
         vm.warp(block.timestamp + 2 days);
 
-        // user approves singleSidedStaking contract to spend deposited tokens
+        // user approves singleSidedStaking contract to spend tokens
         vm.startPrank(userA);
         arcd.approve(address(singleSidedStaking), depositAmount);
         singleSidedStaking.deposit(depositAmount, userB, IArcadeSingleSidedStaking.Lock.Long);
@@ -254,7 +254,7 @@ contract ArcadeSingleSidedStakingTest is Test {
         arcd.mint(userA, 20e18);
         uint256 depositAmount = arcd.balanceOf(userA);
 
-        // user approves singleSidedStaking contract to spend deposited tokens
+        // user approves singleSidedStaking contract to spend tokens
         vm.startPrank(userA);
         arcd.approve(address(singleSidedStaking), depositAmount);
         singleSidedStaking.deposit(depositAmount, userB, IArcadeSingleSidedStaking.Lock.Short);
@@ -285,7 +285,7 @@ contract ArcadeSingleSidedStakingTest is Test {
         // increase blockchain time by 2 days
         vm.warp(block.timestamp + 2 days);
 
-        // user approves singleSidedStaking contract to spend deposited tokens
+        // user approves singleSidedStaking contract to spend tokens
         vm.startPrank(userA);
         arcd.approve(address(singleSidedStaking), depositAmount);
         singleSidedStaking.deposit(depositAmount, userB, IArcadeSingleSidedStaking.Lock.Medium);
@@ -358,7 +358,7 @@ contract ArcadeSingleSidedStakingTest is Test {
         arcd.mint(userA, 20e18);
         uint256 userDepositAmount = arcd.balanceOf(userA);
 
-        // userA approves singleSidedStaking contract to spend deposited tokens
+        // userA approves singleSidedStaking contract to spend tokens
         vm.startPrank(userA);
         arcd.approve(address(singleSidedStaking), userDepositAmount);
         singleSidedStaking.deposit(userDepositAmount, userB, IArcadeSingleSidedStaking.Lock.Short);
@@ -376,7 +376,7 @@ contract ArcadeSingleSidedStakingTest is Test {
         arcd.mint(userA, 20e18);
         uint256 userDepositAmount = arcd.balanceOf(userA);
 
-        // userA approves singleSidedStaking contract to spend deposited tokens
+        // userA approves singleSidedStaking contract to spend tokens
         vm.startPrank(userA);
         arcd.approve(address(singleSidedStaking), userDepositAmount);
         singleSidedStaking.deposit(userDepositAmount, userB, IArcadeSingleSidedStaking.Lock.Short);
@@ -410,7 +410,7 @@ contract ArcadeSingleSidedStakingTest is Test {
         arcd.mint(userA, 20e18);
         uint256 userDepositAmount = arcd.balanceOf(userA);
 
-        // userA approves singleSidedStaking contract to spend deposited tokens
+        // userA approves singleSidedStaking contract to spend tokens
         vm.startPrank(userA);
         arcd.approve(address(singleSidedStaking), userDepositAmount);
         // userA deposits tokens
@@ -439,7 +439,7 @@ contract ArcadeSingleSidedStakingTest is Test {
         uint256 invalidLock = 3;
         bytes4 selector = bytes4(keccak256("Panic(uint256)"));
 
-        // userA approves singleSidedStaking contract to spend deposited tokens
+        // userA approves singleSidedStaking contract to spend tokens
         vm.startPrank(userA);
         arcd.approve(address(singleSidedStaking), depositAmount);
 
@@ -452,8 +452,27 @@ contract ArcadeSingleSidedStakingTest is Test {
     function testLastTimePointsApplicable() public {
         setUp();
 
+        arcd.mint(userA, 20e18);
+        uint256 userDepositAmount = arcd.balanceOf(userA);
+
+        // userA approves singleSidedStaking contract to spend tokens
+        vm.startPrank(userA);
+        arcd.approve(address(singleSidedStaking), userDepositAmount);
+        // userA deposits tokens
+        singleSidedStaking.deposit(userDepositAmount, userB, IArcadeSingleSidedStaking.Lock.Medium);
+        vm.stopPrank();
+
         uint256 lastTimePointsApplicable = singleSidedStaking.lastTimePointsApplicable();
-        assertApproxEqAbs(lastTimePointsApplicable, 8 days, 1e10);
+        assertEq(lastTimePointsApplicable, singleSidedStaking.periodFinish());
+    }
+
+    function testLastTimePointsApplicableRevert() public {
+        setUp();
+
+        bytes4 selector = bytes4(keccak256("ASS_TrackingPeriodExpired()"));
+
+        vm.expectRevert(abi.encodeWithSelector(selector));
+        singleSidedStaking.lastTimePointsApplicable();
     }
 
     function testGetUserDeposit() public {
@@ -462,7 +481,7 @@ contract ArcadeSingleSidedStakingTest is Test {
         arcd.mint(userA, 20e18);
         uint256 userDepositAmount = arcd.balanceOf(userA) / 3;
 
-        // userA approves singleSidedStaking contract to spend deposited tokens
+        // userA approves singleSidedStaking contract to spend tokens
         vm.startPrank(userA);
         arcd.approve(address(singleSidedStaking), userDepositAmount * 3);
         // userA deposits once
@@ -474,9 +493,6 @@ contract ArcadeSingleSidedStakingTest is Test {
         // userA makes a third deposit
         singleSidedStaking.deposit(userDepositAmount, userB, IArcadeSingleSidedStaking.Lock.Long);
         vm.stopPrank();
-
-        // increase blockchain time to end of rewards period
-        vm.warp(block.timestamp + 8 days);
 
         (uint8 lock, uint32 unlockTimestamp, uint256 amount) = singleSidedStaking.getUserDeposit(userA, 1);
 
@@ -492,7 +508,7 @@ contract ArcadeSingleSidedStakingTest is Test {
         arcd.mint(userA, 20e18);
         uint256 userDepositAmount = arcd.balanceOf(userA) / 3;
 
-        // userA approves singleSidedStaking contract to spend deposited tokens
+        // userA approves singleSidedStaking contract to spend tokens
         vm.startPrank(userA);
         arcd.approve(address(singleSidedStaking), userDepositAmount * 3);
         // userA deposits once
@@ -527,7 +543,7 @@ contract ArcadeSingleSidedStakingTest is Test {
         arcd.mint(userA, 20e18);
         uint256 userDepositAmount = arcd.balanceOf(userA);
 
-        // userA approves singleSidedStaking contract to spend deposited tokens
+        // userA approves singleSidedStaking contract to spend tokens
         vm.startPrank(userA);
         arcd.approve(address(singleSidedStaking), userDepositAmount);
         // userA deposits tokens
@@ -536,6 +552,9 @@ contract ArcadeSingleSidedStakingTest is Test {
 
         uint256 userVotingPower = singleSidedStaking.queryVotePowerView(userB, currentBlock);
         assertEq(userVotingPower, userDepositAmount);
+
+        uint256 amountWithBonus = singleSidedStaking.getAmountWithBonus(userA, 0);
+        assertEq(amountWithBonus, (userDepositAmount + ((userDepositAmount * 13e17) / ONE)));
     }
 
     function testGetTotalUserDepositsWithBonus() public {
@@ -544,7 +563,7 @@ contract ArcadeSingleSidedStakingTest is Test {
         arcd.mint(userA, 20e18);
         uint256 userDepositAmount = arcd.balanceOf(userA) / 3;
 
-        // userA approves singleSidedStaking contract to spend deposited tokens
+        // userA approves singleSidedStaking contract to spend tokens
         vm.startPrank(userA);
         arcd.approve(address(singleSidedStaking), userDepositAmount * 3);
         // userA deposits tokens
@@ -567,9 +586,10 @@ contract ArcadeSingleSidedStakingTest is Test {
         arcd.mint(userA, 20e18);
         uint256 userDepositAmount = arcd.balanceOf(userA) / 3;
 
-        // userA approves singleSidedStaking contract to spend deposited tokens
+        // userA approves singleSidedStaking contract to spend tokens
         vm.startPrank(userA);
         arcd.approve(address(singleSidedStaking), userDepositAmount * 3);
+
         // userA deposits tokens
         singleSidedStaking.deposit(userDepositAmount, userB, IArcadeSingleSidedStaking.Lock.Medium);
         singleSidedStaking.deposit(userDepositAmount, userB, IArcadeSingleSidedStaking.Lock.Long);
@@ -586,7 +606,7 @@ contract ArcadeSingleSidedStakingTest is Test {
         arcd.mint(userA, 20e18);
         uint256 depositAmount = arcd.balanceOf(userA);
 
-        // userA approves singleSidedStaking contract to spend deposited tokens
+        // userA approves singleSidedStaking contract to spend tokens
         vm.startPrank(userA);
         arcd.approve(address(singleSidedStaking), depositAmount);
         // userA deposits tokens
@@ -609,7 +629,7 @@ contract ArcadeSingleSidedStakingTest is Test {
         arcd.mint(userA, 50e18);
         uint256 userDepositAmount2 = arcd.balanceOf(userA) - userDepositAmount;
 
-        // userA approves singleSidedStaking contract to spend deposited tokens
+        // userA approves singleSidedStaking contract to spend tokens
         vm.startPrank(userA);
         arcd.approve(address(singleSidedStaking), userDepositAmount);
         singleSidedStaking.deposit(userDepositAmount, userB, IArcadeSingleSidedStaking.Lock.Medium);
@@ -642,7 +662,7 @@ contract ArcadeSingleSidedStakingTest is Test {
 
         bytes4 selector = bytes4(keccak256("ASS_DepositCountExceeded()"));
 
-        // userA approves singleSidedStaking contract to spend deposited tokens
+        // userA approves singleSidedStaking contract to spend tokens
         vm.startPrank(userA);
         arcd.approve(address(singleSidedStaking), userDepositAmount * 20);
 
@@ -665,7 +685,7 @@ contract ArcadeSingleSidedStakingTest is Test {
         // increase blockchain time by 2 days
         vm.warp(block.timestamp + 2 days);
 
-        // user approves singleSidedStaking contract to spend deposited tokens
+        // user approves singleSidedStaking contract to spend tokens
         vm.startPrank(userA);
         arcd.approve(address(singleSidedStaking), depositAmount);
 
@@ -706,7 +726,7 @@ contract ArcadeSingleSidedStakingTest is Test {
 
         bytes4 selector = bytes4(keccak256("ASS_ZeroAddress(string)"));
 
-        // user approves singleSidedStaking contract to spend deposited tokens
+        // user approves singleSidedStaking contract to spend tokens
         vm.prank(userA);
         arcd.approve(address(singleSidedStaking), depositAmount);
 
@@ -724,7 +744,7 @@ contract ArcadeSingleSidedStakingTest is Test {
         // increase blockchain time by 2 days
         vm.warp(block.timestamp + 2 days);
 
-        // user approves singleSidedStaking contract to spend deposited tokens
+        // user approves singleSidedStaking contract to spend tokens
         vm.startPrank(userA);
         arcd.approve(address(singleSidedStaking), depositAmount);
         singleSidedStaking.deposit(depositAmount / 2, userB, IArcadeSingleSidedStaking.Lock.Medium);
@@ -862,14 +882,14 @@ contract ArcadeSingleSidedStakingTest is Test {
 
         uint256 depositAmount = arcd.balanceOf(userA);
 
-        // userA approves singleSidedStaking contract to spend deposited tokens
+        // userA approves singleSidedStaking contract to spend tokens
         vm.startPrank(userA);
         arcd.approve(address(singleSidedStaking), depositAmount);
         // user deposits tokens
         singleSidedStaking.deposit(depositAmount, userC, IArcadeSingleSidedStaking.Lock.Medium);
         vm.stopPrank();
 
-        // userB approves singleSidedStaking contract to spend deposited tokens
+        // userB approves singleSidedStaking contract to spend tokens
         vm.startPrank(userB);
         arcd.approve(address(singleSidedStaking), depositAmount / 2);
         // user deposits tokens
@@ -894,7 +914,7 @@ contract ArcadeSingleSidedStakingTest is Test {
 
         uint256 depositAmount = arcd.balanceOf(userA);
 
-        // userA approves singleSidedStaking contract to spend deposited tokens
+        // userA approves singleSidedStaking contract to spend tokens
         vm.startPrank(userA);
         arcd.approve(address(singleSidedStaking), depositAmount);
         // user deposits tokens
@@ -910,7 +930,7 @@ contract ArcadeSingleSidedStakingTest is Test {
         // increase blockchain to half of tracking period
         vm.warp(currentTime + 4 days);
 
-        // userB approves singleSidedStaking contract to spend deposited tokens
+        // userB approves singleSidedStaking contract to spend tokens
         vm.startPrank(userB);
         arcd.approve(address(singleSidedStaking), depositAmount / 2);
         // user deposits tokens
@@ -937,7 +957,7 @@ contract ArcadeSingleSidedStakingTest is Test {
 
         uint256 depositAmount = arcd.balanceOf(userA);
 
-        // userA approves singleSidedStaking contract to spend deposited tokens
+        // userA approves singleSidedStaking contract to spend tokens
         vm.startPrank(userA);
         arcd.approve(address(singleSidedStaking), depositAmount);
         // user deposits tokens
@@ -945,7 +965,7 @@ contract ArcadeSingleSidedStakingTest is Test {
         singleSidedStaking.deposit(depositAmount / 2, userC, IArcadeSingleSidedStaking.Lock.Short);
         vm.stopPrank();
 
-        // userB approves singleSidedStaking contract to spend deposited tokens
+        // userB approves singleSidedStaking contract to spend tokens
         vm.startPrank(userB);
         arcd.approve(address(singleSidedStaking), depositAmount / 2);
         // user deposits tokens

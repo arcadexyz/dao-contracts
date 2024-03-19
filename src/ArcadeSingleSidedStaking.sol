@@ -25,7 +25,8 @@ import {
     ASS_UpperLimitBlock,
     ASS_InvalidDelegationAddress,
     ASS_AmountTooBig,
-    ASS_AdminNotCaller
+    ASS_AdminNotCaller,
+    ASS_TrackingPeriodExpired
 } from "../src/errors/SingleSidedStaking.sol";
 
 /**
@@ -189,7 +190,10 @@ contract ArcadeSingleSidedStaking is IArcadeSingleSidedStaking, IVotingVault, Re
      *                                       are no longer tracked.
      */
     function lastTimePointsApplicable() public view returns (uint256) {
-        return block.timestamp < periodFinish ? block.timestamp : periodFinish;
+        if (block.timestamp >= periodFinish) {
+            revert ASS_TrackingPeriodExpired();
+        }
+        return periodFinish;
     }
 
     /**
@@ -448,7 +452,7 @@ contract ArcadeSingleSidedStaking is IArcadeSingleSidedStaking, IVotingVault, Re
         emit PointsDurationUpdated(trackingDuration);
     }
 
-    /**
+    /** TODO: ADD TO INTERFACE
      * @notice Initiates points tracking if total deposits are above 0 and points tracking is not
      *         already active.
      *         Requires the caller to be the admin.
@@ -459,7 +463,7 @@ contract ArcadeSingleSidedStaking is IArcadeSingleSidedStaking, IVotingVault, Re
         emit ActivatedTracking();
     }
 
-    /**
+    /** TODO: ADD TO INTERFACE
      * @notice Determines if points tracking is currently active.
      *
      * @return bool                                True if the tracking period is currently active,

@@ -64,12 +64,17 @@ error ASS_UpperLimitBlock(uint256);
  */
  error ASS_InvalidDelegationAddress();
 
- /**
+/**
  * @notice Amount cannot exceed the maximum value that can be held by a uint96.
  */
  error ASS_AmountTooBig();
 
-  /**
+/**
  * @notice Function can only be called by the contract admin.
  */
  error ASS_AdminNotCaller(address);
+
+/**
+ * @notice The tracking period has ended.
+ */
+ error ASS_TrackingPeriodExpired();
