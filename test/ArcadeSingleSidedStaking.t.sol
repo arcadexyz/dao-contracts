@@ -2,12 +2,17 @@
 
 pragma solidity 0.8.20;
 
+import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+
 import { Test, console } from "forge-std/Test.sol";
 import { IArcadeSingleSidedStaking } from "../src/interfaces/IArcadeSingleSidedStaking.sol";
 import { ArcadeSingleSidedStaking } from "../src/ArcadeSingleSidedStaking.sol";
 import { MockERC20 } from "../src/test/MockERC20.sol";
 
 contract ArcadeSingleSidedStakingTest is Test {
+    using SafeERC20 for IERC20;
+
     ArcadeSingleSidedStaking singleSidedStaking;
 
     MockERC20 arcd;
@@ -296,7 +301,7 @@ contract ArcadeSingleSidedStakingTest is Test {
 
         uint256 poolTotalDepositsBeforeWithdraw = singleSidedStaking.totalSupply();
 
-        // increase blocckhain to end lock period
+        // increase blockchain to end lock period
         vm.warp(block.timestamp + TWO_MONTHS);
 
         vm.startPrank(userA);
@@ -313,21 +318,6 @@ contract ArcadeSingleSidedStakingTest is Test {
         assertEq(balanceAfterWithdraw, depositAmount / 2);
         assertEq(poolTotalDepositsBeforeWithdraw, depositAmount);
         assertEq(poolTotalDepositsAfterWithdraw, depositAmount / 2);
-    }
-
-    function testrecoverERC20() public { // TODO: FIX THIS
-        setUp();
-
-        // mint other token to singleSidedStaking contract
-        otherToken.mint(address(singleSidedStaking), 100e18);
-
-        uint256 balanceBefore = otherToken.balanceOf(owner);
-
-        vm.prank(owner);
-        singleSidedStaking.recoverERC20(address(otherToken), 100e18);
-
-        uint256 balanceAfter = otherToken.balanceOf(owner);
-        assertEq(balanceAfter, balanceBefore + 100e18);
     }
 
     function testCustomRevertRecoverERC20() public {
@@ -352,22 +342,27 @@ contract ArcadeSingleSidedStakingTest is Test {
         singleSidedStaking.recoverERC20(address(otherToken), 0);
     }
 
-    function testDepositTokenRecoverERC20() public {
+    function testTokenRecoverERC20() public {
         setUp();
 
-        arcd.mint(userA, 20e18);
-        uint256 userDepositAmount = arcd.balanceOf(userA);
+        otherToken.mint(userA, 20e18);
+        uint256 userDepositAmount = otherToken.balanceOf(userA);
 
         // userA approves singleSidedStaking contract to spend tokens
         vm.startPrank(userA);
-        arcd.approve(address(singleSidedStaking), userDepositAmount);
-        singleSidedStaking.deposit(userDepositAmount, userB, IArcadeSingleSidedStaking.Lock.Short);
+        otherToken.approve(address(singleSidedStaking), userDepositAmount);
+        IERC20(address(otherToken)).safeTransfer(address(singleSidedStaking), userDepositAmount);
+        vm.stopPrank();
 
-        bytes4 selector = bytes4(keccak256("ASS_DepositToken()"));
-        vm.expectRevert(abi.encodeWithSelector(selector));
+        uint256 contractBal = otherToken.balanceOf(address(singleSidedStaking));
+        assertEq(contractBal, userDepositAmount);
 
         vm.startPrank(owner);
-        singleSidedStaking.recoverERC20(address(arcd), 1e18);
+        singleSidedStaking.recoverERC20(address(otherToken), userDepositAmount);
+        vm.stopPrank();
+
+        uint256 contractBal2 = otherToken.balanceOf(address(singleSidedStaking));
+        assertEq(contractBal2, 0);
     }
 
     function testCustomRevertSetPointsDuration() public {
