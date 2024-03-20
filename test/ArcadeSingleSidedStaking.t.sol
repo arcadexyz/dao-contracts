@@ -31,7 +31,6 @@ contract ArcadeSingleSidedStakingTest is Test {
     address userA = address(0x3);
     address userB = address(0x4);
     address userC = address(0x5);
-    address userD = address(0x6);
 
     uint256 currentBlock = 101;
     uint256 currentTime;
@@ -93,6 +92,9 @@ contract ArcadeSingleSidedStakingTest is Test {
 
         uint256 poolTotalDeposits = singleSidedStaking.totalSupply();
         assertEq(poolTotalDeposits, depositAmount);
+
+        uint256 userBal = arcd.balanceOf(userA);
+        assertEq(userBal, 0);
     }
 
     function testDepositZeroToken() public {
@@ -135,7 +137,7 @@ contract ArcadeSingleSidedStakingTest is Test {
         uint256 poolTotalDepositsBeforeWithdraw = singleSidedStaking.totalSupply();
         uint256 balanceBeforeWithdraw = arcd.balanceOf(userA);
 
-        // increase blockchain time by the medium lock duration
+        // increase blockchain time to end of lock duration
         vm.warp(block.timestamp + TWO_MONTHS);
 
         vm.startPrank(userA);
@@ -171,7 +173,7 @@ contract ArcadeSingleSidedStakingTest is Test {
         vm.stopPrank();
 
         uint256 userVotingPower = singleSidedStaking.queryVotePowerView(userB, currentBlock);
-        uint256 tolerance = 1e2; // TODO: is this tolearnce needed?
+        uint256 tolerance = 1e1;
         assertApproxEqAbs(userVotingPower, depositAmount, tolerance);
 
         uint256 poolTotalDepositsBeforeWithdraw = singleSidedStaking.totalSupply();
@@ -186,8 +188,7 @@ contract ArcadeSingleSidedStakingTest is Test {
         uint256 poolTotalDepositsAfterWithdraw = singleSidedStaking.totalSupply();
 
         uint256 userVotingPowerAfter = singleSidedStaking.queryVotePowerView(userB, block.number);
-        uint256 tolerance2 = 1e7; // TODO: is this tolearnce needed?
-        assertApproxEqAbs(userVotingPowerAfter, 0, tolerance2);
+        assertEq(userVotingPowerAfter, 0);
 
         assertApproxEqAbs(balanceAfterWithdraw, balanceBeforeWithdraw + depositAmount, tolerance);
         assertApproxEqAbs(poolTotalDepositsBeforeWithdraw, depositAmount, tolerance);
@@ -214,7 +215,7 @@ contract ArcadeSingleSidedStakingTest is Test {
 
         assertEq(arcd.balanceOf(userA), 0);
 
-        // increase blockhain to end lock period
+        // increase blockchain time to end lock period
         vm.warp(block.timestamp + TWO_MONTHS);
 
         vm.startPrank(userA);
@@ -268,7 +269,7 @@ contract ArcadeSingleSidedStakingTest is Test {
         // user balance is 0
         assertEq(arcd.balanceOf(userA), 0);
 
-        // increase blockchain time by 2 days
+        // increase blockchain time to end of lock period
         vm.warp(block.timestamp + ONE_MONTH);
 
         // user tries to withdraw more than their deposit
@@ -276,11 +277,10 @@ contract ArcadeSingleSidedStakingTest is Test {
         singleSidedStaking.withdraw(30e18, 0);
         vm.stopPrank();
 
-        // but only their deposit amount is withdrawn
+        // only their deposit amount is withdrawn
         assertEq(arcd.balanceOf(userA), depositAmount);
     }
 
-    // Partial withdraw after lock period.
     function testPartialWithdrawAfterLock() public {
         setUp();
 
