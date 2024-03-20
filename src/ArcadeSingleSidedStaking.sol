@@ -221,7 +221,7 @@ contract ArcadeSingleSidedStaking is IArcadeSingleSidedStaking, IVotingVault, Re
     /**
      * @notice Returns the last depositId, equivalent to userDeposits.length.
      *
-     * @param account                           The user whose deposits to get.
+     * @param account                           The user whose last deposit to get.
      *
      * @return lastDepositId                    Id of the last deposit.
      */
@@ -234,7 +234,7 @@ contract ArcadeSingleSidedStaking is IArcadeSingleSidedStaking, IVotingVault, Re
      *
      * @param account                           The user whose deposits to get.
      *
-     * @return activeDeposits                   Array of id's of user's active deposits.
+     * @return activeDeposits                   Array of id's of the user's active deposits.
      */
     function getActiveDeposits(address account) external view returns (uint256[] memory) {
         UserDeposit[] storage userDeposits = deposits[account];
@@ -266,7 +266,8 @@ contract ArcadeSingleSidedStaking is IArcadeSingleSidedStaking, IVotingVault, Re
      *
      * @param account                           The user's account.
      *
-     * @return totalDepositsWithBonuses         Value of a user's deposits with bonuses across all deposits.
+     * @return totalDepositsWithBonuses         Value of a user's deposits with bonuses across
+     *                                          all of their deposits.
      */
     function getTotalUserDepositsWithBonus(address account) external view returns (uint256 totalDepositsWithBonuses) {
         UserDeposit[] storage userDeposits = deposits[account];
