@@ -42,10 +42,10 @@ import {
  * in the contract and get d’App points in return. Earned points are tallied up off-chain
  * and account towards the $ARCD Rewards program and its Levels.
  *
+ * Upon depositing, users are required to commit to a lock period where tokens are
+ * immovable, until the chosen lock period expires. Early  withdrawal is not permitted.
  * Users have the flexibility to make multiple deposits, each accruing points separately
- * until their lock period concludes. Upon depositing, users are required to commit to a
- * lock period where tokens are immovable, until the chosen lock period expires. Early
- * withdrawal is not permitted.
+ * until their lock period concludes.
  *
  * Should users choose not to withdraw their tokens post the lock period, the
  * funds will seamlessly transition into a subsequent points tracking cycle if
@@ -61,7 +61,7 @@ import {
  *
  * When a user decides to lock their ARCD tokens for one of these durations,
  * their deposit bonus amount is calculated as:
- * (the user's deposited amount * multiplier for the chosen duration) + original
+ * (deposited amount * multiplier for the chosen duration) + original
  * deposited amount.
  * This boosts the user's points earnings in proportion to both the amount deposited
  * and the duration of the lock for the deposit.
@@ -85,12 +85,12 @@ import {
  * https://etherscan.io/address/0x7a58784063D41cb78FBd30d271F047F0b9156d6e#code
  *
  * Once a user makes their initial deposit, the voting power for any future deposits
- * will need to be delegated to the same address as the initial deposit. To assign a
- * different delegate, users are required to use the changeDelegate() function.
+ * will need to be delegated to the same address as in the initial deposit. To assign
+ * a different delegate, users are required to use the changeDelegate() function.
  * A user's voting power is determined by the quantity of ARCD tokens they have deposited.
  */
 
-contract ArcadeSingleSidedStaking is IArcadeSingleSidedStaking, IVotingVault, ReentrancyGuard, Ownable, Pausable {
+contract ArcadeSingleSidedStaking is IArcadeSingleSidedStaking, IVotingVault, ReentrancyGuard, Ownable, Pausable { // TODO: double check all NATSPEC
     using SafeERC20 for IERC20;
     using Math for uint256;
 
@@ -125,8 +125,8 @@ contract ArcadeSingleSidedStaking is IArcadeSingleSidedStaking, IVotingVault, Re
 
     // ========================================== CONSTRUCTOR ===========================================
     /**
-     * @notice Sets up the contract by initializing the deposit token,
-     *         and setting the owner.
+     * @notice Sets up the contract by initializing the deposit token, setting the owner
+     *         and the admin.
      *
      * @param _owner                       The address of the contract owner.
      * @param _admin                       The address of the contract admin.
@@ -310,6 +310,16 @@ contract ArcadeSingleSidedStaking is IArcadeSingleSidedStaking, IVotingVault, Re
         amountWithBonus = _getAmountWithBonus(userDeposit);
     }
 
+    /**
+     * @notice Determines if points tracking is currently active.
+     *
+     * @return bool                                True if the tracking period is currently active,
+     *                                             false otherwise.
+     */
+    function isPointsTrackingActive() public view returns (bool) {
+        return block.timestamp <= periodFinish;
+    }
+
     // ========================================= MUTATIVE FUNCTIONS ========================================
     /**
      * @notice Allows users to deposit their tokens, which are then tracked in the contract. The total
@@ -461,16 +471,6 @@ contract ArcadeSingleSidedStaking is IArcadeSingleSidedStaking, IVotingVault, Re
         if (totalDeposits > 0 && !isPointsTrackingActive()) _startPointsTracking();
 
         emit ActivatedTracking();
-    }
-
-    /**
-     * @notice Determines if points tracking is currently active.
-     *
-     * @return bool                                True if the tracking period is currently active,
-     *                                             false otherwise.
-     */
-    function isPointsTrackingActive() public view returns (bool) {
-        return block.timestamp <= periodFinish;
     }
 
     /**
