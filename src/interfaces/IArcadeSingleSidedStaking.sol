@@ -47,6 +47,9 @@ interface IArcadeSingleSidedStaking {
     function getAmountWithBonus(address account, uint256 depositId) external view returns (uint256 amountWithBonus);
 
     function getTotalUserDepositsWithBonus(address account) external view returns (uint256 totalDepositsWithBonuses);
+
+    function isPointsTrackingActive() external view returns (bool);
+
     // =========================================== MUTATIVE FUNCTIONS ============================================
     function exitAll() external;
 
@@ -56,7 +59,9 @@ interface IArcadeSingleSidedStaking {
 
     function withdraw(uint256 amount, uint256 depositId) external;
 
-    function setTrackingDuration(uint256 _rewardsDuration) external;
+    function setTrackingDuration(uint256 _trackingDuration) external;
+
+    function startPointsTracking() external;
 
     function recoverERC20(address tokenAddress, uint256 tokenAmount) external;
 

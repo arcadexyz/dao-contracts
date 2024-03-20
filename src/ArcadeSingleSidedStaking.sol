@@ -452,7 +452,7 @@ contract ArcadeSingleSidedStaking is IArcadeSingleSidedStaking, IVotingVault, Re
         emit PointsDurationUpdated(trackingDuration);
     }
 
-    /** TODO: ADD TO INTERFACE
+    /**
      * @notice Initiates points tracking if total deposits are above 0 and points tracking is not
      *         already active.
      *         Requires the caller to be the admin.
@@ -463,7 +463,7 @@ contract ArcadeSingleSidedStaking is IArcadeSingleSidedStaking, IVotingVault, Re
         emit ActivatedTracking();
     }
 
-    /** TODO: ADD TO INTERFACE
+    /**
      * @notice Determines if points tracking is currently active.
      *
      * @return bool                                True if the tracking period is currently active,
