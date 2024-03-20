@@ -464,7 +464,7 @@ contract ArcadeSingleSidedStaking is IArcadeSingleSidedStaking, IVotingVault, Re
     }
 
     /**
-     * @notice Initiates points tracking if total deposits are above 0 and points tracking is not
+     * @notice Initiates points tracking if total deposits > 0 and points tracking is not
      *         already active.
      *         Requires the caller to be the admin.
      */
@@ -490,8 +490,8 @@ contract ArcadeSingleSidedStaking is IArcadeSingleSidedStaking, IVotingVault, Re
 
     // ============================================== HELPERS ===============================================
     /**
-     * @notice Calculates the total amount for a user's deposit including the bonus based on
-     *         the deposit's lock period.
+     * @notice Calculates the user's deposit bonus amount based on the selected
+     *         lock period.
      *
      * @param userDeposit                       The user's deposit object.
      *
@@ -505,7 +505,7 @@ contract ArcadeSingleSidedStaking is IArcadeSingleSidedStaking, IVotingVault, Re
     }
 
     /**
-     * @notice Calculate the bonus for a user's deposit based on the selected lock SHORT, MEDIUM or LONG.
+     * @notice Calculates the bonus for a user's deposit based on the selected lock SHORT, MEDIUM or LONG.
      *
      * @param amount                            The deposit amount.
      * @param lock                              The lock period committed.
@@ -542,7 +542,7 @@ contract ArcadeSingleSidedStaking is IArcadeSingleSidedStaking, IVotingVault, Re
 
     /**
       * @notice This internal function is adapted from the external withdraw function in Council's
-     *          LockingVault contract, with 2 key modifications: it omits the token transfer transaction
+     *          LockingVault contract with 2 key modifications: it omits the token transfer transaction
      *          and adds an address account parameter to specify the user whose voting power needs updating.
      *          In the Locking Vault, msg.sender directly indicated the user, whereas in this context,
      *          msg.sender refers to the contract itself. Therefore, we explicitly pass the
@@ -573,10 +573,10 @@ contract ArcadeSingleSidedStaking is IArcadeSingleSidedStaking, IVotingVault, Re
     }
 
     /**
-     * @notice This internal function is adapted from the external deposit function from the LockingVault
-     *         contract with 2 key modification: it reverts if the specified delegation address does not
-     *         with the user's previously designated delegate, and it does not handle token transfers into
-     *         the contract as these are handled by the deposit function.
+     * @notice This internal function is adapted from the external deposit function in the Council
+     *         LockingVault contract with 2 key modifications: it reverts if the specified delegation
+     *         address does not match the user's previously designated delegate, and it no longer
+     *         handles token transfers into the contract as these are handled by the deposit function.
      *
      * @param fundedAccount                    The address to credit the voting power to.
      * @param amount                           The amount of voting power to add.
@@ -654,8 +654,8 @@ contract ArcadeSingleSidedStaking is IArcadeSingleSidedStaking, IVotingVault, Re
     }
 
     /**
-     * @notice This function is taken from the Council LockingVault contract. Attempts to load the
-     *         voting power of a user. It is revised to no longer remove stale blocks from the queue
+     * @notice This function is taken from the Council LockingVault contract. Loads the voting
+     *         power of a user. It is revised to no longer clear stale blocks from the queue
      *         in order to avoid gas depletion encountered with overly long queues.
      *
      * @param user                              The address we want to load the voting power of.
@@ -673,7 +673,7 @@ contract ArcadeSingleSidedStaking is IArcadeSingleSidedStaking, IVotingVault, Re
 
     /**
      * @notice This function is taken from the LockingVault contract. Loads the voting power of a
-     *         user without changing state.
+     *         user without any changes to state.
      *
      * @param user                              The address we want to load the voting power of.
      * @param blockNumber                       The block number we want the user's voting power at.
@@ -693,7 +693,7 @@ contract ArcadeSingleSidedStaking is IArcadeSingleSidedStaking, IVotingVault, Re
 
     /**
      * @notice This function is taken from the Council LockingVault contract, it changes a user's
-     *         voting power.
+     *         voting power delegatee.
      *
      * @param newDelegate                        The new address which gets the voting power.
      */
