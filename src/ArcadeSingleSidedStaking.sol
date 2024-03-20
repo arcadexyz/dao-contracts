@@ -262,24 +262,7 @@ contract ArcadeSingleSidedStaking is IArcadeSingleSidedStaking, IVotingVault, Re
     }
 
     /**
-     * @notice Returns the bonus amount for a deposit.
-     *
-     * @param account                           The user's account.
-     * @param depositId                         The specified deposit to get the bonus amount for.
-     *
-     * @return bonusAmount                      Value of user deposit's bonus.
-     */
-    function getDepositBonus(address account, uint256 depositId) public view returns (uint256 bonusAmount) {
-        UserDeposit storage userDeposit = deposits[account][depositId];
-
-        uint256 amount = userDeposit.amount;
-        Lock lock = userDeposit.lock;
-
-        (bonusAmount, ) = _calculateBonus(amount, lock);
-    }
-
-    /**
-     * @notice Get all user's deposits with their bonuses.
+     * @notice Get all user's deposit amounts with their bonuses.
      *
      * @param account                           The user's account.
      *
@@ -296,7 +279,7 @@ contract ArcadeSingleSidedStaking is IArcadeSingleSidedStaking, IVotingVault, Re
     }
 
     /**
-     * @notice Returns just the "amount with bonus" for a deposit.
+     * @notice Returns the amount with bonus for a deposit.
      *
      * @param account                           The user's account.
      * @param depositId                         The specified deposit to get the amount
@@ -327,7 +310,7 @@ contract ArcadeSingleSidedStaking is IArcadeSingleSidedStaking, IVotingVault, Re
      *
      * @param amount                           The amount of tokens the user wishes to deposit and lock.
      * @param delegation                       The address to which the user's voting power will be delegated.
-     * @param lock                             The locking period for the deposited tokens.
+     * @param lock                             The chosen locking period for the deposited tokens.
      */
     function deposit(
         uint256 amount,
@@ -433,7 +416,7 @@ contract ArcadeSingleSidedStaking is IArcadeSingleSidedStaking, IVotingVault, Re
     // ======================================== RESTRICTED FUNCTIONS =========================================
     /**
      * @notice Allows the contract owner to recover ERC20 tokens locked in the contract.
-     *         Deposited ARCD tokens cannot be recovered. they can only with withdrawn
+     *         Deposited ARCD tokens cannot be recovered, they can only be withdrawn
      *         by the depositing user.
      *
      * @param tokenAddress                       The address of the token to recover.

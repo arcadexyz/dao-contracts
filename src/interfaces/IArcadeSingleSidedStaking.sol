@@ -34,8 +34,6 @@ interface IArcadeSingleSidedStaking {
 
     function totalSupply() external view returns (uint256);
 
-    function getDepositBonus(address account, uint256 depositId) external view returns (uint256);
-
     function getActiveDeposits(address account) external view returns (uint256[] memory);
 
     function getLastDepositId(address account) external view returns (uint256);
