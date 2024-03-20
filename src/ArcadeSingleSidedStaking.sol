@@ -90,7 +90,7 @@ import {
  * A user's voting power is determined by the quantity of ARCD tokens they have deposited.
  */
 
-contract ArcadeSingleSidedStaking is IArcadeSingleSidedStaking, IVotingVault, ReentrancyGuard, Ownable, Pausable { // TODO: double check all NATSPEC
+contract ArcadeSingleSidedStaking is IArcadeSingleSidedStaking, IVotingVault, ReentrancyGuard, Ownable, Pausable {
     using SafeERC20 for IERC20;
     using Math for uint256;
 
