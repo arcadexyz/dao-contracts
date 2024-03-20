@@ -8,7 +8,7 @@ interface IArcadeSingleSidedStaking {
     // ================================================= EVENTS ==================================================
     event Deposited(address indexed user, uint256 depositId, uint256 amount);
     event Withdrawn(address indexed user, uint256 amount);
-    event PointsDurationUpdated(uint256 newDuration);
+    event TrackingDurationUpdated(uint256 newDuration);
     event Recovered(address token, uint256 amount);
     event VoteChange(address indexed from, address indexed to, int256 amount);
     event ActivatedTracking();

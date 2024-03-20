@@ -433,7 +433,8 @@ contract ArcadeSingleSidedStaking is IArcadeSingleSidedStaking, IVotingVault, Re
     // ======================================== RESTRICTED FUNCTIONS =========================================
     /**
      * @notice Allows the contract owner to recover ERC20 tokens locked in the contract.
-     *         Deposited ARCD tokens cannot be recovered. They can only with withdrawn.
+     *         Deposited ARCD tokens cannot be recovered. they can only with withdrawn
+     *         by the depositing user.
      *
      * @param tokenAddress                       The address of the token to recover.
      * @param tokenAmount                        The amount of token to recover.
@@ -452,14 +453,14 @@ contract ArcadeSingleSidedStaking is IArcadeSingleSidedStaking, IVotingVault, Re
      * @notice An only owner function to set the duration of the points tracking period.
      *         The previous tracking period must be complete before a new duration is set.
      *
-     * @param _trackingDuration                 The amount of time the tracking period will be.
+     * @param _trackingDuration                  The amount of time the tracking period will be.
      */
     function setTrackingDuration(uint256 _trackingDuration) external whenNotPaused onlyOwner {
         if (block.timestamp <= periodFinish) revert ASS_PointsTrackingPeriod();
 
         trackingDuration = _trackingDuration;
 
-        emit PointsDurationUpdated(trackingDuration);
+        emit TrackingDurationUpdated(trackingDuration);
     }
 
     /**
