@@ -7,5 +7,7 @@ viaIR = true
 optimizer = true
 optimizerRuns = 2
 
+eth_rpc_url = "http://localhost:8545"
+
 
 # See more config options https://github.com/foundry-rs/foundry/blob/master/crates/config/README.md#all-options
