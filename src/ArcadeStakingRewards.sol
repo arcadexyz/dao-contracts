@@ -111,7 +111,6 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
     // ============================================ STATE ==============================================
     // ============== Constants ==============
     uint256 public constant ONE = 1e18;
-    uint256 public constant ONE_DAY = 1 days;
     uint256 public constant MAX_DEPOSITS = 20;
     uint256 public constant LP_TO_ARCD_DENOMINATOR = 1e3;
 
@@ -119,9 +118,9 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
     uint256 public constant MEDIUM_BONUS = 13e17;
     uint256 public constant LONG_BONUS = 18e17;
 
-    uint256 public constant SHORT_LOCK_TIME = ONE_DAY * 30; // one month
-    uint256 public constant MEDIUM_LOCK_TIME = ONE_DAY * 60; // two months
-    uint256 public constant LONG_LOCK_TIME = ONE_DAY * 150; // five months
+    uint256 public constant SHORT_LOCK_TIME = 30 days;
+    uint256 public constant MEDIUM_LOCK_TIME = 60 days;
+    uint256 public constant LONG_LOCK_TIME = 150 days;
 
     // ============ Global State =============
     uint256 public immutable LP_TO_ARCD_RATE;
@@ -130,7 +129,7 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
 
     uint256 public periodFinish;
     uint256 public lastUpdateTime;
-    uint256 public rewardsDuration = ONE_DAY * 30 * 6; // six months
+    uint256 public rewardsDuration = 180 days;
     uint256 public notifiedRewardAmount;
     uint256 public rewardPerTokenStored;
     uint256 public rewardRate;
