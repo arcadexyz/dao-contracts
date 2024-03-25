@@ -21,7 +21,7 @@ contract ArcadeStakingRewardsTest is Test {
     uint32 public constant THREE_MONTHS = ONE_MONTH * 3;
     uint256 public constant MAX_DEPOSITS = 20;
     uint256 public constant LP_TO_ARCD_DENOMINATOR = 1e3;
-    uint256 public immutable LP_TO_ARCD_RATE = 2;
+    uint256 public immutable LP_TO_ARCD_RATE = 62;
 
     address zeroAddress = address(0x0);
     address owner = address(0x1);

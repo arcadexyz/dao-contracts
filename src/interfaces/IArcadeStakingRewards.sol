@@ -7,8 +7,8 @@ import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 interface IArcadeStakingRewards {
     // ================================================= EVENTS ==================================================
     event RewardAdded(uint256 reward);
-    event Staked(address indexed user, uint256 depositId, uint256 amount);
-    event Withdrawn(address indexed user, uint256 amount);
+    event Staked(address indexed user, uint256 depositId, uint256 amount, uint8 lock);
+    event Withdrawn(address indexed user, uint256 depositId, uint256 amount, uint8 lock);
     event RewardPaid(address indexed user, uint256 reward, uint256 depositId);
     event RewardsDurationUpdated(uint256 newDuration);
     event Recovered(address token, uint256 amount);
