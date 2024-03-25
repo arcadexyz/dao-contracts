@@ -7,12 +7,9 @@ import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 interface IArcadeSingleSidedStaking {
     // ================================================= EVENTS ==================================================
     event Deposited(address indexed user, uint256 depositId, uint256 amount);
-    event Withdrawn(address indexed user, uint256 amount);
-    event TrackingDurationUpdated(uint256 newDuration);
+    event Withdrawn(address indexed user, uint256 depositId, uint256 amount);
     event Recovered(address token, uint256 amount);
     event VoteChange(address indexed from, address indexed to, int256 amount);
-    event ActivatedTracking();
-    event TrackingIsActive(uint256 periodFinish);
 
     // ================================================= STRUCTS =================================================
     enum Lock {
@@ -30,8 +27,6 @@ interface IArcadeSingleSidedStaking {
     // ============================================= VIEW FUNCTIONS ==============================================
     function getTotalUserDeposits(address account) external view returns (uint256);
 
-    function lastTimePointsApplicable() external view returns (uint256);
-
     function totalSupply() external view returns (uint256);
 
     function getActiveDeposits(address account) external view returns (uint256[] memory);
@@ -42,12 +37,6 @@ interface IArcadeSingleSidedStaking {
 
     function balanceOfDeposit(address account, uint256 depositId) external view returns (uint256);
 
-    function getAmountWithBonus(address account, uint256 depositId) external view returns (uint256 amountWithBonus);
-
-    function getTotalUserDepositsWithBonus(address account) external view returns (uint256 totalDepositsWithBonuses);
-
-    function isPointsTrackingActive() external view returns (bool);
-
     // =========================================== MUTATIVE FUNCTIONS ============================================
     function exitAll() external;
 
@@ -56,10 +45,6 @@ interface IArcadeSingleSidedStaking {
     function deposit(uint256 amount, address firstDelegation, Lock lock) external;
 
     function withdraw(uint256 amount, uint256 depositId) external;
-
-    function setTrackingDuration(uint256 _trackingDuration) external;
-
-    function startPointsTracking() external;
 
     function recoverERC20(address tokenAddress, uint256 tokenAmount) external;
 

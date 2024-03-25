@@ -51,20 +51,15 @@ import {
  * funds will seamlessly transition into a subsequent points tracking cycle if
  * one should start. Unlike the initial deposit, the funds in the consequent point
  * tracking cycles are not bound by a lock period and can be freely withdrawn anytime.
+ * Tracking cycles are defined and tracked in the dApp.
  *
  * The lock period gives users the opportunity to enhance their points earnings
- * with a bonus multiplier that is contingent on the duration for which the user
- * chooses to lock their deposited tokens. The available lock durations are categorized
- * as short, medium, and long. Each category is associated with a progressively increasing
- * multiplier that enhances the number of point rewards accrued in the d'App, with the short
- * duration offering the smallest and the long duration offering the largest.
- *
- * When a user decides to lock their ARCD tokens for one of these durations,
- * their deposit bonus amount is calculated as:
- * (deposited amount * multiplier for the chosen duration) + original
- * deposited amount.
- * This boosts the user's points earnings in proportion to both the amount deposited
- * and the duration of the lock for the deposit.
+ * with bonus multipliers that are contingent on the duration for which the user
+ * chooses to lock their deposited tokens. These bonus calculations are tallied offchain.
+ * The available lock durations are categorized as short, medium, and long. Each category
+ * is associated with a progressively increasing multiplier that enhances the number of
+ * point rewards accrued in the d'App, with the short duration offering the smallest and
+ * the long duration offering the largest.
  *
  * In the exitAll() external function, it's necessary to limit the number of
  * processed transactions within the function's loops to prevent exceeding
@@ -114,33 +109,23 @@ contract ArcadeSingleSidedStaking is IArcadeSingleSidedStaking, IVotingVault, Re
     // ============ Global State =============
     IERC20 public immutable arcd;
 
-    address public admin;
-
-    uint256 public periodFinish;
-    uint256 public trackingDuration = ONE_DAY * 30 * 6; // six months
-
     mapping(address => UserDeposit[]) public deposits;
 
     uint256 public totalDeposits;
 
     // ========================================== CONSTRUCTOR ===========================================
     /**
-     * @notice Sets up the contract by initializing the deposit token, setting the owner
-     *         and the admin.
+     * @notice Sets up the contract by initializing the deposit token and setting the owner.
      *
      * @param _owner                       The address of the contract owner.
-     * @param _admin                       The address of the contract admin.
      * @param _arcd                        The address of the deposit ERC20 token.
      */
     constructor(
         address _owner,
-        address _admin,
         address _arcd
     ) Ownable(_owner) {
-        if (address(_admin) == address(0)) revert ASS_ZeroAddress("admin");
         if (address(_arcd) == address(0)) revert ASS_ZeroAddress("arcd");
 
-        admin = _admin;
         arcd = IERC20(_arcd);
     }
 
@@ -181,19 +166,6 @@ contract ArcadeSingleSidedStaking is IArcadeSingleSidedStaking, IVotingVault, Re
      */
     function balanceOfDeposit(address account, uint256 depositId) external view returns (uint256 depositBalance) {
         depositBalance = deposits[account][depositId].amount;
-    }
-
-    /**
-     * @notice Returns the last timestamp at which point tracking can be accounted for.
-     *
-     * @return uint256                       The timestamp record after which points
-     *                                       are no longer tracked.
-     */
-    function lastTimePointsApplicable() public view returns (uint256) {
-        if (block.timestamp >= periodFinish) {
-            revert ASS_TrackingPeriodExpired();
-        }
-        return periodFinish;
     }
 
     /**
@@ -261,49 +233,6 @@ contract ArcadeSingleSidedStaking is IArcadeSingleSidedStaking, IVotingVault, Re
         return activeDeposits;
     }
 
-    /**
-     * @notice Get all user's deposit amounts with their bonuses.
-     *
-     * @param account                           The user's account.
-     *
-     * @return totalDepositsWithBonuses         Value of a user's deposits with bonuses across
-     *                                          all of their deposits.
-     */
-    function getTotalUserDepositsWithBonus(address account) external view returns (uint256 totalDepositsWithBonuses) {
-        UserDeposit[] storage userDeposits = deposits[account];
-
-        uint256 numUserDeposits = userDeposits.length;
-        for (uint256 i = 0; i < numUserDeposits; ++i) {
-            UserDeposit storage userDeposit = userDeposits[i];
-            totalDepositsWithBonuses += _getAmountWithBonus(userDeposit);
-        }
-    }
-
-    /**
-     * @notice Returns the amount with bonus for a deposit.
-     *
-     * @param account                           The user's account.
-     * @param depositId                         The specified deposit to get the amount
-     *                                          with bonus for.
-     *
-     * @return amountWithBonus                  Value of user deposit with bonus.
-     */
-    function getAmountWithBonus(address account, uint256 depositId) external view returns (uint256 amountWithBonus) {
-        UserDeposit storage userDeposit = deposits[account][depositId];
-
-        amountWithBonus = _getAmountWithBonus(userDeposit);
-    }
-
-    /**
-     * @notice Determines if points tracking is currently active.
-     *
-     * @return bool                                True if the tracking period is currently active,
-     *                                             false otherwise.
-     */
-    function isPointsTrackingActive() public view returns (bool) {
-        return block.timestamp <= periodFinish;
-    }
-
     // ========================================= MUTATIVE FUNCTIONS ========================================
     /**
      * @notice Allows users to deposit their tokens, which are then tracked in the contract. The total
@@ -324,7 +253,7 @@ contract ArcadeSingleSidedStaking is IArcadeSingleSidedStaking, IVotingVault, Re
         uint256 userDepositCount = deposits[msg.sender].length;
         if (userDepositCount >= MAX_DEPOSITS) revert ASS_DepositCountExceeded();
 
-        (, uint256 lockDuration)  = _calculateBonus(amount, lock);
+        uint256 lockDuration = _calculateLockDuration(lock);
 
         // update the vote power
         _addVotingPower(msg.sender, amount, delegation);
@@ -337,10 +266,6 @@ contract ArcadeSingleSidedStaking is IArcadeSingleSidedStaking, IVotingVault, Re
                 lock: lock
             })
         );
-
-        if (totalDeposits == 0 && !isPointsTrackingActive()) {
-            _startPointsTracking();
-        }
 
         totalDeposits += amount;
 
@@ -370,7 +295,7 @@ contract ArcadeSingleSidedStaking is IArcadeSingleSidedStaking, IVotingVault, Re
         totalDeposits -= amount;
 
         arcd.safeTransfer(msg.sender, amount);
-        emit Withdrawn(msg.sender, amount);
+        emit Withdrawn(msg.sender, depositId, amount);
     }
 
     /**
@@ -402,6 +327,8 @@ contract ArcadeSingleSidedStaking is IArcadeSingleSidedStaking, IVotingVault, Re
 
             totalVotingPower += amount;
             totalWithdrawAmount += amount;
+
+            emit Withdrawn(msg.sender, i, amount);
         }
 
         if (totalVotingPower > 0) {
@@ -434,31 +361,6 @@ contract ArcadeSingleSidedStaking is IArcadeSingleSidedStaking, IVotingVault, Re
     }
 
     /**
-     * @notice An only owner function to set the duration of the points tracking period.
-     *         The previous tracking period must be complete before a new duration is set.
-     *
-     * @param _trackingDuration                  The amount of time the tracking period will be.
-     */
-    function setTrackingDuration(uint256 _trackingDuration) external whenNotPaused onlyOwner {
-        if (block.timestamp <= periodFinish) revert ASS_PointsTrackingPeriod();
-
-        trackingDuration = _trackingDuration;
-
-        emit TrackingDurationUpdated(trackingDuration);
-    }
-
-    /**
-     * @notice Initiates points tracking if total deposits > 0 and points tracking is not
-     *         already active.
-     *         Requires the caller to be the admin.
-     */
-    function startPointsTracking() external whenNotPaused onlyAdmin {
-        if (totalDeposits > 0 && !isPointsTrackingActive()) _startPointsTracking();
-
-        emit ActivatedTracking();
-    }
-
-    /**
      * @notice Pauses the contract, callable by only the owner. Reversible.
      */
     function pause() external onlyOwner {
@@ -474,54 +376,20 @@ contract ArcadeSingleSidedStaking is IArcadeSingleSidedStaking, IVotingVault, Re
 
     // ============================================== HELPERS ===============================================
     /**
-     * @notice Calculates the user's deposit bonus amount based on the selected
-     *         lock period.
+     * @notice Calculates the lock duration for a user's deposit based on the selected lock SHORT, MEDIUM or LONG.
      *
-     * @param userDeposit                       The user's deposit object.
-     *
-     * @return amountWithBonus                  The total amount including the bonus.
-     */
-    function _getAmountWithBonus(UserDeposit storage userDeposit) internal view returns (uint256 amountWithBonus) {
-        uint256 amount = userDeposit.amount;
-        Lock lock = userDeposit.lock;
-
-        (amountWithBonus, ) = _calculateBonus(amount, lock);
-    }
-
-    /**
-     * @notice Calculates the bonus for a user's deposit based on the selected lock SHORT, MEDIUM or LONG.
-     *
-     * @param amount                            The deposit amount.
      * @param lock                              The lock period committed.
      *
-     * @return bonusAmount                      The bonus value for the deposit.
      * @return lockDuration                     The period duration for the selected lock.
      */
-    function _calculateBonus(uint256 amount, Lock lock) internal pure returns (uint256 bonusAmount, uint256 lockDuration) {
-        uint256 bonus;
-
+    function _calculateLockDuration(Lock lock) internal pure returns (uint256 lockDuration) {
         if (lock == Lock.Short) {
-           bonus = SHORT_BONUS;
            lockDuration = SHORT_LOCK_TIME;
         } else if (lock == Lock.Medium) {
-            bonus = MEDIUM_BONUS;
             lockDuration = MEDIUM_LOCK_TIME;
         } else if (lock == Lock.Long) {
-            bonus = LONG_BONUS;
             lockDuration = LONG_LOCK_TIME;
         }
-
-        bonusAmount = amount + (amount * bonus) / ONE;
-    }
-
-    /**
-     * @notice Starts the points tracking period.
-     *
-     */
-    function _startPointsTracking() private {
-        periodFinish = block.timestamp + trackingDuration;
-
-        emit TrackingIsActive(periodFinish);
     }
 
     /**
@@ -706,13 +574,5 @@ contract ArcadeSingleSidedStaking is IArcadeSingleSidedStaking, IVotingVault, Re
         votingPower.push(newDelegate, newDelegateVotes + userBalance);
         // Emit an event tracking this voting power change
         emit VoteChange(msg.sender, newDelegate, int256(userBalance));
-    }
-
-    /**
-     * @notice Modifier to check that the caller is the admin.
-     */
-    modifier onlyAdmin() {
-        if (msg.sender != admin) revert ASS_AdminNotCaller(admin);
-        _;
     }
 }

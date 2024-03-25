@@ -27,10 +27,9 @@ contract ArcadeSingleSidedStakingTest is Test {
 
     address zeroAddress = address(0x0);
     address owner = address(0x1);
-    address admin = address(0x2);
-    address userA = address(0x3);
-    address userB = address(0x4);
-    address userC = address(0x5);
+    address userA = address(0x2);
+    address userB = address(0x3);
+    address userC = address(0x4);
 
     uint256 currentBlock = 101;
     uint256 currentTime;
@@ -43,13 +42,8 @@ contract ArcadeSingleSidedStakingTest is Test {
 
         singleSidedStaking = new ArcadeSingleSidedStaking(
             owner,
-            admin,
             address(arcd)
         );
-
-        // set points tracking duration to a small + even number of days for easy testing
-        vm.prank(owner);
-        singleSidedStaking.setTrackingDuration(8 days);
     }
 
     function testConstructorZeroAddress() public {
@@ -58,15 +52,7 @@ contract ArcadeSingleSidedStakingTest is Test {
         vm.expectRevert(abi.encodeWithSelector(selector, "arcd"));
         singleSidedStaking = new ArcadeSingleSidedStaking(
             owner,
-            admin,
             address(0)
-        );
-
-        vm.expectRevert(abi.encodeWithSelector(selector, "admin"));
-        singleSidedStaking = new ArcadeSingleSidedStaking(
-            owner,
-            address(0),
-            address(arcd)
         );
     }
 
@@ -365,29 +351,6 @@ contract ArcadeSingleSidedStakingTest is Test {
         assertEq(contractBal2, 0);
     }
 
-    function testCustomRevertSetPointsDuration() public {
-        setUp();
-
-        arcd.mint(userA, 20e18);
-        uint256 userDepositAmount = arcd.balanceOf(userA);
-
-        // userA approves singleSidedStaking contract to spend tokens
-        vm.startPrank(userA);
-        arcd.approve(address(singleSidedStaking), userDepositAmount);
-        singleSidedStaking.deposit(userDepositAmount, userB, IArcadeSingleSidedStaking.Lock.Short);
-        vm.stopPrank();
-
-        // increase blockchain time but not to end of reward period
-        vm.warp(block.timestamp + 3 days);
-
-        bytes4 selector = bytes4(keccak256("ASS_PointsTrackingPeriod()"));
-
-        // owner tries to set the rewards duration before previous duration ends
-        vm.expectRevert(abi.encodeWithSelector(selector));
-        vm.prank(owner);
-        singleSidedStaking.setTrackingDuration(7);
-    }
-
     function testInvalidDepositId() public {
         setUp();
 
@@ -442,32 +405,6 @@ contract ArcadeSingleSidedStakingTest is Test {
         vm.expectRevert(abi.encodeWithSelector(selector, 0x21));
 
         singleSidedStaking.deposit(depositAmount, userB, IArcadeSingleSidedStaking.Lock(invalidLock));
-    }
-
-    function testLastTimePointsApplicable() public {
-        setUp();
-
-        arcd.mint(userA, 20e18);
-        uint256 userDepositAmount = arcd.balanceOf(userA);
-
-        // userA approves singleSidedStaking contract to spend tokens
-        vm.startPrank(userA);
-        arcd.approve(address(singleSidedStaking), userDepositAmount);
-        // userA deposits tokens
-        singleSidedStaking.deposit(userDepositAmount, userB, IArcadeSingleSidedStaking.Lock.Medium);
-        vm.stopPrank();
-
-        uint256 lastTimePointsApplicable = singleSidedStaking.lastTimePointsApplicable();
-        assertEq(lastTimePointsApplicable, singleSidedStaking.periodFinish());
-    }
-
-    function testLastTimePointsApplicableRevert() public {
-        setUp();
-
-        bytes4 selector = bytes4(keccak256("ASS_TrackingPeriodExpired()"));
-
-        vm.expectRevert(abi.encodeWithSelector(selector));
-        singleSidedStaking.lastTimePointsApplicable();
     }
 
     function testGetUserDeposit() public {
@@ -530,49 +467,6 @@ contract ArcadeSingleSidedStakingTest is Test {
 
         uint256[] memory activeDepositIdsAfter = singleSidedStaking.getActiveDeposits(userA);
         assertEq(activeDepositIdsAfter.length, 2);
-    }
-
-    function testGetAmountWithBonus() public {
-        setUp();
-
-        arcd.mint(userA, 20e18);
-        uint256 userDepositAmount = arcd.balanceOf(userA);
-
-        // userA approves singleSidedStaking contract to spend tokens
-        vm.startPrank(userA);
-        arcd.approve(address(singleSidedStaking), userDepositAmount);
-        // userA deposits tokens
-        singleSidedStaking.deposit(userDepositAmount, userB, IArcadeSingleSidedStaking.Lock.Medium);
-        vm.stopPrank();
-
-        uint256 userVotingPower = singleSidedStaking.queryVotePowerView(userB, currentBlock);
-        assertEq(userVotingPower, userDepositAmount);
-
-        uint256 amountWithBonus = singleSidedStaking.getAmountWithBonus(userA, 0);
-        assertEq(amountWithBonus, (userDepositAmount + ((userDepositAmount * 13e17) / ONE)));
-    }
-
-    function testGetTotalUserDepositsWithBonus() public {
-        setUp();
-
-        arcd.mint(userA, 20e18);
-        uint256 userDepositAmount = arcd.balanceOf(userA) / 3;
-
-        // userA approves singleSidedStaking contract to spend tokens
-        vm.startPrank(userA);
-        arcd.approve(address(singleSidedStaking), userDepositAmount * 3);
-        // userA deposits tokens
-        singleSidedStaking.deposit(userDepositAmount, userB, IArcadeSingleSidedStaking.Lock.Medium);
-        singleSidedStaking.deposit(userDepositAmount, userB, IArcadeSingleSidedStaking.Lock.Long);
-        singleSidedStaking.deposit(userDepositAmount, userB, IArcadeSingleSidedStaking.Lock.Short);
-        vm.stopPrank();
-
-        uint256 amountWithBonus1 = singleSidedStaking.getAmountWithBonus(userA, 0);
-        uint256 amountWithBonus2 = singleSidedStaking.getAmountWithBonus(userA, 1);
-        uint256 amountWithBonus3 = singleSidedStaking.getAmountWithBonus(userA, 2);
-
-        uint256 totalDepositsWithBonus = singleSidedStaking.getTotalUserDepositsWithBonus(userA);
-        assertEq(totalDepositsWithBonus, amountWithBonus1 + amountWithBonus2 + amountWithBonus3);
     }
 
     function testGetLastDepositId() public {
@@ -792,80 +686,6 @@ contract ArcadeSingleSidedStakingTest is Test {
         assertEq(userVotingPower, depositAmount);
     }
 
-    function testStartPointsTracking() public {
-        setUp();
-
-        arcd.mint(userA, 20e18);
-        uint256 depositAmount = arcd.balanceOf(userA);
-
-        // user approves singleSidedStaking contract to spend arcd tokens
-        vm.startPrank(userA);
-        arcd.approve(address(singleSidedStaking), depositAmount);
-        // user deposits tokens
-        singleSidedStaking.deposit(depositAmount, userB, IArcadeSingleSidedStaking.Lock.Medium);
-        vm.stopPrank();
-
-        // increase blockchain to after tracking period
-        vm.warp(currentTime + 9 days);
-
-        bool isPointsTrackingActive = singleSidedStaking.isPointsTrackingActive();
-        assertEq(isPointsTrackingActive, false);
-
-        bytes4 selector = bytes4(keccak256("ASS_AdminNotCaller(address)"));
-
-        vm.startPrank(userA);
-        vm.expectRevert(abi.encodeWithSelector(selector, admin));
-        singleSidedStaking.startPointsTracking();
-        vm.stopPrank();
-
-        vm.startPrank(admin);
-        singleSidedStaking.startPointsTracking();
-        vm.stopPrank();
-
-        bool isPointsTrackingActive2 = singleSidedStaking.isPointsTrackingActive();
-        assertEq(isPointsTrackingActive2, true);
-    }
-
-    function testStartPointsTrackingNoGo() public {
-        setUp();
-
-        bool isPointsTrackingActive = singleSidedStaking.isPointsTrackingActive();
-        assertEq(isPointsTrackingActive, false);
-
-        vm.startPrank(admin);
-        singleSidedStaking.startPointsTracking();
-        vm.stopPrank();
-
-        bool isPointsTrackingActive2 = singleSidedStaking.isPointsTrackingActive();
-        assertEq(isPointsTrackingActive2, false);
-    }
-
-    function testDepositStartsPointsTracking() public {
-        setUp();
-
-        uint256 totalSupply = singleSidedStaking.totalSupply();
-        assertEq(totalSupply, 0);
-
-        bool isPointsTrackingActive = singleSidedStaking.isPointsTrackingActive();
-        assertEq(isPointsTrackingActive, false);
-
-        arcd.mint(userA, 20e18);
-        uint256 depositAmount = arcd.balanceOf(userA);
-
-        // user approves singleSidedStaking contract to spend arcd tokens
-        vm.startPrank(userA);
-        arcd.approve(address(singleSidedStaking), depositAmount);
-        // user deposits tokens
-        singleSidedStaking.deposit(depositAmount, userB, IArcadeSingleSidedStaking.Lock.Medium);
-        vm.stopPrank();
-
-        bool isPointsTrackingActive2 = singleSidedStaking.isPointsTrackingActive();
-        assertEq(isPointsTrackingActive2, true);
-
-        uint256 totalSupply2 = singleSidedStaking.totalSupply();
-        assertEq(totalSupply2, depositAmount);
-    }
-
     /**
     * 2 users deposit at the same time, user 2 deposits half the amount of user 1.
     */
@@ -940,9 +760,7 @@ contract ArcadeSingleSidedStakingTest is Test {
     }
 
     /**
-    * 2 users make multiple deposits. at the end of the tracking period, the admin
-    * calls startPointsTracking. isPointsTrackingActive returns true. the second
-    * user withdraws half their deposit.
+    * 2 users make multiple deposits. the second user withdraws half of one of their deposits.
     */
     function testScenario3() public {
         setUp();
@@ -971,17 +789,7 @@ contract ArcadeSingleSidedStakingTest is Test {
         // increase blockchain to after lock period
         vm.warp(currentTime + TWO_MONTHS);
 
-        bool isPointsTrackingActive = singleSidedStaking.isPointsTrackingActive();
-        assertEq(isPointsTrackingActive, false);
-
-        vm.startPrank(admin);
-        singleSidedStaking.startPointsTracking();
-        vm.stopPrank();
-
-        bool isPointsTrackingActive2 = singleSidedStaking.isPointsTrackingActive();
-        assertEq(isPointsTrackingActive2, true);
-
-        // userB approves withdraws half of their deposit
+        // userB withdraws half of their first deposit
         vm.startPrank(userB);
         singleSidedStaking.withdraw(depositAmount / 4, 0);
         vm.stopPrank();
