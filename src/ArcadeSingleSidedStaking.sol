@@ -89,7 +89,6 @@ contract ArcadeSingleSidedStaking is IArcadeSingleSidedStaking, IVotingVault, Re
     // ============================================ STATE ==============================================
     // ============== Constants ==============
     uint256 public constant MAX_DEPOSITS = 20;
-
     uint256 public constant SHORT_LOCK_TIME = 30 days;
     uint256 public constant MEDIUM_LOCK_TIME = 60 days;
     uint256 public constant LONG_LOCK_TIME = 150 days;
