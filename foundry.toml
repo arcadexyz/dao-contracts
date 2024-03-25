@@ -7,5 +7,7 @@ viaIR = true
 optimizer = true
 optimizerRuns = 2
 
+[fuzz]
+runs = 5000000
 
 # See more config options https://github.com/foundry-rs/foundry/blob/master/crates/config/README.md#all-options

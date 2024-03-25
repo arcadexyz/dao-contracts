@@ -48,14 +48,11 @@ contract OriginationCalculator is Test {
         address lender = address(0x1);
         address oldLender = lender;
 
-        vm.assume(oldBalance > 0);
-        vm.assume(oldBalance < 1e32);
-        vm.assume(oldInterestAmount > 0);
-        vm.assume(newPrincipalAmount > 0);
-        vm.assume(newPrincipalAmount < 1e32);
-        vm.assume(oldInterestAmount < oldBalance);
-        vm.assume(principalFee < oldBalance / 2); // 50% max
-        vm.assume(interestFee < oldInterestAmount / 2); // 50% max
+        oldBalance = bound(oldBalance, 1, 1e32);
+        oldInterestAmount = bound(oldInterestAmount, 1, 1e40);
+        newPrincipalAmount = bound(newPrincipalAmount, 1, 1e32);
+        principalFee = bound(principalFee, 0, oldBalance / 2);
+        interestFee = bound(interestFee, 0, oldInterestAmount / 2);
 
         RolloverAmounts memory amounts = rolloverAmounts(
             oldBalance, oldInterestAmount, newPrincipalAmount, lender, oldLender, principalFee, interestFee
@@ -80,14 +77,11 @@ contract OriginationCalculator is Test {
         address lender = address(0x1);
         address oldLender = address(0x2);
 
-        vm.assume(oldBalance > 0);
-        vm.assume(oldBalance < 1e32);
-        vm.assume(oldInterestAmount > 0);
-        vm.assume(newPrincipalAmount > 0);
-        vm.assume(newPrincipalAmount < 1e32);
-        vm.assume(oldInterestAmount < oldBalance);
-        vm.assume(principalFee < oldBalance / 2); // 50% max
-        vm.assume(interestFee < oldInterestAmount / 2); // 50% max
+        oldBalance = bound(oldBalance, 1, 1e32);
+        oldInterestAmount = bound(oldInterestAmount, 1, 1e40);
+        newPrincipalAmount = bound(newPrincipalAmount, 1, 1e32);
+        principalFee = bound(principalFee, 0, oldBalance / 2);
+        interestFee = bound(interestFee, 0, oldInterestAmount / 2);
 
         RolloverAmounts memory amounts = rolloverAmounts(
             oldBalance, oldInterestAmount, newPrincipalAmount, lender, oldLender, principalFee, interestFee
