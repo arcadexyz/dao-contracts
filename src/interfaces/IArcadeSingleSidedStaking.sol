@@ -6,8 +6,8 @@ import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 
 interface IArcadeSingleSidedStaking {
     // ================================================= EVENTS ==================================================
-    event Deposited(address indexed user, uint256 depositId, uint256 amount);
-    event Withdrawn(address indexed user, uint256 depositId, uint256 amount);
+    event Deposited(address indexed user, uint256 depositId, uint256 amount, uint8 lock);
+    event Withdrawn(address indexed user, uint256 depositId, uint256 amount, uint8 lock);
     event Recovered(address token, uint256 amount);
     event VoteChange(address indexed from, address indexed to, int256 amount);
 

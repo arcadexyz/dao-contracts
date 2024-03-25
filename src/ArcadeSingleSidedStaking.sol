@@ -2,7 +2,6 @@
 
 pragma solidity 0.8.20;
 
-import "@openzeppelin/contracts/utils/math/Math.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/utils/Pausable.sol";
@@ -87,7 +86,6 @@ import {
 
 contract ArcadeSingleSidedStaking is IArcadeSingleSidedStaking, IVotingVault, ReentrancyGuard, Ownable, Pausable {
     using SafeERC20 for IERC20;
-    using Math for uint256;
 
     // Bring library into scope
     using History for History.HistoricalBalances;
@@ -97,10 +95,6 @@ contract ArcadeSingleSidedStaking is IArcadeSingleSidedStaking, IVotingVault, Re
     uint256 public constant ONE = 1e18;
     uint256 public constant ONE_DAY = 1 days;
     uint256 public constant MAX_DEPOSITS = 20;
-
-    uint256 public constant SHORT_BONUS = 11e17;
-    uint256 public constant MEDIUM_BONUS = 13e17;
-    uint256 public constant LONG_BONUS = 18e17;
 
     uint256 public constant SHORT_LOCK_TIME = ONE_DAY * 30; // one month
     uint256 public constant MEDIUM_LOCK_TIME = ONE_DAY * 60; // two months
@@ -178,10 +172,10 @@ contract ArcadeSingleSidedStaking is IArcadeSingleSidedStaking, IVotingVault, Re
      * @return unlockTimestamp                  Timestamp marking the end of the lock period.
      * @return amount                           Amount deposited.
      */
-    function getUserDeposit(address account, uint256 depositId) external view returns (
-        uint8 lock,
-        uint32 unlockTimestamp,
-        uint256 amount)
+    function getUserDeposit(address account, uint256 depositId)
+        external
+        view
+        returns (uint8 lock, uint32 unlockTimestamp, uint256 amount)
     {
         UserDeposit storage userDeposit = deposits[account][depositId];
 
@@ -271,7 +265,7 @@ contract ArcadeSingleSidedStaking is IArcadeSingleSidedStaking, IVotingVault, Re
 
         arcd.safeTransferFrom(msg.sender, address(this), amount);
 
-        emit Deposited(msg.sender, userDepositCount, amount);
+        emit Deposited(msg.sender, userDepositCount, amount, uint8(lock));
     }
 
     /**
@@ -295,7 +289,7 @@ contract ArcadeSingleSidedStaking is IArcadeSingleSidedStaking, IVotingVault, Re
         totalDeposits -= amount;
 
         arcd.safeTransfer(msg.sender, amount);
-        emit Withdrawn(msg.sender, depositId, amount);
+        emit Withdrawn(msg.sender, depositId, amount, uint8(userDeposit.lock));
     }
 
     /**
@@ -328,7 +322,7 @@ contract ArcadeSingleSidedStaking is IArcadeSingleSidedStaking, IVotingVault, Re
             totalVotingPower += amount;
             totalWithdrawAmount += amount;
 
-            emit Withdrawn(msg.sender, i, amount);
+            emit Withdrawn(msg.sender, i, amount, uint8(userDeposit.lock));
         }
 
         if (totalVotingPower > 0) {
