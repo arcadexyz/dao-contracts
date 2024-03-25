@@ -542,7 +542,7 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
     /**
      * @notice Withdraws staked tokens that are unlocked.  Allows for partial withdrawals.
      *
-     * @param depositId                        The specified deposit to get the reward for.
+     * @param depositId                        The specified deposit to withdraw from.
      * @param amount                           The amount to be withdrawn from the user stake.
      */
     function withdraw(uint256 amount, uint256 depositId) public whenNotPaused nonReentrant updateReward {
