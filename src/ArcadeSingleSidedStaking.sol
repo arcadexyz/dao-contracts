@@ -16,16 +16,12 @@ import "./interfaces/IArcadeSingleSidedStaking.sol";
 import {
     ASS_ZeroAddress,
     ASS_ZeroAmount,
-    ASS_PointsTrackingPeriod,
     ASS_DepositToken,
     ASS_BalanceAmount,
     ASS_Locked,
     ASS_DepositCountExceeded,
-    ASS_UpperLimitBlock,
     ASS_InvalidDelegationAddress,
-    ASS_AmountTooBig,
-    ASS_AdminNotCaller,
-    ASS_TrackingPeriodExpired
+    ASS_AmountTooBig
 } from "../src/errors/SingleSidedStaking.sol";
 
 /**

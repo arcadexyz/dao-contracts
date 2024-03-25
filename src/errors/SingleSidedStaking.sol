@@ -26,12 +26,6 @@ error ASS_ZeroAddress(string addressType);
 error ASS_ZeroAmount();
 
 /**
- * @notice Previous points tracking period must be complete
- *         to update to a new duration.
- */
-error ASS_PointsTrackingPeriod();
-
-/**
  * @notice Deposit token cannot be ERC20 recovered.
  */
 error ASS_DepositToken();
@@ -54,12 +48,6 @@ error ASS_Locked();
 error ASS_DepositCountExceeded();
 
 /**
- * @notice The provided stale block number is too high.
- *
- */
-error ASS_UpperLimitBlock(uint256);
-
-/**
  * @notice The provided delegate address does not match their initial delegate.
  */
  error ASS_InvalidDelegationAddress();
@@ -69,12 +57,3 @@ error ASS_UpperLimitBlock(uint256);
  */
  error ASS_AmountTooBig();
 
-/**
- * @notice Function can only be called by the contract admin.
- */
- error ASS_AdminNotCaller(address);
-
-/**
- * @notice The tracking period has ended.
- */
- error ASS_TrackingPeriodExpired();
