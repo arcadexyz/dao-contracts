@@ -18,11 +18,10 @@ contract ArcadeSingleSidedStakingTest is Test {
     MockERC20 arcd;
     MockERC20 otherToken;
 
-    uint256 public constant ONE = 1e18;
-    uint32 public constant ONE_DAY = 60 * 60 * 24;
-    uint32 public constant ONE_MONTH = ONE_DAY * 30;
-    uint32 public constant TWO_MONTHS = ONE_MONTH * 2;
-    uint32 public constant FIVE_MONTHS = ONE_MONTH * 5;
+    uint32 public constant ONE_DAY = 1 days;
+    uint32 public constant ONE_MONTH = 30 days;
+    uint32 public constant TWO_MONTHS = 60 days;
+    uint32 public constant FIVE_MONTHS = 150 days;
     uint256 public constant MAX_DEPOSITS = 20;
 
     address zeroAddress = address(0x0);

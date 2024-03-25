@@ -88,13 +88,11 @@ contract ArcadeSingleSidedStaking is IArcadeSingleSidedStaking, IVotingVault, Re
 
     // ============================================ STATE ==============================================
     // ============== Constants ==============
-    uint256 public constant ONE = 1e18;
-    uint256 public constant ONE_DAY = 1 days;
     uint256 public constant MAX_DEPOSITS = 20;
 
-    uint256 public constant SHORT_LOCK_TIME = ONE_DAY * 30; // one month
-    uint256 public constant MEDIUM_LOCK_TIME = ONE_DAY * 60; // two months
-    uint256 public constant LONG_LOCK_TIME = ONE_DAY * 150; // five months
+    uint256 public constant SHORT_LOCK_TIME = 30 days;
+    uint256 public constant MEDIUM_LOCK_TIME = 60 days;
+    uint256 public constant LONG_LOCK_TIME = 150 days;
 
     // ============ Global State =============
     IERC20 public immutable arcd;
