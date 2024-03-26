@@ -355,16 +355,16 @@ contract ArcadeSingleSidedStaking is IArcadeSingleSidedStaking, IVotingVault, Re
         if (amount == 0) revert ASS_ZeroAmount();
         if (delegation == address(0)) revert ASS_ZeroAddress("delegation");
 
-        uint256 userDepositCount = deposits[msg.sender].length;
+        uint256 userDepositCount = deposits[recipient].length;
         if (userDepositCount >= MAX_DEPOSITS) revert ASS_DepositCountExceeded();
 
         uint256 lockDuration = _calculateLockDuration(lock);
 
         // update the vote power
-        _addVotingPower(msg.sender, amount, delegation);
+        _addVotingPower(recipient, amount, delegation);
 
         // populate user deposit information
-        deposits[msg.sender].push(
+        deposits[recipient].push(
             UserDeposit({
                 amount: amount,
                 unlockTimestamp: uint32(block.timestamp + lockDuration),
@@ -376,7 +376,7 @@ contract ArcadeSingleSidedStaking is IArcadeSingleSidedStaking, IVotingVault, Re
 
         arcd.safeTransferFrom(msg.sender, address(this), amount);
 
-        emit Deposited(msg.sender, userDepositCount, amount, uint8(lock));
+        emit Deposited(recipient, userDepositCount, amount, uint8(lock));
     }
 
     /**
