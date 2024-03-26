@@ -8,12 +8,14 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { Test, console } from "forge-std/Test.sol";
 import { IArcadeSingleSidedStaking } from "../src/interfaces/IArcadeSingleSidedStaking.sol";
 import { ArcadeSingleSidedStaking } from "../src/ArcadeSingleSidedStaking.sol";
+import { AirdropSingleSidedStaking } from "../src/AirdropSingleSidedStaking.sol";
 import { MockERC20 } from "../src/test/MockERC20.sol";
 
 contract ArcadeSingleSidedStakingTest is Test {
     using SafeERC20 for IERC20;
 
     ArcadeSingleSidedStaking singleSidedStaking;
+    AirdropSingleSidedStaking airdropSingleSidedStaking;
 
     MockERC20 arcd;
     MockERC20 otherToken;
@@ -29,6 +31,7 @@ contract ArcadeSingleSidedStakingTest is Test {
     address userA = address(0x2);
     address userB = address(0x3);
     address userC = address(0x4);
+    address airdropDistributor = address(0x5);
 
     uint256 currentBlock = 101;
     uint256 currentTime;
@@ -798,6 +801,73 @@ contract ArcadeSingleSidedStakingTest is Test {
 
         uint256 totalSupply = singleSidedStaking.totalSupply();
         assertEq(totalSupply, depositAmount + depositAmount / 4);
+    }
+
+    function airdropSetUp() public {
+        setUp();
+
+        airdropSingleSidedStaking = new AirdropSingleSidedStaking(
+            owner,
+            address(arcd),
+            airdropDistributor
+        );
+    }
+
+    function testAirdropZeroAddressConstructor() public {
+        bytes4 selector = bytes4(keccak256("ASS_ZeroAddress(string)"));
+
+        vm.expectRevert(abi.encodeWithSelector(selector, "airdropDistribution"));
+        airdropSingleSidedStaking = new AirdropSingleSidedStaking(
+            owner,
+            address(arcd),
+            address(0)
+        );
+    }
+
+    function testAirdropCallerNoAuthorized() public {
+        airdropSetUp();
+
+        bytes4 selector = bytes4(keccak256("ASS_CallerNotAirdropDistribution()"));
+
+        vm.expectRevert(abi.encodeWithSelector(selector));
+        vm.startPrank(userA);
+            airdropSingleSidedStaking.airdropReceive(
+                userB,
+                750e17,
+                userC,
+                IArcadeSingleSidedStaking.Lock.Short
+            );
+        vm.stopPrank();
+    }
+
+    function testAirdropReceive() public {
+        airdropSetUp();
+
+        arcd.mint(airdropDistributor, 1000e18);
+
+        vm.startPrank(airdropDistributor);
+            arcd.approve(address(airdropSingleSidedStaking), 1000e18);
+
+            airdropSingleSidedStaking.airdropReceive(
+                userA,
+                75e17,
+                userB,
+                IArcadeSingleSidedStaking.Lock.Short
+            );
+        vm.stopPrank();
+
+        uint256 userVotingPowerAfter = airdropSingleSidedStaking.queryVotePowerView(userB, block.timestamp);
+        assertGt(userVotingPowerAfter, 0);
+
+        uint256 totalDeposits = airdropSingleSidedStaking.totalSupply();
+        assertEq(totalDeposits, 75e17);
+
+        (uint8 lock, uint32 unlockTimestamp, uint256 amount) = airdropSingleSidedStaking.getUserDeposit(userA, 0);
+
+        assertEq(lock, uint256(IArcadeSingleSidedStaking.Lock.Short));
+        uint256 tolerance = 1;
+        assertApproxEqAbs(unlockTimestamp, ONE_MONTH, tolerance);
+        assertEq(amount, 75e17);
     }
 }
 

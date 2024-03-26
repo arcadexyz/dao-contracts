@@ -57,3 +57,10 @@ error ASS_DepositCountExceeded();
  */
  error ASS_AmountTooBig();
 
+// ==================================== Airdrop Single Sided Staking Errors ======================================
+
+ /**
+ * @notice The caller is not authorized to make this call.
+ */
+ error ASS_CallerNotAirdropDistribution();
+

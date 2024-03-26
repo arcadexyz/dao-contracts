@@ -222,8 +222,7 @@ contract ArcadeSingleSidedStaking is IArcadeSingleSidedStaking, IVotingVault, Re
 
     // ========================================= MUTATIVE FUNCTIONS ========================================
     /**
-     * @notice Allows users to deposit their tokens, which are then tracked in the contract. The total
-     *         supply of deposited tokens and individual user balances are updated accordingly.
+     * @notice Allows users to deposit their tokens, which are then tracked in the contract.
      *
      * @param amount                           The amount of tokens the user wishes to deposit and lock.
      * @param delegation                       The address to which the user's voting power will be delegated.
@@ -233,32 +232,8 @@ contract ArcadeSingleSidedStaking is IArcadeSingleSidedStaking, IVotingVault, Re
         uint256 amount,
         address delegation,
         Lock lock
-    ) external nonReentrant whenNotPaused {
-        if (amount == 0) revert ASS_ZeroAmount();
-        if (delegation == address(0)) revert ASS_ZeroAddress("delegation");
-
-        uint256 userDepositCount = deposits[msg.sender].length;
-        if (userDepositCount >= MAX_DEPOSITS) revert ASS_DepositCountExceeded();
-
-        uint256 lockDuration = _calculateLockDuration(lock);
-
-        // update the vote power
-        _addVotingPower(msg.sender, amount, delegation);
-
-        // populate user deposit information
-        deposits[msg.sender].push(
-            UserDeposit({
-                amount: amount,
-                unlockTimestamp: uint32(block.timestamp + lockDuration),
-                lock: lock
-            })
-        );
-
-        totalDeposits += amount;
-
-        arcd.safeTransferFrom(msg.sender, address(this), amount);
-
-        emit Deposited(msg.sender, userDepositCount, amount, uint8(lock));
+    ) external {
+        _deposit(msg.sender, amount, delegation, lock);
     }
 
     /**
@@ -362,6 +337,48 @@ contract ArcadeSingleSidedStaking is IArcadeSingleSidedStaking, IVotingVault, Re
     }
 
     // ============================================== HELPERS ===============================================
+    /**
+     * @notice Internal deposit function updating a user's deposit balance information and voting
+     *         power. The total supply of deposited tokens are updated accordingly.
+     *
+     * @param recipient                        The user whom the deposited tokens are allocated to.
+     * @param amount                           The amount of tokens to deposit and lock.
+     * @param delegation                       The address to which the user's voting power will be delegated.
+     * @param lock                             The locking period for the deposited tokens.
+     */
+    function _deposit(
+        address recipient,
+        uint256 amount,
+        address delegation,
+        Lock lock
+    ) internal nonReentrant whenNotPaused {
+        if (amount == 0) revert ASS_ZeroAmount();
+        if (delegation == address(0)) revert ASS_ZeroAddress("delegation");
+
+        uint256 userDepositCount = deposits[recipient].length;
+        if (userDepositCount >= MAX_DEPOSITS) revert ASS_DepositCountExceeded();
+
+        uint256 lockDuration = _calculateLockDuration(lock);
+
+        // update the vote power
+        _addVotingPower(recipient, amount, delegation);
+
+        // populate user deposit information
+        deposits[recipient].push(
+            UserDeposit({
+                amount: amount,
+                unlockTimestamp: uint32(block.timestamp + lockDuration),
+                lock: lock
+            })
+        );
+
+        totalDeposits += amount;
+
+        arcd.safeTransferFrom(msg.sender, address(this), amount);
+
+        emit Deposited(recipient, userDepositCount, amount, uint8(lock));
+    }
+
     /**
      * @notice Calculates the lock duration for a user's deposit based on the selected lock SHORT, MEDIUM or LONG.
      *
