@@ -25,7 +25,6 @@ import {
     ASR_RewardsToken,
     ASR_DepositCountExceeded,
     ASR_ZeroConversionRate,
-    ASR_UpperLimitBlock,
     ASR_InvalidDelegationAddress,
     ASR_MinimumRewardAmount,
     ASR_ZeroRewardRate,
@@ -112,17 +111,16 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
     // ============================================ STATE ==============================================
     // ============== Constants ==============
     uint256 public constant ONE = 1e18;
-    uint256 public constant ONE_DAY = 1 days;
     uint256 public constant MAX_DEPOSITS = 20;
     uint256 public constant LP_TO_ARCD_DENOMINATOR = 1e3;
 
     uint256 public constant SHORT_BONUS = 11e17;
     uint256 public constant MEDIUM_BONUS = 13e17;
-    uint256 public constant LONG_BONUS = 15e17;
+    uint256 public constant LONG_BONUS = 18e17;
 
-    uint256 public constant SHORT_LOCK_TIME = ONE_DAY * 30; // one month
-    uint256 public constant MEDIUM_LOCK_TIME = ONE_DAY * 60; // two months
-    uint256 public constant LONG_LOCK_TIME = ONE_DAY * 90; // three months
+    uint256 public constant SHORT_LOCK_TIME = 30 days;
+    uint256 public constant MEDIUM_LOCK_TIME = 60 days;
+    uint256 public constant LONG_LOCK_TIME = 150 days;
 
     // ============ Global State =============
     uint256 public immutable LP_TO_ARCD_RATE;
@@ -131,7 +129,7 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
 
     uint256 public periodFinish;
     uint256 public lastUpdateTime;
-    uint256 public rewardsDuration = ONE_DAY * 30 * 6; // six months
+    uint256 public rewardsDuration = 180 days;
     uint256 public notifiedRewardAmount;
     uint256 public rewardPerTokenStored;
     uint256 public rewardRate;
@@ -145,7 +143,8 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
     // ========================================== CONSTRUCTOR ===========================================
     /**
      * @notice Sets up the contract by initializing the staking and rewards tokens,
-     *         and setting the owner and rewards distribution addresses.
+     *         and setting the owner and rewards distribution addresses as well as
+     *         setting the LP to governance conversion rate.
      *
      * @param _owner                       The address of the contract owner.
      * @param _rewardsDistribution         The address of the entity setting the rules
@@ -290,7 +289,7 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
     }
 
     /**
-     * @notice Gives the current depositId, equivalent to userStakes.length.
+     * @notice Gives the last depositId, equivalent to userStakes.length.
      *
      * @param account                           The user whose stakes to get.
      *
@@ -380,8 +379,7 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
     }
 
     /**
-     * @notice Returns just the "amount with bonus" for a deposit, which is not stored
-     *         in the struct
+     * @notice Returns just the "amount with bonus" for a deposit.
      *
      * @param account                           The user's account.
      * @param depositId                         The specified deposit to get the amount
@@ -396,7 +394,7 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
     }
 
     /**
-     * @notice Get pending reward for user deposits, not stored in struct.
+     * @notice Get pending reward for user deposits.
      *
      * @param account                           The user's account.
      *
@@ -413,7 +411,7 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
     }
 
     /**
-     * @notice Get all user's deposits with their bonuses.
+     * @notice Get all user's deposits with their bonus amounts.
      *
      * @param account                           The user's account.
      *
@@ -430,8 +428,8 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
     }
 
     /**
-     * @notice Converts the user's staked LP token value to an ARCD token amount based on the
-     *         immutable rate set in this contract.
+     * @notice Converts the user's staked LP token value to governance power amount based on the
+     *         immutable rate set in the contract.
      *
      * @param arcdWethLPAmount                  The LP token amount to use for the conversion.
      *
@@ -489,7 +487,7 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
             _startRewardEmission(notifiedRewardAmount);
         }
 
-        emit Staked(msg.sender, userStakeCount, amount);
+        emit Staked(msg.sender, userStakeCount, amount, uint8(lock));
     }
 
     /**
@@ -543,7 +541,7 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
     /**
      * @notice Withdraws staked tokens that are unlocked.  Allows for partial withdrawals.
      *
-     * @param depositId                        The specified deposit to get the reward for.
+     * @param depositId                        The specified deposit to withdraw from.
      * @param amount                           The amount to be withdrawn from the user stake.
      */
     function withdraw(uint256 amount, uint256 depositId) public whenNotPaused nonReentrant updateReward {
@@ -577,7 +575,7 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
 
         arcdWethLP.safeTransfer(msg.sender, amount);
 
-        emit Withdrawn(msg.sender, amount);
+        emit Withdrawn(msg.sender, depositId, amount, uint8(userStake.lock));
     }
 
     /**
@@ -592,8 +590,8 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
     }
 
     /**
-     * @notice Allows users to withdraw all their staked tokens and claim their reward
-     *         tokens all in one transaction. Lock period needs to have ended.
+     * @notice Allows users to withdraw all their staked tokens and claim all reward
+     *         tokens in one transaction. Lock period needs to have ended.
      */
     function exitAll() external whenNotPaused nonReentrant updateReward {
         UserStake[] storage userStakes = stakes[msg.sender];
@@ -625,6 +623,8 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
 
                 emit RewardPaid(msg.sender, reward, i);
             }
+
+            emit Withdrawn(msg.sender, i, amount, uint8(userStake.lock));
         }
 
         if (totalVotingPower > 0) {
@@ -823,9 +823,9 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
     }
 
     /**
-     * @notice This internal function adapted from the external withdraw function from the LockingVault
+     * @notice This internal function adapted from the external withdraw function in the LockingVault
      *         contract, with a key modification: it omits the token transfer transaction. This
-     *         is because the tokens are already present within the vault. Additionally, the function
+     *         is because the tokens are already present within this contract. Additionally, the function
      *         adds an address account parameter to specify the user whose voting power needs updating.
      *         In the Locking Vault  msg.sender directly indicated the user, wheras in this
      *         context msg.sender refers to the contract itself. Therefore, we explicitly pass the
@@ -858,7 +858,7 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
 
     /**
      * @notice This internal function is adapted from the external deposit function from the LockingVault
-     *         contract, with 2 key modification: it omits the token transfer transaction and reverts if the
+     *         contract, with 2 key modifications: it omits the token transfer transaction and reverts if the
      *         specified delegation address does not align with the user's previously designated delegate.
      *
      * @param fundedAccount                    The address to credit this deposit to.
@@ -937,10 +937,9 @@ contract ArcadeStakingRewards is IArcadeStakingRewards, ArcadeRewardsRecipient, 
     }
 
     /**
-     * @notice This function is taken from the LockingVault contract. Attempts to load the voting
-     *         power of a user.
-     *         It is revised to no longer remove stale blocks from the queue, to address the problem
-     *         of gas depletion encountered with overly long queues.
+     * @notice This function is taken from the LockingVault contract. Loads the voting power of a
+     *         user. It is revised to no longer remove stale blocks from the queue to address the
+     *         problem of gas depletion encountered with overly long queues.
      *
      * @param user                              The address we want to load the voting power of.
      * @param blockNumber                       The block number we want the user's voting power at.

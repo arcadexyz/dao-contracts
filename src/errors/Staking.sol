@@ -72,12 +72,6 @@ error ASR_RewardsToken();
 error ASR_DepositCountExceeded();
 
 /**
- * @notice The provided stale block number is too high.
- *
- */
-error ASR_UpperLimitBlock(uint256);
-
-/**
  * @notice The provided delegate address does not match their initial delegate.
  */
  error ASR_InvalidDelegationAddress();

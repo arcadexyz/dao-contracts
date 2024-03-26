@@ -15,13 +15,13 @@ contract ArcadeStakingRewardsTest is Test {
     MockERC20 otherToken;
 
     uint256 public constant ONE = 1e18;
-    uint32 public constant ONE_DAY = 60 * 60 * 24;
-    uint32 public constant ONE_MONTH = ONE_DAY * 30;
-    uint32 public constant TWO_MONTHS = ONE_MONTH * 2;
-    uint32 public constant THREE_MONTHS = ONE_MONTH * 3;
+    uint32 public constant ONE_DAY = 1 days;
+    uint32 public constant ONE_MONTH = 30 days;
+    uint32 public constant TWO_MONTHS = 60 days;
+    uint32 public constant FIVE_MONTHS = 150 days;
     uint256 public constant MAX_DEPOSITS = 20;
     uint256 public constant LP_TO_ARCD_DENOMINATOR = 1e3;
-    uint256 public immutable LP_TO_ARCD_RATE = 2;
+    uint256 public immutable LP_TO_ARCD_RATE = 62;
 
     address zeroAddress = address(0x0);
     address owner = address(0x1);
@@ -239,7 +239,7 @@ contract ArcadeStakingRewardsTest is Test {
         uint256 balanceBeforeWithdraw = lpToken.balanceOf(userA);
 
         // increase blockchain time by the medium lock duration
-        vm.warp(block.timestamp + THREE_MONTHS);
+        vm.warp(block.timestamp + FIVE_MONTHS);
 
         vm.prank(userA);
         stakingRewards.exitAll();
@@ -824,7 +824,7 @@ contract ArcadeStakingRewardsTest is Test {
         assertEq(activeStakeIds.length, 3);
 
         // increase blockchain time to end lock period
-        vm.warp(block.timestamp + THREE_MONTHS);
+        vm.warp(block.timestamp + FIVE_MONTHS);
 
         // get rewards earned by userA
         uint256 rewardA = stakingRewards.getPendingRewards(userA, 0);
@@ -1318,7 +1318,7 @@ contract ArcadeStakingRewardsTest is Test {
         );
 
         // increase blocckhain to end long lock period
-        vm.warp(block.timestamp + THREE_MONTHS);
+        vm.warp(block.timestamp + FIVE_MONTHS);
 
         // userA withdraws
         vm.startPrank(userA);
@@ -1373,7 +1373,7 @@ contract ArcadeStakingRewardsTest is Test {
         stakingRewards.deposit(userStakeAmountB2, userD, IArcadeStakingRewards.Lock.Short);
         vm.stopPrank();
 
-        uint256 afterLock = currentTime + THREE_MONTHS;
+        uint256 afterLock = currentTime + FIVE_MONTHS;
         // increase blockchain time to end long lock cycle
         vm.warp(afterLock);
 
