@@ -3,6 +3,7 @@
 pragma solidity 0.8.20;
 
 import "./interfaces/IAirdropSingleSidedStaking.sol";
+
 import "./ArcadeSingleSidedStaking.sol";
 
 import { ASS_CallerNotAirdropDistribution } from "../src/errors/SingleSidedStaking.sol";
@@ -58,6 +59,6 @@ contract AirdropSingleSidedStaking is IAirdropSingleSidedStaking, ArcadeSingleSi
     function setAirdropDistribution(address _airdropDistribution) external onlyOwner {
         airdropDistribution = _airdropDistribution;
 
-        emit AirdropDistributionSet(_airdropDistribution);
+        emit AirdropDistributionSet(airdropDistribution);
     }
 }

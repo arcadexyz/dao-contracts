@@ -5,7 +5,7 @@ pragma solidity 0.8.20;
 import "./IArcadeSingleSidedStaking.sol";
 
 interface IAirdropSingleSidedStaking is  IArcadeSingleSidedStaking {
-    event AirdropDistributionSet(address indexed _airdropDistribution);
+    event AirdropDistributionSet(address indexed airdropDistribution);
 
     function airdropReceive(
         address recipient,
