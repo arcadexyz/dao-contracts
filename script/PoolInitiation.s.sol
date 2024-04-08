@@ -18,12 +18,9 @@ contract PoolInitiation is Script {
         address router = 0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D;
         address arcd = 0xe020B01B6fbD83066aa2e8ee0CCD1eB8d9Cc70bF;
 
-        uint tokenAmount = 334e18; // TODO: Update all values as needed
-        uint ethAmount = 1e17;
+        uint tokenAmount = 334e18; // TODO: Update amounts before Mainnet deploy
         uint tokenAmountMin = 1e18;
         uint ethAmountMin = 1e16;
-        address to = 0x6c6F915B21d43107d83c47541e5D29e872d82Da6;
-        uint deadline = block.timestamp + (15 * 60); // 15 minutes from now;
 
         vm.startBroadcast();
 
