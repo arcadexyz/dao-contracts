@@ -11,8 +11,8 @@ import { ArcadeStakingRewards } from "../src/ArcadeStakingRewards.sol";
 
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
-// to run:  TODO: Update $FORK_RPC_URL when running on Mainnet
-// forge script script/PoolInitiation.s.sol:PoolInitiation --rpc-url $FORK_RPC_URL --broadcast --private-key $PRIVATE_KEY
+// to run:
+// forge script script/PoolInitiation.s.sol:PoolInitiation --rpc-url $RPC_URL --broadcast --private-key $PRIVATE_KEY
 contract PoolInitiation is Script {
     function run() external {
         address router = 0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D;
