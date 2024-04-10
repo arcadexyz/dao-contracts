@@ -21,6 +21,7 @@ contract PoolInitiation is Script {
         uint tokenAmount = 334e18;
         uint tokenAmountMin = 1e18;
         uint ethAmountMin = 1e16;
+        uint ethAmount = 1e17;
 
         vm.startBroadcast();
 
@@ -28,7 +29,7 @@ contract PoolInitiation is Script {
 
         IERC20(arcd).approve(address(uniswapV2Router02), tokenAmount);
 
-        uniswapV2Router02.addLiquidityETH{value: 100000000000000000}(
+        uniswapV2Router02.addLiquidityETH{value: ethAmount}(
             arcd,
             tokenAmount,
             tokenAmountMin,
