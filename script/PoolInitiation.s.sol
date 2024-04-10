@@ -18,7 +18,7 @@ contract PoolInitiation is Script {
         address router = 0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D;
         address arcd = 0xe020B01B6fbD83066aa2e8ee0CCD1eB8d9Cc70bF;
 
-        uint tokenAmount = 334e18;
+        uint tokenAmount = 334e18; // value to be updated on deployment day
         uint tokenAmountMin = 1e18;
         uint ethAmountMin = 1e16;
         uint ethAmount = 1e17;
