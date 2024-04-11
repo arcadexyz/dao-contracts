@@ -15,7 +15,7 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 // forge script script/PoolInitiation.s.sol:PoolInitiation --rpc-url $RPC_URL --broadcast --private-key $PRIVATE_KEY
 contract PoolInitiation is Script {
     function run() external {
-        address router = 0xb984fA3D516123ae781e11B48ed8C3D6D7082B63; // sepolia
+        address router = 0xaE740E81D274bd80A68e25eD3996A3596a29a3EF; // sepolia
         address arcd = 0x26839364Ea94a8F5758539605E75dCf2522CF34e; // sepolia
 
         // tokenAmount value changes dependent on price of ETH on deployment day
