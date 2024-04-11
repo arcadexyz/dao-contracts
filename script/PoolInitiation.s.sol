@@ -16,7 +16,7 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 contract PoolInitiation is Script {
     function run() external {
         address router = 0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D;
-        address arcd = 0xe020B01B6fbD83066aa2e8ee0CCD1eB8d9Cc70bF;
+        address arcd = 0x26839364Ea94a8F5758539605E75dCf2522CF34e;
 
         // tokenAmount value changes dependent on price of ETH on deployment day
         // ETH today is 3504 USDC and ARCD price is 0.39 USDC
