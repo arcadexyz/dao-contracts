@@ -22,9 +22,9 @@ contract PoolInitiation is Script {
         // ETH today is 3504 USDC and ARCD price is 0.39 USDC
         // tokenAmount = (0.1 * 3504) / 0.39
         uint tokenAmount = 898e18; // value to be updated on deployment day
-        uint tokenAmountMin = 1e18;
-        uint ethAmountMin = 1e16;
+        uint tokenAmountMin = tokenAmount;
         uint ethAmount = 1e17;
+        uint ethAmountMin = ethAmount;
 
         vm.startBroadcast();
 
