@@ -19,9 +19,9 @@ contract PoolInitiation is Script {
         address arcd = 0x26839364Ea94a8F5758539605E75dCf2522CF34e; // sepolia
 
         // tokenAmount value changes dependent on price of ETH on deployment day
-        // ETH today is 3504 USDC and ARCD price is 0.39 USDC
-        // tokenAmount = (0.1 * 3504) / 0.39
-        uint tokenAmount = 898e18; // value to be updated on deployment day
+        // ETH today is 3424 USDC and ARCD price is 0.39 USDC
+        // tokenAmount = (0.1 * 3424) / 0.39
+        uint tokenAmount = 878e18; // value to be updated on deployment day
         uint tokenAmountMin = tokenAmount;
         uint ethAmount = 1e17;
         uint ethAmountMin = ethAmount;
