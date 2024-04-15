@@ -15,12 +15,12 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 // forge script script/PoolInitiation.s.sol:PoolInitiation --rpc-url $RPC_URL --broadcast --private-key $PRIVATE_KEY
 contract PoolInitiation is Script {
     function run() external {
-        address router = 0x1ba71fBCE810594DA65Ea809b763b4f4EbB39b02; // sepolia
-        address arcd = 0x26839364Ea94a8F5758539605E75dCf2522CF34e; // sepolia
+        address router = 0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D; // mainnet
+        address arcd = 0xe020B01B6fbD83066aa2e8ee0CCD1eB8d9Cc70bF; // mainnet
 
         // tokenAmount value changes dependent on price of ETH on deployment day
-        // ETH today is 3424 USDC and ARCD price is 0.39 USDC
-        // tokenAmount = (0.1 * 3424) / 0.39
+        // ETH today is ethPrice USDC and ARCD price is 0.39 USDC
+        // tokenAmount = (0.1 * ethPrice) / 0.39
         uint tokenAmount = 851e18; // value to be updated on deployment day
         uint tokenAmountMin = tokenAmount;
         uint ethAmount = 1e17;
