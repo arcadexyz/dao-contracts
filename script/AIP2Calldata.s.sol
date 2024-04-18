@@ -118,6 +118,7 @@ contract AIP2Calldata is Script {
         assert(propVotes[0] == 4_463_281 ether);
 
         // second vote passes the proposal with their vote
+        // quorum is 6 million ARCD
         vm.prank(whale2);
         arcadeCoreVoting.vote(votingVaults, extraVaultData, 17, IArcadeCoreVoting.Ballot.YES);
 
