@@ -5,11 +5,11 @@ pragma solidity 0.8.20;
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
-import { Test, console } from "forge-std/Test.sol";
-import { IArcadeSingleSidedStaking } from "../src/interfaces/IArcadeSingleSidedStaking.sol";
-import { ArcadeSingleSidedStaking } from "../src/ArcadeSingleSidedStaking.sol";
-import { AirdropSingleSidedStaking } from "../src/AirdropSingleSidedStaking.sol";
-import { MockERC20 } from "../src/test/MockERC20.sol";
+import {Test, console} from "forge-std/Test.sol";
+import {IArcadeSingleSidedStaking} from "../src/interfaces/IArcadeSingleSidedStaking.sol";
+import {ArcadeSingleSidedStaking} from "../src/ArcadeSingleSidedStaking.sol";
+import {AirdropSingleSidedStaking} from "../src/AirdropSingleSidedStaking.sol";
+import {MockERC20} from "../src/test/MockERC20.sol";
 
 contract ArcadeSingleSidedStakingTest is Test {
     using SafeERC20 for IERC20;
@@ -33,29 +33,24 @@ contract ArcadeSingleSidedStakingTest is Test {
     address userC = address(0x4);
     address airdropDistributor = address(0x5);
 
-    uint256 currentBlock = 101;
+    uint256 currentBlock;
     uint256 currentTime;
 
     function setUp() public {
         otherToken = new MockERC20("Other Token", "OTHR");
         arcd = new MockERC20("ARCD Token", "ARCD");
 
+        currentBlock = block.number;
         currentTime = block.timestamp;
 
-        singleSidedStaking = new ArcadeSingleSidedStaking(
-            owner,
-            address(arcd)
-        );
+        singleSidedStaking = new ArcadeSingleSidedStaking(owner, address(arcd));
     }
 
     function testConstructorZeroAddress() public {
         bytes4 selector = bytes4(keccak256("ASS_ZeroAddress(string)"));
 
         vm.expectRevert(abi.encodeWithSelector(selector, "arcd"));
-        singleSidedStaking = new ArcadeSingleSidedStaking(
-            owner,
-            address(0)
-        );
+        singleSidedStaking = new ArcadeSingleSidedStaking(owner, address(0));
     }
 
     function testDeposit() public {
@@ -509,9 +504,9 @@ contract ArcadeSingleSidedStakingTest is Test {
     }
 
     /**
-    * 1 user makes multiple deposits. Each deposit has a different lock period and is a different
-    * amount. After the lock period, the user calls exit().
-    */
+     * 1 user makes multiple deposits. Each deposit has a different lock period and is a different
+     * amount. After the lock period, the user calls exit().
+     */
     function testMultipleDeposits_Exit() public {
         setUp();
 
@@ -689,8 +684,8 @@ contract ArcadeSingleSidedStakingTest is Test {
     }
 
     /**
-    * 2 users deposit at the same time, user 2 deposits half the amount of user 1.
-    */
+     * 2 users deposit at the same time, user 2 deposits half the amount of user 1.
+     */
     function testScenario1() public {
         setUp();
 
@@ -721,8 +716,8 @@ contract ArcadeSingleSidedStakingTest is Test {
     }
 
     /**
-    * 1 users deposits. halfway throught the tracking period, the second user deposits.
-    */
+     * 1 users deposits. halfway throught the tracking period, the second user deposits.
+     */
     function testScenario2() public {
         setUp();
 
@@ -762,8 +757,8 @@ contract ArcadeSingleSidedStakingTest is Test {
     }
 
     /**
-    * 2 users make multiple deposits. the second user withdraws half of one of their deposits.
-    */
+     * 2 users make multiple deposits. the second user withdraws half of one of their deposits.
+     */
     function testScenario3() public {
         setUp();
 
@@ -806,22 +801,14 @@ contract ArcadeSingleSidedStakingTest is Test {
     function airdropSetUp() public {
         setUp();
 
-        airdropSingleSidedStaking = new AirdropSingleSidedStaking(
-            owner,
-            address(arcd),
-            airdropDistributor
-        );
+        airdropSingleSidedStaking = new AirdropSingleSidedStaking(owner, address(arcd), airdropDistributor);
     }
 
     function testAirdropZeroAddressConstructor() public {
         bytes4 selector = bytes4(keccak256("ASS_ZeroAddress(string)"));
 
         vm.expectRevert(abi.encodeWithSelector(selector, "airdropDistribution"));
-        airdropSingleSidedStaking = new AirdropSingleSidedStaking(
-            owner,
-            address(arcd),
-            address(0)
-        );
+        airdropSingleSidedStaking = new AirdropSingleSidedStaking(owner, address(arcd), address(0));
     }
 
     function testAirdropCallerNoAuthorized() public {
@@ -831,12 +818,7 @@ contract ArcadeSingleSidedStakingTest is Test {
 
         vm.expectRevert(abi.encodeWithSelector(selector));
         vm.startPrank(userA);
-            airdropSingleSidedStaking.airdropReceive(
-                userB,
-                750e17,
-                userC,
-                IArcadeSingleSidedStaking.Lock.Short
-            );
+        airdropSingleSidedStaking.airdropReceive(userB, 750e17, userC, IArcadeSingleSidedStaking.Lock.Short);
         vm.stopPrank();
     }
 
@@ -846,14 +828,9 @@ contract ArcadeSingleSidedStakingTest is Test {
         arcd.mint(airdropDistributor, 1000e18);
 
         vm.startPrank(airdropDistributor);
-            arcd.approve(address(airdropSingleSidedStaking), 1000e18);
+        arcd.approve(address(airdropSingleSidedStaking), 1000e18);
 
-            airdropSingleSidedStaking.airdropReceive(
-                userA,
-                75e17,
-                userB,
-                IArcadeSingleSidedStaking.Lock.Short
-            );
+        airdropSingleSidedStaking.airdropReceive(userA, 75e17, userB, IArcadeSingleSidedStaking.Lock.Short);
         vm.stopPrank();
 
         uint256 userVotingPowerAfter = airdropSingleSidedStaking.queryVotePowerView(userB, block.timestamp);
@@ -870,4 +847,3 @@ contract ArcadeSingleSidedStakingTest is Test {
         assertEq(amount, 75e17);
     }
 }
-
