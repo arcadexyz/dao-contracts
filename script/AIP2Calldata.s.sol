@@ -12,7 +12,7 @@ import {console2} from "forge-std/console2.sol";
  *      are also hardcoded and may need to be updated.
  *
  * to run:
- * forge script script/AIP2Calldata.s.sol --fork-url <your-mainnet-rpc-url> --block-number 19683254 -vvv
+ * forge script script/AIP2Calldata.s.sol --fork-url <your-mainnet-rpc-url> --block-number 19745889 -vvv
  */
 interface ITimelock {
     function callTimestamps(bytes32) external view returns (uint256);

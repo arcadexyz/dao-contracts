@@ -122,14 +122,12 @@ contract AIP2CalldataUseGSC is Script {
         address[] memory targets1 = new address[](1);
         bytes[] memory calldatas1 = new bytes[](1);
 
-        // votingVaults1[0] = teamVestingVault; // need to pass a valid voting vault else core voting will revert
-        // extraVaultData1[0] = bytes("");
         targets1[0] = address(timelock);
         calldatas1[0] = timelockCalldata;
         bytes memory gscCoreVotingCalldata = abi.encodeWithSignature(
             "proposal(address[],bytes[],address[],bytes[],uint256,uint8)",
-            votingVaults1,
-            extraVaultData1,
+            votingVaults1, // empty array
+            extraVaultData1, // empty array
             targets1,
             calldatas1,
             block.number + 1000000,
