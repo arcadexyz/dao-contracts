@@ -64,6 +64,10 @@ interface IArcadeCoreVoting {
     function approvedVaults(address) external view returns (bool);
 }
 
+interface ISingleSidedStaking {
+    function changeDelegation(address) external;
+}
+
 contract AIP2Calldata is Script {
     uint256 public constant DAY_IN_BLOCKS = 7150;
     uint256 public lockDuration = DAY_IN_BLOCKS * 3;
@@ -80,6 +84,8 @@ contract AIP2Calldata is Script {
     // mainnet actors
     address public whale1 = 0xF70f7c0fCD743b2c03b823672A0B02B6a1e1bA20; // 4,463,281 ARCD
     address public whale2 = 0x6888d7Ef74b081060a0165E336A9d03b809098BE; // 4,463,281 ARCD
+
+    address public anonymoux = 0xBeC69dfcE4c1fA8b7843FEE1Ca85788d84A86B06; // anonymoux.eth
 
     function run() external {
         /// @notice Create proposal calldata
@@ -165,5 +171,41 @@ contract AIP2Calldata is Script {
         // verify the voting vaults have been added to core voting
         assert(arcadeCoreVoting.approvedVaults(stakingRewardsAddress));
         assert(arcadeCoreVoting.approvedVaults(singleSidedStakingAddress));
+
+        // user with an active stake creates a proposal using the staking contracts as voting vaults
+        vm.roll(block.number + 1);
+
+        // anonymoux.eth changes delegate to themself
+        vm.prank(anonymoux);
+        ISingleSidedStaking(singleSidedStakingAddress).changeDelegation(anonymoux);
+
+        vm.roll(block.number + 1);
+
+        address[] memory stakingVotingVaults = new address[](2);
+        bytes[] memory stakingExtraVaultData = new bytes[](2);
+        address[] memory testTargets = new address[](1);
+        bytes[] memory testCalldatas = new bytes[](1);
+
+        stakingVotingVaults[0] = stakingRewardsAddress;
+        stakingVotingVaults[1] = singleSidedStakingAddress;
+        stakingExtraVaultData[0] = bytes("");
+        stakingExtraVaultData[1] = bytes("");
+
+        testTargets[0] = 0x21aDafAA34d250a4fa0f8A4d2E2424ABa0cEE563;
+        testCalldatas[0] = bytes("");
+
+        vm.prank(anonymoux);
+        arcadeCoreVoting.proposal(
+            stakingVotingVaults,
+            stakingExtraVaultData,
+            testTargets,
+            testCalldatas,
+            block.number + 1000000,
+            IArcadeCoreVoting.Ballot.YES
+        );
+
+        // ensure the proposal is created
+        uint128[3] memory propVotes4 = arcadeCoreVoting.getProposalVotingPower(18);
+        assert(propVotes4[0] == 189570.45757 * 1e18);
     }
 }
